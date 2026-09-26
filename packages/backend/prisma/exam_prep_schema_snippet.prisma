@@ -1,0 +1,29 @@
+
+// ============================================================================
+// EXAM PREPARATION SCHEMA
+// ============================================================================
+
+enum ExamPrepType {
+  quarterly // كل 3 أشهر
+  final     // قبل النهائي
+  
+  @@schema("curriculum")
+}
+
+model ExamPrepCamp {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String        @db.VarChar(150)
+  description String?       @db.Text
+  type        ExamPrepType
+  startDate   DateTime      @db.Timestamptz()
+  endDate     DateTime      @db.Timestamptz()
+  isActive    Boolean       @default(true)
+  createdById String        @db.Uuid
+  createdAt   DateTime      @default(now()) @db.Timestamptz()
+  updatedAt   DateTime      @updatedAt @db.Timestamptz()
+
+  creator     User          @relation(fields: [createdById], references: [id])
+
+  @@map("exam_prep_camps")
+  @@schema("curriculum")
+}

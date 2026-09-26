@@ -1,0 +1,274 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2 } from 'lucide-react';
+import { useAuthStore } from '../../../store/useAuthStore';
+import CreateAssessmentModal from '../components/CreateAssessmentModal';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../../../lib/axios';
+
+export default function AssessmentsPage() {
+  const { user } = useAuthStore();
+  const isTeacher = user?.primaryRole === 'teacher';
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [generatorMode, setGeneratorMode] = useState<'smart' | 'manual'>('smart');
+
+  const { data: dbAssessments = [], isLoading } = useQuery({
+    queryKey: ['assessments'],
+    queryFn: async () => {
+      const res = await api.get('/assessments');
+      return res.data;
+    }
+  });
+
+  // Merge DB assessments with UI formatting
+  const assessments = dbAssessments.map((dbAssessment: any) => ({
+    id: dbAssessment.id,
+    title: dbAssessment.title,
+    cohort: dbAssessment.cohort?.name || (isTeacher ? 'فوج غزة (علمي)' : 'فيزياء'),
+    dueDate: new Date(dbAssessment.dueDate).toLocaleDateString('ar-EG'),
+    maxScore: dbAssessment.maxScore,
+    studentStatus: 'pending', // mock for students
+    studentScore: null,
+    stats: {
+      total: dbAssessment.cohort?.maxStudents || 15,
+      submitted: 0,
+      graded: 0,
+      pending: 0
+    }
+  }));
+
+  const queryClient = useQueryClient();
+
+  const handleReset = async () => {
+    if (confirm('هل أنت متأكد من تصفير (حذف) جميع الاختبارات التجريبية؟')) {
+      await api.delete('/assessments');
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-baaqoon-accent" /></div>;
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-baaqoon-900 p-6 rounded-2xl shadow-sm border border-baaqoon-100 dark:border-baaqoon-800">
+        <div>
+          <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white">الواجبات والتقييمات</h1>
+          <p className="text-baaqoon-500 dark:text-baaqoon-400 mt-2">
+            {isTeacher ? 'إدارة التقييمات وتصحيح تسليمات الطلاب بفعالية.' : 'عرض وتسليم الواجبات المطلوبة منك.'}
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {isTeacher && (
+            <>
+              {/* Secondary Actions */}
+              <div className="flex items-center gap-2 border-l border-baaqoon-200 dark:border-baaqoon-700 pl-3">
+                <button 
+                  onClick={handleReset}
+                  className="px-4 py-2 text-sm bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-lg transition-colors flex items-center gap-2"
+                  title="حذف جميع الاختبارات التجريبية"
+                >
+                  تصفير التوليدات
+                </button>
+                
+                <button 
+                  onClick={() => { setGeneratorMode('smart'); setIsGeneratorOpen(true); }}
+                  className="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Bot className="w-4 h-4" />
+                  توليد ذكي
+                </button>
+              </div>
+
+              {/* Primary Action */}
+              <button 
+                onClick={() => { setGeneratorMode('manual'); setIsGeneratorOpen(true); }}
+                className="px-5 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-bold rounded-xl transition-colors flex items-center gap-2 shadow-sm w-full md:w-auto justify-center"
+              >
+                <FileText className="w-5 h-5" />
+                إنشاء واجب جديد
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {assessments.map(assessment => (
+          <div key={assessment.id} className="glass-panel p-0 overflow-hidden flex flex-col md:flex-row">
+            {/* Assessment Info */}
+            <div className="p-6 md:w-2/5 border-b md:border-b-0 md:border-l border-baaqoon-100 dark:border-baaqoon-800 bg-white dark:bg-baaqoon-900/50">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-2.5 py-1 text-xs font-semibold bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-accentDark rounded-full">
+                  {assessment.cohort}
+                </span>
+                <span className="text-xs text-baaqoon-500 dark:text-baaqoon-400 flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> آخر موعد: {assessment.dueDate}
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-baaqoon-900 dark:text-white">{assessment.title}</h3>
+              <p className="text-sm text-baaqoon-500 dark:text-baaqoon-400 mt-2">الدرجة القصوى: {assessment.maxScore}</p>
+            </div>
+
+            {/* Assessment Stats & Actions */}
+            <div className="p-6 md:w-3/5 flex items-center gap-4 md:gap-8 justify-between">
+              {isTeacher ? (
+                <>
+                  <div className="flex-1 text-center">
+                    <p className="text-2xl font-bold text-baaqoon-900 dark:text-white">{assessment.stats.submitted}</p>
+                    <p className="text-xs font-medium text-baaqoon-500 dark:text-baaqoon-400 mt-1">تم التسليم</p>
+                  </div>
+                  <div className="w-px h-12 bg-baaqoon-200 dark:bg-baaqoon-700"></div>
+                  
+                  <div className="flex-1 text-center">
+                    <p className="text-2xl font-bold text-baaqoon-accent">{assessment.stats.graded}</p>
+                    <p className="text-xs font-medium text-baaqoon-500 dark:text-baaqoon-400 mt-1 flex items-center justify-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> تم التصحيح
+                    </p>
+                  </div>
+                  <div className="w-px h-12 bg-baaqoon-200 dark:bg-baaqoon-700"></div>
+
+                  <div className="flex-1 text-center">
+                    <p className={`text-2xl font-bold ${assessment.stats.pending > 0 ? 'text-red-500' : 'text-baaqoon-900 dark:text-white'}`}>
+                      {assessment.stats.pending}
+                    </p>
+                    <p className="text-xs font-medium text-baaqoon-500 dark:text-baaqoon-400 mt-1 flex items-center justify-center gap-1">
+                      {assessment.stats.pending > 0 && <AlertCircle className="w-3 h-3 text-red-500" />}
+                      بانتظار التقييم
+                    </p>
+                  </div>
+
+                  <div className="mr-auto flex flex-col gap-2">
+                    <button 
+                      onClick={() => {
+                        const printWindow = window.open('', '', 'width=800,height=600');
+                        printWindow?.document.write(`
+                          <html dir="rtl">
+                            <head>
+                              <title>${assessment.title}</title>
+                              <style>
+                                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                                h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+                                .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
+                                .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+                                .score { font-weight: bold; color: #e11d48; float: left; }
+                              </style>
+                            </head>
+                            <body>
+                              <h1>${assessment.title}</h1>
+                              <div class="meta">المبحث: ${assessment.courseTitle} | نوع الواجب: ${assessment.type === 'homework' ? 'واجب منزلي' : 'اختبار قصير'}</div>
+                              <div class="questions">
+                                ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
+                                  <div class="question">
+                                    <span class="score">${q.scoreWeight} درجات</span>
+                                    <strong>س${i + 1}:</strong> ${q.questionTemplate.content}
+                                  </div>
+                                `).join('') : '<p>لا توجد أسئلة مضافة حتى الآن.</p>'}
+                              </div>
+                              <script>window.print(); setTimeout(() => window.close(), 500);</script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow?.document.close();
+                      }}
+                      className="px-4 py-2 bg-baaqoon-50 text-baaqoon-600 hover:bg-baaqoon-100 font-bold rounded-lg transition-colors text-sm whitespace-nowrap block border border-baaqoon-200 text-center"
+                    >
+                      تصدير بدياف (PDF)
+                    </button>
+                    <Link
+                      to={`/teacher/assessments/${assessment.id}/grade`}
+                      className="px-4 py-2 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-medium rounded-lg transition-colors text-sm whitespace-nowrap block text-center"
+                    >
+                      عرض التسليمات وتصحيح
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 text-center md:text-right">
+                    {assessment.studentStatus === 'pending' && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-sm font-bold">
+                        <AlertCircle className="w-4 h-4" /> بانتظار التسليم
+                      </span>
+                    )}
+                    {assessment.studentStatus === 'submitted' && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-sm font-bold">
+                        <CheckCircle className="w-4 h-4" /> قيد التصحيح
+                      </span>
+                    )}
+                    {assessment.studentStatus === 'graded' && (
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-sm font-bold">
+                          <CheckCircle className="w-4 h-4" /> تم التصحيح
+                        </span>
+                        <p className="text-xl font-bold text-baaqoon-900 dark:text-white mt-2">
+                          الدرجة: {assessment.studentScore} / {assessment.maxScore}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mr-auto flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const printWindow = window.open('', '', 'width=800,height=600');
+                        printWindow?.document.write(`
+                          <html dir="rtl">
+                            <head>
+                              <title>${assessment.title}</title>
+                              <style>
+                                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                                h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+                                .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
+                                .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+                                .score { font-weight: bold; color: #e11d48; float: left; }
+                              </style>
+                            </head>
+                            <body>
+                              <h1>${assessment.title}</h1>
+                              <div class="meta">المبحث: ${assessment.courseTitle} | نوع الواجب: ${assessment.type === 'homework' ? 'واجب منزلي' : 'اختبار قصير'}</div>
+                              <div class="questions">
+                                ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
+                                  <div class="question">
+                                    <span class="score">${q.scoreWeight} درجات</span>
+                                    <strong>س${i + 1}:</strong> ${q.questionTemplate.content}
+                                  </div>
+                                `).join('') : '<p>لا توجد أسئلة مضافة حتى الآن.</p>'}
+                              </div>
+                              <script>window.print(); setTimeout(() => window.close(), 500);</script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow?.document.close();
+                      }}
+                      className="px-4 py-2.5 bg-baaqoon-50 text-baaqoon-600 hover:bg-baaqoon-100 font-bold rounded-lg transition-colors text-sm whitespace-nowrap block border border-baaqoon-200"
+                    >
+                      تصدير بدياف (PDF)
+                    </button>
+                    {assessment.studentStatus === 'pending' ? (
+                      <button className="px-6 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-medium rounded-lg transition-colors text-sm whitespace-nowrap block shadow-md">
+                        بدء الحل والتسليم
+                      </button>
+                    ) : (
+                      <button className="px-6 py-2.5 bg-baaqoon-100 dark:bg-baaqoon-800 text-baaqoon-700 dark:text-baaqoon-300 font-medium rounded-lg transition-colors text-sm whitespace-nowrap block border border-baaqoon-200 dark:border-baaqoon-700">
+                        عرض الإجابة
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <CreateAssessmentModal 
+        isOpen={isGeneratorOpen} 
+        onClose={() => setIsGeneratorOpen(false)}
+        defaultMode={generatorMode}
+      />
+    </div>
+  );
+}

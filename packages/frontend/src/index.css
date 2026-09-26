@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global Defaults ─────────────────────────────────────────────────────── */
+:root {
+  --color-green:   #007A3D;
+  --color-red:     #CE1126;
+  --color-black:   #18181b;
+  --color-white:   #fafafa;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  background-color: #fafafa;
+  color: #18181b;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  background-color: #09090b; /* Zinc 950 */
+  color: #fafafa;
+}
+
+/* ── Palestinian Flag Strip ──────────────────────────────────────────────── */
+.flag-strip {
+  height: 8px;
+  width: 100%;
+  background: linear-gradient(to right,
+    var(--color-red) 0%,
+    var(--color-red) 15%,
+    var(--color-black) 15%,
+    var(--color-black) 43.33%,
+    #ffffff 43.33%,
+    #ffffff 71.66%,
+    var(--color-green) 71.66%,
+    var(--color-green) 100%
+  );
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  z-index: 50;
+}
+
+/* ── Glass Panel ─────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 122, 61, 0.12);
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 122, 61, 0.06);
+}
+
+.dark .glass-panel {
+  background: rgba(24, 24, 27, 0.75); /* Darker translucent background */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.45s ease-out both;
+}
+
+/* ── Palestinian Flag Accent Border (top of cards) ───────────────────────── */
+.card-palestine {
+  border-top: 3px solid var(--color-green);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track  { background: #f4f4f5; }
+::-webkit-scrollbar-thumb  { background: #007A3D; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #005C2E; }
+
+/* ── Dir LTR for email/password inputs ───────────────────────────────────── */
+.dir-ltr { direction: ltr; text-align: left; }
