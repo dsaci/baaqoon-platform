@@ -5,6 +5,7 @@ import logo from "./assets/logo.jpg";
 
 // Auth
 import LoginPage from "./features/auth/pages/LoginPage";
+import ComingSoonPage from "./features/shared/pages/ComingSoonPage";
 import RegisterPage from "./features/auth/pages/RegisterPage";
 
 // Layout
@@ -126,6 +127,7 @@ function App() {
         }
       >
         <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="distribution" element={<ComingSoonPage />} />
         <Route path="cohorts" element={<CohortsPage />} />
         <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
         <Route path="schedule" element={<TimetablePage />} />
@@ -166,6 +168,7 @@ function App() {
         }
       >
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="distribution" element={<ComingSoonPage />} />
         <Route
           path="database"
           element={<PlaceholderPage title="قريباً" />}
@@ -181,6 +184,7 @@ function App() {
         }
       >
         <Route path="dashboard" element={<SupervisorDashboard />} />
+        <Route path="distribution" element={<ComingSoonPage />} />
         <Route
           path="teachers"
           element={<PlaceholderPage title="قريباً" />}

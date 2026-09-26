@@ -79,6 +79,7 @@ export default function DashboardLayout() {
           icon: LayoutDashboard,
         },
         { name: "الأساتذة", path: "/supervisor/teachers", icon: Users },
+        { name: "التوزيع السنوي والأسبوعي", path: "/supervisor/distribution", icon: Calendar },
         {
           name: "الجدول الأسبوعي",
           path: "/supervisor/schedule",
@@ -130,6 +131,11 @@ export default function DashboardLayout() {
         name: t("nav.textbooks"),
         path: "/teacher/textbooks",
         icon: BookOpen,
+      });
+      baseLinks.push({
+        name: "التوزيع السنوي والأسبوعي",
+        path: "/teacher/distribution",
+        icon: Calendar,
       });
     } else if (user?.primaryRole === "student") {
       baseLinks.splice(2, 0, {
