@@ -22,6 +22,7 @@ import LangToggle from "../shared/LangToggle";
 import { useTranslation } from "react-i18next";
 
 import ProfileModal from "../shared/ProfileModal";
+import AppTour from "../tour/AppTour";
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
@@ -157,6 +158,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 flex pt-1">
+      <AppTour />
       {/* Global Top Flag Strip */}
       <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50" />
 
