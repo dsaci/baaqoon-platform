@@ -16,6 +16,26 @@ export default function TeacherDashboard() {
     }
   });
 
+  const { data: myCohorts } = useQuery({
+    queryKey: ['myCohorts'],
+    queryFn: async () => {
+      const res = await api.get('/groups/cohorts/me');
+      return res.data;
+    }
+  });
+
+  const activeCohortId = myCohorts?.[0]?.id;
+
+  const { data: progressData } = useQuery({
+    queryKey: ['cohortProgress', activeCohortId],
+    queryFn: async () => {
+      if (!activeCohortId) return null;
+      const res = await api.get(`/groups/cohorts/${activeCohortId}/progress`);
+      return res.data;
+    },
+    enabled: !!activeCohortId
+  });
+
   const upcomingSession = sessions.find((s: any) => new Date(s.scheduledStartTime) >= new Date() || s.status === 'in_progress') || sessions[0];
 
   const getFormattedTime = (dateString: string) => {
@@ -148,60 +168,57 @@ export default function TeacherDashboard() {
         </div>
 
         {/* Curriculum Progress Tracker */}
-        <div className="lg:col-span-3 glass-panel p-6 mt-2">
-          <div className="flex justify-between items-center border-b border-baaqoon-100 dark:border-baaqoon-800 pb-4 mb-6">
-            <h2 className="text-lg font-bold text-baaqoon-900 dark:text-white">
+        <div className="lg:col-span-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-[2rem] shadow-lg p-8 mt-2">
+          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/50 pb-4 mb-6">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="w-2 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></span>
               متابعة تقدم المنهاج وإنجاز الدروس
             </h2>
-            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 text-xs font-bold rounded-full">
-              المنهاج الفلسطيني 🇵🇸
-            </span>
+            {progressData?.cohortName && (
+              <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 text-sm font-black rounded-full shadow-sm">
+                {progressData.cohortName}
+              </span>
+            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-bold text-baaqoon-800 dark:text-baaqoon-100 mb-3 text-sm">الوحدة الأولى: الميكانيكا (مكتملة)</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-500" />
-                  <span className="text-sm text-baaqoon-700 dark:text-baaqoon-300 line-through">الفصل 1: الزخم الخطي والتصادمات</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-500" />
-                  <span className="text-sm text-baaqoon-700 dark:text-baaqoon-300 line-through">الفصل 2: الحركة الدورانية</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-baaqoon-800 dark:text-baaqoon-100 mb-3 text-sm">الوحدة الثانية: الكهرباء (قيد الإنجاز)</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between bg-baaqoon-50 dark:bg-baaqoon-800/50 p-3 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full border-2 border-baaqoon-400"></div>
-                    <span className="text-sm font-bold text-baaqoon-900 dark:text-white">الفصل 1: الجهد الكهربائي</span>
+            {!progressData ? (
+              <div className="col-span-2 text-center text-slate-500 font-bold py-8">جاري تحميل المنهاج...</div>
+            ) : progressData.units?.length === 0 ? (
+              <div className="col-span-2 text-center text-slate-500 font-bold py-8">لا يوجد منهاج مرتبط بهذا الفوج.</div>
+            ) : (
+              progressData.units.map((unit: any, index: number) => (
+                <div key={unit.id} className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                  <h3 className="font-black text-slate-800 dark:text-slate-100 mb-4 text-base flex justify-between items-center">
+                    <span>الوحدة {index + 1}: {unit.title}</span>
+                    <span className={`text-xs px-2 py-1 rounded-md ${
+                      unit.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      unit.status === 'in_progress' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                      'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                    }`}>
+                      {unit.status === 'completed' ? 'مكتملة ✅' : unit.status === 'in_progress' ? 'قيد الإنجاز ⏳' : 'لم تبدأ بعد'}
+                    </span>
+                  </h3>
+                  <div className="space-y-3">
+                    {unit.lessons.map((lesson: any, lIndex: number) => (
+                      <div key={lesson.id} className={`flex items-center gap-3 p-3 rounded-xl border ${lesson.isCompleted ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-800/30' : 'bg-white border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}>
+                        {lesson.isCompleted ? (
+                          <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0"></div>
+                        )}
+                        <span className={`text-sm font-bold ${lesson.isCompleted ? 'text-slate-500 dark:text-slate-400 line-through decoration-emerald-500/50 decoration-2' : 'text-slate-700 dark:text-slate-200'}`}>
+                          الدرس {lIndex + 1}: {lesson.title}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <button 
-                    onClick={(e) => {
-                      const btn = e.currentTarget;
-                      btn.textContent = 'تم الإنجاز ✅';
-                      btn.className = 'text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-md hover:bg-emerald-600 transition-colors font-bold';
-                      alert('تم تدوين تقدمك في المنهاج، وسيتم عكسه فوراً في تقارير المشرف والمدير.');
-                    }}
-                    className="text-xs bg-baaqoon-accent text-white px-3 py-1.5 rounded-md hover:bg-baaqoon-accentDark transition-colors"
-                  >
-                    تأكيد إنجاز الفصل
-                  </button>
                 </div>
-                <div className="flex items-center gap-3 p-3 opacity-50">
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
-                  <span className="text-sm text-gray-500">الفصل 2: المواسعة الكهربائية</span>
-                </div>
-              </div>
-            </div>
+              ))
+            )}
           </div>
-          <p className="text-xs text-baaqoon-400 mt-6 text-center">
-            * تحديث الإنجاز هنا ينعكس تلقائياً في تقارير تقدم المادة لدى المنسق التربوي والمدير.
+          <p className="text-xs text-slate-400 font-bold mt-8 text-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+            * يتم تحديث التقدم تلقائياً بناءً على الحصص المنجزة. ويظهر هذا التقدم لمدير المنصة والمشرف التربوي.
           </p>
         </div>
       </div>

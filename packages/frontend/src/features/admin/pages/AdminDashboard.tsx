@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Users, BookOpen, CheckCircle, Clock, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
+import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts' | 'assignments'>('pending_teachers');
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts'>('cohorts');
 
   const { data: adminStats, isLoading } = useQuery({
     queryKey: ['adminStats'],
@@ -16,60 +17,70 @@ export default function AdminDashboard() {
     }
   });
 
-  // Mock data states for demonstration
-  const [pendingTeachers, setPendingTeachers] = useState([
-    { id: 1, name: 'أ. أحمد الخطيب', subject: 'فيزياء', date: 'اليوم، 10:30 صباحاً', country: '🇵🇸 فلسطين' },
-    { id: 2, name: 'أ. سارة عبدالله', subject: 'رياضيات', date: 'اليوم، 08:15 صباحاً', country: '🇵🇸 فلسطين' },
-    { id: 3, name: 'أ. محمد بوعلام', subject: 'اللغة الفرنسية', date: 'أمس، 14:20', country: '🇩🇿 الجزائر' },
-    { id: 4, name: 'أ. فاطمة الزهراء', subject: 'العلوم الإسلامية', date: 'أمس، 09:00', country: '🇩🇿 الجزائر' },
-    { id: 5, name: 'أ. محمود النجار', subject: 'كيمياء', date: 'منذ يومين', country: '🇵🇸 فلسطين' },
-  ]);
+  const { data: adminData } = useQuery({
+    queryKey: ['adminData'],
+    queryFn: async () => {
+      const res = await api.get('/groups/admin/data');
+      return res.data;
+    }
+  });
 
-  const [cohorts, setCohorts] = useState([
-    { id: 'ع-1', name: 'علمي - 1', students: 20, max: 20, active: true },
-    { id: 'ع-2', name: 'علمي - 2', students: 15, max: 20, active: true },
-    { id: 'ع-3', name: 'علمي - 3', students: 2, max: 20, active: false },
-    { id: 'أ-1', name: 'أدبي - 1', students: 20, max: 20, active: true },
-    { id: 'أ-2', name: 'أدبي - 2', students: 18, max: 20, active: true },
-    { id: 'ص-1', name: 'صناعي - 1', students: 8, max: 20, active: true },
-    { id: 'ش-1', name: 'شرعي - 1', students: 12, max: 20, active: true },
-  ]);
+  const createCohortMutation = useMutation({
+    mutationFn: async (newCohort: any) => {
+      const res = await api.post('/groups/cohorts', newCohort);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      setIsCreateModalOpen(false);
+      setNewCohortName('');
+      setNewCohortCode('');
+      setSelectedCourseId('');
+      setSelectedTeacherId('');
+    }
+  });
 
-  const [approvedCount, setApprovedCount] = useState(45);
-  const [assignments, setAssignments] = useState<{teacher: string, cohort: string}[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newCohortName, setNewCohortName] = useState('');
+  const [newCohortCode, setNewCohortCode] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
 
-  // Action handlers
-  const handleAccept = (id: number) => {
-    setPendingTeachers(prev => prev.filter(t => t.id !== id));
-    setApprovedCount(prev => prev + 1);
+  const handleCreateCohortSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCohortName || !newCohortCode || !selectedCourseId || !selectedTeacherId) {
+      alert('يرجى ملء جميع الحقول');
+      return;
+    }
+
+    const course = adminData?.courses?.find((c: any) => c.id === selectedCourseId);
+    if (!course || !course.versions || course.versions.length === 0) {
+      alert('المادة غير مكتملة الإعداد في قاعدة البيانات (لا توجد نسخة منهج)');
+      return;
+    }
+
+    createCohortMutation.mutate({
+      name: newCohortName,
+      code: newCohortCode,
+      courseId: selectedCourseId,
+      curriculumVersionId: course.versions[0].id,
+      teacherId: selectedTeacherId,
+      studentIds: []
+    });
   };
-
-  const handleReject = (id: number) => {
-    setPendingTeachers(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleCreateCohort = () => {
-    const nextId = `ع-${cohorts.filter(c => c.id.startsWith('ع')).length + 1}`;
-    setCohorts(prev => [
-      { id: nextId, name: `علمي - ${nextId.split('-')[1]}`, students: 0, max: 20, active: true },
-      ...prev
-    ]);
-  };
-
-  const [assignmentForm, setAssignmentForm] = useState(false);
 
   const stats = [
-    { label: 'الأساتذة المعتمدين', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/40' },
-    { label: 'إجمالي الطلبة', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'الأفواج التربوية', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+    { label: 'الأساتذة', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
+    { label: 'الطلبة', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
+    { label: 'الأفواج التربوية', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20' },
     { label: 'الجلسات النشطة', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
       <div>
-        <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white">مرحباً بك {user?.firstName} {user?.lastName} - لوحة تحكم الإدارة 👋</h1>
-        <p className="text-baaqoon-500 dark:text-baaqoon-400 mt-1">إليك نظرة شاملة على نشاط المنصة وحالة الطلبات.</p>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً بك {user?.firstName} {user?.lastName} - لوحة تحكم الإدارة 👋</h1>
+        <p className="text-slate-500 dark:text-slate-400 font-bold">إليك نظرة شاملة على نشاط المنصة وحالة الطلبات.</p>
       </div>
 
       {/* Stats Grid */}
@@ -77,13 +88,13 @@ export default function AdminDashboard() {
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div key={idx} className="glass-panel p-6 flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${stat.bg} ${stat.color}`}>
+            <div key={idx} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 p-6 flex items-start gap-4 rounded-[2rem] shadow-lg transition-transform hover:-translate-y-1">
+              <div className={`p-4 rounded-2xl ${stat.bg} ${stat.color} shadow-inner`}>
                 <Icon className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-medium text-baaqoon-500 dark:text-baaqoon-400">{stat.label}</p>
-                <p className="text-2xl font-bold text-baaqoon-900 dark:text-white mt-1">{stat.value}</p>
+                <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
               </div>
             </div>
           );
@@ -91,200 +102,88 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Admin Panel */}
-      <div className="glass-panel overflow-hidden">
-        <div className="flex border-b border-baaqoon-100 dark:border-baaqoon-800">
-          <button 
-            onClick={() => setActiveTab('pending_teachers')}
-            className={`px-6 py-4 text-sm font-bold transition-colors ${activeTab === 'pending_teachers' ? 'text-baaqoon-accent border-b-2 border-baaqoon-accent bg-baaqoon-50 dark:bg-baaqoon-950/50 dark:bg-baaqoon-800/30' : 'text-baaqoon-500 dark:text-baaqoon-400 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/20'}`}
-          >
-            اعتماد الأساتذة
-            {pendingTeachers.length > 0 && (
-              <span className="mr-2 px-2 py-0.5 text-xs bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 rounded-full">
-                {pendingTeachers.length}
-              </span>
-            )}
-          </button>
+      <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-[2rem] shadow-lg overflow-hidden">
+        <div className="flex border-b border-slate-200 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-800/20">
           <button 
             onClick={() => setActiveTab('cohorts')}
-            className={`px-6 py-4 text-sm font-bold transition-colors ${activeTab === 'cohorts' ? 'text-baaqoon-accent border-b-2 border-baaqoon-accent bg-baaqoon-50 dark:bg-baaqoon-950/50 dark:bg-baaqoon-800/30' : 'text-baaqoon-500 dark:text-baaqoon-400 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/20'}`}
+            className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'cohorts' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
           >
-            التفويج (الأفواج التربوية)
+            التفويج والإسناد
           </button>
           <button 
-            onClick={() => setActiveTab('assignments')}
-            className={`px-6 py-4 text-sm font-bold transition-colors ${activeTab === 'assignments' ? 'text-baaqoon-accent border-b-2 border-baaqoon-accent bg-baaqoon-50 dark:bg-baaqoon-950/50 dark:bg-baaqoon-800/30' : 'text-baaqoon-500 dark:text-baaqoon-400 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/20'}`}
+            onClick={() => setActiveTab('pending_teachers')}
+            className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'pending_teachers' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
           >
-            الإسناد (ربط الأستاذ بالفوج)
+            الطلبات المعلقة
           </button>
         </div>
 
-        <div className="p-6 min-h-[400px]">
+        <div className="p-8 min-h-[400px]">
           
-          {/* Tab 1: Pending Teachers */}
+          {/* Tab: Pending Teachers */}
           {activeTab === 'pending_teachers' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-baaqoon-900 dark:text-white">طلبات انضمام الأساتذة بانتظار الموافقة</h3>
-              </div>
-              
-              {pendingTeachers.map(teacher => (
-                <div key={teacher.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-baaqoon-100 dark:border-baaqoon-800 rounded-xl bg-white dark:bg-baaqoon-900/50">
-                  <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                    <div className="w-10 h-10 rounded-full bg-baaqoon-100 dark:bg-baaqoon-800 flex items-center justify-center text-baaqoon-600 dark:text-baaqoon-300 font-bold">
-                      {teacher.name.charAt(3)}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-baaqoon-900 dark:text-white">{teacher.name}</h4>
-                      <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 mt-1">تخصص: {teacher.subject} • البلد: {teacher.country} • سجل {teacher.date}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <button 
-                      onClick={() => handleAccept(teacher.id)}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle size={16} /> قبول واعتماد
-                    </button>
-                    <button 
-                      onClick={() => handleReject(teacher.id)}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg text-sm font-bold transition-colors"
-                    >
-                      رفض
-                    </button>
-                  </div>
-                </div>
-              ))}
-              
-              {pendingTeachers.length === 0 && (
-                <div className="text-center py-12 text-baaqoon-500 dark:text-baaqoon-400">
+               <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                   <CheckCircle className="w-16 h-16 mx-auto mb-4 text-emerald-500 opacity-50" />
-                  <p>لا يوجد طلبات انضمام معلقة. تمت معالجة جميع الطلبات.</p>
+                  <p className="font-bold">لا يوجد طلبات انضمام معلقة. تمت معالجة جميع الطلبات.</p>
                 </div>
-              )}
             </div>
           )}
 
-          {/* Tab 2: Cohorts (التفويج) */}
+          {/* Tab: Cohorts & Assignments */}
           {activeTab === 'cohorts' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-baaqoon-900 dark:text-white">الأفواج التربوية الحالية</h3>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                  <span className="w-2 h-6 bg-gradient-to-b from-violet-500 to-fuchsia-600 rounded-full"></span>
+                  الأفواج التربوية الحالية
+                </h3>
                 <button 
-                  onClick={handleCreateCohort}
-                  className="px-4 py-2 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white rounded-lg text-sm font-bold transition-colors shadow-md shadow-baaqoon-accent/20"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white rounded-xl text-sm font-black transition-all shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 hover:-translate-y-0.5 flex items-center gap-2"
                 >
-                  + إنشاء فوج جديد
+                  <Plus className="w-5 h-5" /> إنشاء فوج وإسناد
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {cohorts.map(cohort => (
-                  <div key={cohort.id} className="p-5 border border-baaqoon-200 dark:border-baaqoon-700 rounded-xl bg-white dark:bg-baaqoon-800/50 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-1.5 h-full bg-baaqoon-accent"></div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h4 className="font-bold text-baaqoon-900 dark:text-white text-lg">{cohort.id}</h4>
-                        <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400">{cohort.name}</p>
-                      </div>
-                      <span className={`text-xs font-bold px-2 py-1 rounded-md ${cohort.students >= cohort.max ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                        {cohort.students}/{cohort.max} طالب
-                      </span>
-                    </div>
-                    
-                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 mb-4">
-                      <div className={`h-1.5 rounded-full ${cohort.students >= cohort.max ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${(cohort.students/cohort.max)*100}%` }}></div>
-                    </div>
-
-                    <button 
-                      onClick={() => alert(`سيتم فتح شاشة إدارة الفوج (${cohort.id})، والتي تتيح للمدير نقل الطلبة بين الأفواج أو تعديل تفاصيل الفوج.`)}
-                      className="w-full py-2 bg-baaqoon-50 dark:bg-baaqoon-800 hover:bg-baaqoon-100 dark:hover:bg-baaqoon-700 text-baaqoon-700 dark:text-baaqoon-300 rounded-lg text-sm font-semibold transition-colors border border-baaqoon-200 dark:border-baaqoon-700"
-                    >
-                      إدارة الفوج
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tab 3: Assignment (الإسناد) */}
-          {activeTab === 'assignments' && (
-            <div className="space-y-6">
-              {!assignmentForm ? (
-                <div className="flex flex-col items-center justify-center text-center py-12">
-                  <ShieldCheck className="w-16 h-16 text-baaqoon-300 dark:text-baaqoon-600 dark:text-baaqoon-400 mb-2" />
-                  <div>
-                    <h3 className="text-xl font-bold text-baaqoon-900 dark:text-white mb-2">نظام الإسناد الآلي</h3>
-                    <p className="text-baaqoon-600 dark:text-baaqoon-400 max-w-lg mx-auto">
-                      هنا سيتمكن المدير من إسناد الأساتذة للأفواج التربوية.
-                      مثال: إسناد "أ. أحمد الخطيب" لتدريس (فيزياء) للفوج (ع-1).
-                      <br /><br />
-                      بمجرد الإسناد، سيظهر الفوج تلقائياً في لوحة تحكم الأستاذ، وسيتمكن الطلاب المسجلين في هذا الفوج من الوصول لمحاضراته.
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setAssignmentForm(true)}
-                    className="mt-6 px-6 py-3 bg-baaqoon-900 dark:bg-baaqoon-100 dark:bg-baaqoon-900/50 text-white dark:text-baaqoon-900 dark:text-white rounded-lg font-bold transition-colors hover:bg-baaqoon-800 dark:hover:bg-white dark:bg-baaqoon-900 shadow-lg"
-                  >
-                    بدء عملية الإسناد
-                  </button>
-                </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : (
-                <div className="max-w-2xl mx-auto bg-baaqoon-50 dark:bg-baaqoon-900/50 p-6 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700 animate-fade-in-up">
-                  <h3 className="text-lg font-bold text-baaqoon-900 dark:text-white mb-6 border-b border-baaqoon-200 dark:border-baaqoon-700 pb-4">إسناد جديد</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300 mb-1.5">اختر الأستاذ المعتمد</label>
-                      <select className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 outline-none">
-                        <option>أ. محمد النجار (كيمياء)</option>
-                        <option>أ. نور الدين (رياضيات)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300 mb-1.5">اختر الفوج التربوي</label>
-                      <select className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 outline-none">
-                        {cohorts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
-                      </select>
-                    </div>
-
-                    <div className="flex gap-3 mt-8">
-                      <button 
-                        onClick={() => {
-                          setAssignments(prev => [...prev, { teacher: 'أ. محمد النجار', cohort: 'ع-1' }]);
-                          setAssignmentForm(false);
-                        }}
-                        className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold transition-colors shadow-sm"
-                      >
-                        حفظ وتأكيد الإسناد
-                      </button>
-                      <button 
-                        onClick={() => setAssignmentForm(false)}
-                        className="px-6 py-2.5 bg-baaqoon-200 hover:bg-baaqoon-300 dark:bg-baaqoon-700 dark:hover:bg-baaqoon-600 text-baaqoon-900 dark:text-white rounded-lg font-bold transition-colors"
-                      >
-                        إلغاء
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* List of mock assignments */}
-              {!assignmentForm && assignments.length > 0 && (
-                <div className="mt-8 animate-fade-in-up">
-                  <h4 className="font-bold text-baaqoon-900 dark:text-white mb-4">الإسنادات الحالية</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {assignments.map((ass, i) => (
-                      <div key={i} className="flex items-center gap-3 p-4 border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-xl">
-                        <CheckCircle className="text-emerald-500 shrink-0" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {adminStats?.recentCohorts?.map((cohort: any) => (
+                    <div key={cohort.id} className="p-6 border-2 border-slate-100 dark:border-slate-800/50 rounded-2xl bg-white dark:bg-slate-800/50 relative overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b from-violet-400 to-fuchsia-500"></div>
+                      <div className="flex justify-between items-start mb-6">
                         <div>
-                          <p className="font-bold text-emerald-900 dark:text-emerald-100 text-sm">تم إسناد الفوج ({ass.cohort})</p>
-                          <p className="text-emerald-700 dark:text-emerald-400 text-xs">لـ {ass.teacher}</p>
+                          <h4 className="font-black text-slate-900 dark:text-white text-lg mb-1">{cohort.name}</h4>
+                          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono bg-slate-100 dark:bg-slate-700/50 px-2 py-1 rounded-md inline-block">{cohort.code}</p>
                         </div>
+                        <span className={`text-xs font-black px-3 py-1.5 rounded-lg ${cohort.enrollments?.length >= 20 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                          {cohort.enrollments?.length || 0}/20 طالب
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      
+                      <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mb-6 shadow-inner overflow-hidden">
+                        <div className={`h-2 rounded-full ${cohort.enrollments?.length >= 20 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${((cohort.enrollments?.length || 0)/20)*100}%` }}></div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                         <p className="flex items-center gap-2"><UserCheck className="w-4 h-4 text-violet-500" /> الأستاذ: {cohort.instructors?.[0]?.teacher ? `${cohort.instructors[0].teacher.firstName} ${cohort.instructors[0].teacher.lastName}` : 'غير مسند'}</p>
+                      </div>
+
+                      <button 
+                        className="w-full py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-black transition-all border-2 border-slate-200 dark:border-slate-700"
+                      >
+                        إدارة الفوج
+                      </button>
+                    </div>
+                  ))}
+                  {adminStats?.recentCohorts?.length === 0 && (
+                     <div className="col-span-3 text-center py-12 text-slate-500 dark:text-slate-400">
+                        <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <p className="font-bold">لا يوجد أفواج تربوية حالياً.</p>
+                     </div>
+                  )}
                 </div>
               )}
             </div>
@@ -292,6 +191,91 @@ export default function AdminDashboard() {
 
         </div>
       </div>
+
+      {/* Create Cohort Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl p-8 max-w-md w-full animate-scale-up border border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                 <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-violet-600" />
+                 </div>
+                 إنشاء فوج جديد
+               </h2>
+               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors bg-slate-100 dark:bg-slate-800 p-2 rounded-full">
+                 <X className="w-5 h-5" />
+               </button>
+            </div>
+            
+            <form onSubmit={handleCreateCohortSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">اسم الفوج (مثل: فوج الأحياء - غزة)</label>
+                <input 
+                  type="text" 
+                  value={newCohortName}
+                  onChange={e => setNewCohortName(e.target.value)}
+                  placeholder="أدخل اسم الفوج..." 
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">رمز الفوج (مثل: GAZA-BIO-1)</label>
+                <input 
+                  type="text" 
+                  value={newCohortCode}
+                  onChange={e => setNewCohortCode(e.target.value)}
+                  placeholder="أدخل الرمز..." 
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold font-mono transition-all text-left dir-ltr"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">المادة الأكاديمية</label>
+                <select 
+                  value={selectedCourseId}
+                  onChange={e => setSelectedCourseId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                  required
+                >
+                  <option value="">-- اختر المادة --</option>
+                  {adminData?.courses?.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.subject?.nameAr} - {c.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2">إسناد أستاذ</label>
+                <select 
+                  value={selectedTeacherId}
+                  onChange={e => setSelectedTeacherId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                  required
+                >
+                  <option value="">-- اختر الأستاذ --</option>
+                  {adminData?.teachers?.map((t: any) => (
+                    <option key={t.id} value={t.id}>أ. {t.firstName} {t.lastName} ({t.email})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button
+                  type="submit"
+                  disabled={createCohortMutation.isPending}
+                  className="flex-1 px-5 py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black rounded-xl transition-all shadow-lg shadow-violet-500/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+                >
+                  {createCohortMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء الفوج'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

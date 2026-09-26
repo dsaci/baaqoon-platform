@@ -1,9 +1,24 @@
-import { Controller, Get, Req, Post, Body } from '@nestjs/common';
+import { Controller, Get, Req, Post, Body, Param } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 
 @Controller('groups')
 export class GroupsController {
   constructor(private readonly prisma: PrismaService) {}
+
+  @Get('admin/data')
+  async getAdminData() {
+    const teachers = await this.prisma.user.findMany({
+      where: { primaryRole: 'teacher' },
+      select: { id: true, firstName: true, lastName: true, email: true }
+    });
+    const courses = await this.prisma.course.findMany({
+      include: {
+        subject: { select: { nameAr: true } },
+        versions: { where: { isDefault: true }, select: { id: true, versionTag: true } }
+      }
+    });
+    return { teachers, courses };
+  }
 
   @Get('admin/stats')
   async getAdminStats() {
@@ -91,7 +106,9 @@ export class GroupsController {
   @Post('cohorts')
   async createCohort(@Body() body: any, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
-    const { name, code, courseId, curriculumVersionId, studentIds } = body;
+    const { name, code, courseId, curriculumVersionId, studentIds, teacherId } = body;
+
+    const assignedTeacherId = teacherId || userId;
 
     const cohort = await this.prisma.cohort.create({
       data: {
@@ -104,7 +121,7 @@ export class GroupsController {
         endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         createdById: userId,
         instructors: {
-          create: [{ teacherId: userId, role: 'primary_teacher' }]
+          create: [{ teacherId: assignedTeacherId, role: 'primary_teacher' }]
         }
       }
     });
@@ -120,5 +137,58 @@ export class GroupsController {
     }
 
     return cohort;
+  }
+  @Get('cohorts/:id/progress')
+  async getCohortProgress(@Param('id') id: string) {
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id },
+      include: {
+        curriculumVersion: {
+          include: {
+            units: {
+              include: {
+                lessons: { orderBy: { orderIndex: 'asc' } }
+              },
+              orderBy: { orderIndex: 'asc' }
+            }
+          }
+        },
+        sessions: {
+          where: { lessonId: { not: null } }
+        }
+      }
+    });
+
+    if (!cohort || !cohort.curriculumVersion) return { units: [] };
+
+    // Calculate progress
+    const completedLessonIds = new Set(
+      cohort.sessions
+        .filter(s => s.status === 'completed' || new Date(s.scheduledStartTime) < new Date())
+        .map(s => s.lessonId)
+    );
+
+    const progress = cohort.curriculumVersion.units.map(unit => {
+      const lessons = unit.lessons.map(lesson => ({
+        id: lesson.id,
+        title: lesson.title,
+        isCompleted: completedLessonIds.has(lesson.id)
+      }));
+      const isFullyCompleted = lessons.length > 0 && lessons.every(l => l.isCompleted);
+      const isPartiallyCompleted = lessons.some(l => l.isCompleted) && !isFullyCompleted;
+
+      return {
+        id: unit.id,
+        title: unit.title,
+        status: isFullyCompleted ? 'completed' : isPartiallyCompleted ? 'in_progress' : 'pending',
+        lessons
+      };
+    });
+
+    return { 
+      cohortId: cohort.id,
+      cohortName: cohort.name,
+      units: progress 
+    };
   }
 }
