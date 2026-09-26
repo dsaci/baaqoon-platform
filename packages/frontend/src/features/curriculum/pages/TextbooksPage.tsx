@@ -91,46 +91,48 @@ export default function TextbooksPage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
-            <BookOpen className="w-7 h-7 text-baaqoon-accent" />
-            المكتبة الرقمية
-          </h1>
-          <p className="text-baaqoon-500 dark:text-baaqoon-400 mt-1">
-            الكتب المدرسية الرسمية — وزارة التربية والتعليم العالي الفلسطينية
-            (2025)
-          </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 rounded-[2rem] shadow-xl border border-white/60 dark:border-slate-700/50 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <BookOpen className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">المكتبة الرقمية</h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
+              الكتب المدرسية الرسمية — وزارة التربية والتعليم العالي الفلسطينية (2025)
+            </p>
+          </div>
         </div>
+
         <a
           href="https://moe.edu.ps/class12/books"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-baaqoon-accent hover:text-baaqoon-accentDark border border-baaqoon-accent/30 rounded-lg hover:bg-baaqoon-accent/5 transition-colors"
+          className="px-5 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 hover:-translate-y-0.5 shrink-0"
         >
           <ExternalLink className="w-4 h-4" />
-          موقع الوزارة الرسمي
+          موقع الوزارة
         </a>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="glass-panel p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700/50 flex flex-col sm:flex-row gap-4 mb-8">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-baaqoon-400" />
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
             type="text"
             placeholder="ابحث عن كتاب..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pr-11 pl-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
+            className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 font-medium shadow-sm"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-baaqoon-400" />
+        <div className="relative min-w-[200px]">
+          <Filter className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <select
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
-            className="pr-10 pl-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-900 appearance-none min-w-[180px]"
+            className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 appearance-none font-bold shadow-sm"
           >
             <option value="all">جميع الفروع</option>
             {Object.entries(BRANCHES).map(([value, label]) => (
@@ -144,61 +146,61 @@ export default function TextbooksPage() {
 
       {/* Books Grid by Branch */}
       {Object.keys(groupedBooks).length === 0 ? (
-        <div className="glass-panel p-12 text-center">
-          <BookOpen className="w-12 h-12 mx-auto text-baaqoon-300 mb-3" />
-          <p className="text-baaqoon-500 dark:text-baaqoon-400">
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2rem] p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
+          <BookOpen className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-500 font-bold text-lg">
             لم يتم العثور على كتب مطابقة للبحث
           </p>
         </div>
       ) : (
         Object.entries(groupedBooks).map(([branch, books]) => (
-          <div key={branch}>
-            <h2 className="text-lg font-bold text-baaqoon-800 dark:text-baaqoon-100 mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-baaqoon-accent inline-block" />
+          <div key={branch} className="mb-12">
+            <h2 className="text-xl font-black text-slate-800 dark:text-white mb-6 flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] inline-block" />
               الفرع {BRANCHES[branch] || branch}
-              <span className="text-sm font-normal text-baaqoon-400">
-                ({books.length} كتب)
+              <span className="text-sm font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+                {books.length} كتب
               </span>
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {books.map((book) => (
                 <div
                   key={book.id}
-                  className="glass-panel overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2rem] overflow-hidden border border-slate-200 dark:border-slate-700 shadow-lg group hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 flex flex-col"
                 >
                   <div
-                    className={`h-32 bg-gradient-to-br ${book.color} flex items-center justify-center p-4 relative`}
+                    className={`h-40 bg-gradient-to-br ${book.color} flex items-center justify-center p-6 relative`}
                   >
                     <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
-                    <BookOpen className="w-12 h-12 text-white/90 relative z-10" />
+                    <BookOpen className="w-16 h-16 text-white/90 relative z-10 group-hover:scale-110 transition-transform duration-500" />
                   </div>
 
-                  <div className="p-4 space-y-3">
+                  <div className="p-6 space-y-4 flex-1 flex flex-col justify-between bg-white dark:bg-slate-800">
                     <div>
-                      <h3 className="font-bold text-baaqoon-900 dark:text-white text-sm leading-relaxed">
+                      <h3 className="font-black text-slate-900 dark:text-white text-base leading-tight mb-1">
                         {book.nameAr}
                       </h3>
-                      <p className="text-xs text-baaqoon-400 mt-0.5">
-                        {book.nameEn}
+                      <p className="text-xs font-bold text-slate-400">
+                        {book.nameEn || "Palestinian Curriculum"}
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-2 mt-3">
+                    <div className="flex flex-col gap-2.5 mt-auto pt-4 border-t border-slate-100 dark:border-slate-700/50">
                       <div className="flex gap-2">
                         <a
                           href={book.downloadUrl}
                           download
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white text-xs font-medium rounded-lg transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-500/20"
                         >
-                          <Download className="w-3.5 h-3.5" /> تحميل PDF
+                          <Download className="w-4 h-4" /> تحميل PDF
                         </a>
                         <a
                           href={book.downloadUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-1.5 px-3 py-2 border border-baaqoon-200 dark:border-baaqoon-700 text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 text-xs font-medium rounded-lg transition-colors"
+                          className="flex items-center justify-center gap-1.5 px-4 py-2.5 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> تصفّح
+                          <ExternalLink className="w-4 h-4" /> تصفّح
                         </a>
                       </div>
 
@@ -214,13 +216,13 @@ export default function TextbooksPage() {
                                 navigate("/teacher/curriculum");
                               }
                             }}
-                            className="w-full flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 font-bold rounded-lg px-3 py-2 transition-colors text-xs border border-purple-200 dark:border-purple-800"
+                            className="w-full flex items-center justify-center gap-2 bg-gradient-to-l from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-bold rounded-xl px-4 py-2.5 transition-all text-xs shadow-md shadow-violet-500/20"
                           >
                             <Bot className="w-4 h-4" /> توليد حصة آلياً
                           </button>
                           <button
                             onClick={() => setIsGeneratorOpen(true)}
-                            className="w-full flex items-center justify-center gap-2 bg-baaqoon-100 hover:bg-baaqoon-200 text-baaqoon-800 font-medium rounded-lg px-3 py-2 transition-colors text-xs border border-baaqoon-200"
+                            className="w-full flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-300 font-bold rounded-xl px-4 py-2.5 transition-all text-xs border border-blue-200 dark:border-blue-800"
                           >
                             <FileText className="w-4 h-4" /> توليد واجب / اختبار
                           </button>
