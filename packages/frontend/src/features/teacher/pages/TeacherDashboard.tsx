@@ -1,24 +1,40 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Calendar, Clock, CheckCircle, PlayCircle, FileText } from 'lucide-react';
+import { Users, Calendar, Clock, CheckCircle, PlayCircle, FileText, Video } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../../lib/axios';
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore();
 
+  const { data: sessions = [], isLoading } = useQuery({
+    queryKey: ['teacher_sessions_dashboard'],
+    queryFn: async () => {
+      const res = await api.get('/sessions');
+      return res.data;
+    }
+  });
+
+  const upcomingSession = sessions.find((s: any) => new Date(s.scheduledStartTime) >= new Date() || s.status === 'in_progress') || sessions[0];
+
+  const getFormattedTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  };
+
   // Mock data representing the strictly engineered backend
   const stats = [
     { label: 'الأفواج النشطة', value: '3', icon: Users, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
-    { label: 'حصص اليوم', value: '2', icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: 'حصص اليوم', value: sessions.filter((s:any) => new Date(s.scheduledStartTime).toDateString() === new Date().toDateString()).length.toString(), icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
     { label: 'واجبات بانتظار التقييم', value: '14', icon: Clock, color: 'text-baaqoon-red', bg: 'bg-red-50' },
     { label: 'نسبة الحضور الكلية', value: '92%', icon: CheckCircle, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
       <div>
-        <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white">مرحباً أستاذ {user?.firstName} {user?.lastName} 👋</h1>
-        <p className="text-baaqoon-500 dark:text-baaqoon-400 mt-1">إليك نظرة عامة على نشاطك اليوم في منصة باقون.</p>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً أستاذ {user?.firstName} {user?.lastName} 👋</h1>
+        <p className="text-slate-500 dark:text-slate-400 font-bold">إليك نظرة عامة على نشاطك اليوم في منصة باقون.</p>
       </div>
 
       {/* Stats Grid */}
@@ -26,13 +42,13 @@ export default function TeacherDashboard() {
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div key={idx} className="glass-panel p-6 flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${stat.bg} dark:bg-opacity-20 ${stat.color}`}>
+            <div key={idx} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-[2rem] shadow-lg p-6 flex items-start gap-4 transition-transform hover:-translate-y-1">
+              <div className={`p-4 rounded-2xl ${stat.bg} dark:bg-opacity-20 ${stat.color} shadow-inner`}>
                 <Icon className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-medium text-baaqoon-500 dark:text-baaqoon-400">{stat.label}</p>
-                <p className="text-2xl font-bold text-baaqoon-900 dark:text-white mt-1">{stat.value}</p>
+                <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{stat.value}</p>
               </div>
             </div>
           );
@@ -41,32 +57,47 @@ export default function TeacherDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Next Session Card */}
-        <div className="lg:col-span-2 glass-panel p-6">
-          <h2 className="text-lg font-bold text-baaqoon-900 dark:text-white border-b border-baaqoon-100 dark:border-baaqoon-800 pb-4 mb-4">
+        <div className="lg:col-span-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-[2rem] shadow-lg p-6">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/50 pb-4 mb-6 flex items-center gap-2">
+            <span className="w-2 h-6 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-full shadow-sm"></span>
             الحصة القادمة
           </h2>
-          <div className="bg-baaqoon-50 dark:bg-baaqoon-800/50 border border-baaqoon-200 dark:border-baaqoon-700 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 text-xs font-semibold bg-baaqoon-100 dark:bg-baaqoon-800 text-baaqoon-accentDark dark:text-baaqoon-accent rounded-full">
-                  مجدولة (Scheduled)
-                </span>
-                <span className="text-sm text-baaqoon-500 dark:text-baaqoon-400">فوج غزة (علمي)</span>
+          
+          {isLoading ? (
+             <div className="flex items-center justify-center p-8"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
+          ) : upcomingSession ? (
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-100 dark:border-emerald-800/50 rounded-[1.5rem] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 text-xs font-black bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 rounded-lg shadow-sm border border-emerald-200 dark:border-emerald-700/50">
+                    مجدولة (Scheduled)
+                  </span>
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-lg">
+                    {upcomingSession.cohort?.name || 'فوج غير معروف'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                  {upcomingSession.title}
+                </h3>
+                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" /> 
+                  موعد البدء: {getFormattedTime(upcomingSession.scheduledStartTime)}
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-baaqoon-900 dark:text-white">مراجعة فيزياء - الوحدة الثالثة</h3>
-              <p className="text-sm text-baaqoon-600 dark:text-baaqoon-300 mt-1 flex items-center gap-1">
-                <Clock className="w-4 h-4" /> اليوم، 04:00 مساءً
-              </p>
+              
+              <Link 
+                to={`/sessions/${upcomingSession.id}/room`} 
+                className="w-full md:w-auto px-8 py-4 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1 flex items-center justify-center gap-3 text-lg"
+              >
+                <Video className="w-6 h-6 animate-pulse" />
+                بدء الحصة (Jitsi)
+              </Link>
             </div>
-            
-            <Link 
-              to="/teacher/schedule" 
-              className="w-full md:w-auto px-6 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <Calendar className="w-5 h-5" />
-              بدء الحصة (Jitsi)
-            </Link>
-          </div>
+          ) : (
+            <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-dashed border-slate-300 dark:border-slate-700">
+               <p className="text-slate-500 dark:text-slate-400 font-bold">لا يوجد حصص مجدولة قادمة.</p>
+            </div>
+          )}
         </div>
 
         {/* Action Center - أزرار سريعة ومهمة */}
