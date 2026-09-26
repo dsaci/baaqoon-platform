@@ -167,7 +167,7 @@ export default function DashboardLayout() {
         className={`fixed md:static inset-y-0 right-0 z-40 w-64 bg-white dark:bg-baaqoon-900/95 dark:bg-baaqoon-900/95 backdrop-blur-xl border-l border-baaqoon-200 dark:border-baaqoon-800 flex flex-col shadow-2xl md:shadow-sm transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="h-16 flex items-center justify-between md:justify-center border-b border-baaqoon-100 dark:border-baaqoon-800 px-6 gap-3 shrink-0">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <img
               src={logo}
               alt="باقون"
@@ -176,7 +176,7 @@ export default function DashboardLayout() {
             <span className="text-xl font-bold text-baaqoon-900 dark:text-white">
               باقون
             </span>
-          </div>
+          </Link>
           {/* Mobile Close Button */}
           <button
             className="md:hidden text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white"
