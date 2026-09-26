@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Param, Delete, Patch } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 
 @Controller('sessions')
@@ -128,7 +128,45 @@ export class SessionsController {
     return this.prisma.session.findMany({
       where: whereClause,
       orderBy: { scheduledStartTime: 'desc' },
-      include: { cohort: true }
+      include: { cohort: true, teacher: true }
+    });
+  }
+
+  @Post('clear/:cohortId')
+  async clearSessions(@Req() req: any, @Param('cohortId') cohortId: string) {
+    const userId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
+    let whereClause: any = { cohortId };
+    
+    if (cohortId === 'all') {
+      whereClause = { teacherId: userId };
+    } else {
+      whereClause.teacherId = userId;
+    }
+
+    return this.prisma.session.deleteMany({
+      where: whereClause
+    });
+  }
+
+  @Delete(':id')
+  async deleteSession(@Req() req: any, @Param('id') id: string) {
+    return this.prisma.session.delete({
+      where: { id }
+    });
+  }
+
+  @Patch(':id')
+  async updateSession(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    const data: any = {};
+    if (body.title) data.title = body.title;
+    if (body.scheduledStartTime) {
+      data.scheduledStartTime = new Date(body.scheduledStartTime);
+      data.scheduledEndTime = new Date(new Date(body.scheduledStartTime).getTime() + 45 * 60 * 1000);
+    }
+
+    return this.prisma.session.update({
+      where: { id },
+      data
     });
   }
 }

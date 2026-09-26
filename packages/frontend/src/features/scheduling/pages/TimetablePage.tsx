@@ -8,24 +8,26 @@ import {
   ChevronLeft,
   MapPin,
   Info,
+  Trash2,
+  X
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useNavigate } from 'react-router-dom';
-
-// Mock data based on the user's Gaza context and cohort logic
-
 
 const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "السبت"];
 const TIMES = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 
 export default function TimetablePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const isTeacherOrSupervisor = user?.primaryRole === "teacher" || user?.primaryRole === "supervisor";
 
   const [selectedCohort, setSelectedCohort] = useState("all");
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['timetable_sessions'],
@@ -47,7 +49,6 @@ export default function TimetablePage() {
     return `${d.getHours().toString().padStart(2, '0')}:00`;
   };
 
-  // Build schedule
   const SCHEDULE = sessions.map((s: any) => ({
     id: s.id,
     day: getDayName(s.scheduledStartTime),
@@ -55,18 +56,56 @@ export default function TimetablePage() {
     subject: s.title,
     teacher: s.teacher?.firstName || s.teacher?.name || 'مدرس',
     cohort: s.cohort?.name || 'فوج غير معروف',
-    type: s.jitsiRoomName ? 'online' : 'point', // mockup logic
-    cohortId: s.cohortId
+    type: s.jitsiRoomName ? 'online' : 'point',
+    cohortId: s.cohortId,
+    rawDate: s.scheduledStartTime
   }));
 
   const filteredSchedule = selectedCohort === 'all' ? SCHEDULE : SCHEDULE.filter(s => s.cohortId === selectedCohort);
 
-  // unique cohorts for select
   const uniqueCohorts = Array.from(new Set(sessions.filter((s:any) => s.cohort).map((s: any) => JSON.stringify({ id: s.cohort.id, name: s.cohort.name })))).map((str: any) => JSON.parse(str));
+
+  const handleClearSchedule = async () => {
+    try {
+      await api.post(`/sessions/clear/${selectedCohort}`);
+      queryClient.invalidateQueries({ queryKey: ['timetable_sessions'] });
+      setIsClearModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء تصفير الجدول');
+    }
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await api.delete(`/sessions/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['timetable_sessions'] });
+      setEditingSession(null);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء حذف الحصة');
+    }
+  };
+
+  const handleUpdateSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSession) return;
+    try {
+      await api.patch(`/sessions/${editingSession.id}`, {
+        title: editingSession.subject,
+        scheduledStartTime: editingSession.rawDate
+      });
+      queryClient.invalidateQueries({ queryKey: ['timetable_sessions'] });
+      setEditingSession(null);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء تحديث الحصة');
+    }
+  };
 
   return (
     <div
-      className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 text-baaqoon-900 dark:text-white p-6 animate-fade-in"
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-6 animate-fade-in font-sans"
       dir="rtl"
     >
       {/* Header */}
@@ -85,13 +124,20 @@ export default function TimetablePage() {
         </div>
 
         {isTeacherOrSupervisor && (
-          <div className="flex gap-3 shrink-0">
+          <div className="flex gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => setIsClearModalOpen(true)}
+              className="px-5 py-3 bg-white dark:bg-slate-800 border-2 border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/50 hover:border-rose-200 font-black rounded-xl transition-all flex items-center gap-2"
+            >
+              <Trash2 className="w-5 h-5" />
+              تصفير الجدول
+            </button>
             <button
               onClick={() => navigate(user?.primaryRole === 'teacher' ? '/teacher/curriculum' : '/supervisor/dashboard')}
               className="px-5 py-3 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
-              بناء حصة جديدة (أتمتة)
+              بناء حصة جديدة
             </button>
           </div>
         )}
@@ -205,7 +251,8 @@ export default function TimetablePage() {
                         return (
                           <div
                             key={sidx}
-                            className={`w-full rounded-xl p-2.5 border shadow-sm flex flex-col justify-between transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${c.bg} ${c.border}`}
+                            onClick={() => isTeacherOrSupervisor && setEditingSession(session)}
+                            className={`w-full rounded-xl p-2.5 border shadow-sm flex flex-col justify-between transition-all hover:-translate-y-0.5 hover:shadow-md ${isTeacherOrSupervisor ? 'cursor-pointer' : ''} ${c.bg} ${c.border}`}
                           >
                             <div>
                               <h4 className={`font-black text-[12px] leading-tight line-clamp-2 ${c.text}`}>
@@ -234,6 +281,90 @@ export default function TimetablePage() {
           ))}
         </div>
       </div>
+
+      {/* Clear Timetable Confirmation Modal */}
+      {isClearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl p-8 max-w-md w-full animate-scale-up border border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+              <Trash2 className="w-8 h-8 text-rose-500" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">تصفير الجدول</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8 leading-relaxed">
+              هل أنت متأكد من رغبتك في حذف جميع الحصص المجدولة {selectedCohort === 'all' ? 'لجميع الأفواج' : 'لهذا الفوج'}؟ لا يمكن التراجع عن هذه الخطوة.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={handleClearSchedule}
+                className="flex-1 px-5 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-xl transition-all shadow-lg shadow-rose-500/30 hover:-translate-y-0.5"
+              >
+                نعم، قم بالتصفير
+              </button>
+              <button
+                onClick={() => setIsClearModalOpen(false)}
+                className="flex-1 px-5 py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl transition-all"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Session Modal */}
+      {editingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl p-8 max-w-md w-full animate-scale-up border border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">تعديل الحصة</h2>
+              <button onClick={() => setEditingSession(null)} className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateSession} className="space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">عنوان الحصة</label>
+                <input
+                  type="text"
+                  value={editingSession.subject}
+                  onChange={(e) => setEditingSession({ ...editingSession, subject: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-900 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">تاريخ ووقت الحصة</label>
+                <input
+                  type="datetime-local"
+                  value={new Date(editingSession.rawDate).toISOString().slice(0, 16)}
+                  onChange={(e) => setEditingSession({ ...editingSession, rawDate: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-900 dark:text-white"
+                  required
+                />
+              </div>
+              
+              <div className="pt-4 flex gap-4">
+                <button
+                  type="submit"
+                  className="flex-1 px-5 py-3.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl transition-all shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5"
+                >
+                  حفظ التعديلات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSession(editingSession.id)}
+                  className="p-3.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-600 font-bold rounded-xl transition-all"
+                  title="حذف الحصة"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
