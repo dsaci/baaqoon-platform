@@ -65,28 +65,35 @@ export default function LoginPage() {
   // ... inside component handleDemoLogin and handleLogin ...
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-baaqoon-50 dark:bg-baaqoon-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+      {/* Abstract Background */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
+      
       {/* Top Flag Strip */}
-      <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50" />
+      <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50 shadow-md" />
       
       {/* Theme and Lang controls at the top */}
-      <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none">
-        <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white dark:bg-baaqoon-900/80 dark:bg-baaqoon-900/80 backdrop-blur-sm border border-baaqoon-200 dark:border-baaqoon-800 rounded-lg text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 transition-colors shadow-sm">
-          <Home className="w-4 h-4" />
+      <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
+        <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-emerald-100 dark:border-emerald-800/30 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+          <Home className="w-4 h-4 text-emerald-500" />
           العودة للرئيسية
         </Link>
-        <div className="flex items-center gap-2 pointer-events-auto bg-white dark:bg-baaqoon-900/80 dark:bg-baaqoon-900/80 backdrop-blur-sm p-1 rounded-lg border border-baaqoon-200 dark:border-baaqoon-800 shadow-sm">
+        <div className="flex items-center gap-2 pointer-events-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-1.5 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
           <LangToggle />
           <ThemeToggle />
         </div>
       </div>
 
-      <div className="glass-panel w-full max-w-md p-8 space-y-6 animate-fade-in-up mt-8 mb-8">
+      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/60 dark:border-slate-700/50 space-y-8 animate-fade-in-up mt-8 mb-8 z-10">
         
-        <div className="text-center space-y-2">
-          <img src={logo} alt="باقون" className="w-16 h-16 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain" />
-          <h2 className="text-2xl font-bold text-baaqoon-900 dark:text-white">{t('common.login')}</h2>
-          <p className="text-baaqoon-500 dark:text-baaqoon-400">{t('auth.welcome_back')}</p>
+        <div className="text-center space-y-3">
+          <div className="relative inline-block">
+            <div className="absolute inset-0 bg-emerald-400 blur-lg opacity-20 rounded-full"></div>
+            <img src={logo} alt="باقون" className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white">تسجيل الدخول</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">مرحباً بعودتك إلى منصة باقون 👋</p>
         </div>
 
         {error && (
@@ -98,25 +105,25 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">البريد الإلكتروني أو رقم الهاتف</label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">البريد الإلكتروني أو رقم الهاتف</label>
             <input 
               type="text" 
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-left dir-ltr shadow-sm"
               placeholder="user@example.com أو 059..."
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">{t('common.password')}</label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">{t('common.password')}</label>
             <input 
               type="password" 
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-left dir-ltr shadow-sm"
               placeholder="••••••••"
             />
           </div>
@@ -124,9 +131,9 @@ export default function LoginPage() {
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark disabled:opacity-70 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors mt-2"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5"
           >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
             {isLoading ? t('common.loading') : t('common.login')}
           </button>
         </form>
@@ -139,33 +146,33 @@ export default function LoginPage() {
         </p>
 
         {/* Demo Section */}
-        <div className="border-t border-baaqoon-100 dark:border-baaqoon-800 pt-6 space-y-3">
-          <p className="text-center text-xs text-baaqoon-400 flex items-center justify-center gap-1.5">
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-3">
+          <p className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5 font-bold">
             <FlaskConical className="w-3.5 h-3.5" />
-            دخول تجريبي سريع (باك-إند حقيقي)
+            دخول تجريبي سريع
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleDemoLogin('super_admin')}
-              className="py-2 px-2 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-xs font-medium rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"
+              className="py-2.5 px-2 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 transition-all hover:-translate-y-0.5"
             >
               👑 مدير عام
             </button>
             <button
               onClick={() => handleDemoLogin('supervisor')}
-              className="py-2 px-2 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-lg border border-amber-200 dark:border-amber-800 transition-colors"
+              className="py-2.5 px-2 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-800 transition-all hover:-translate-y-0.5"
             >
               👁️ مشرف / منسق
             </button>
             <button
               onClick={() => handleDemoLogin('teacher')}
-              className="py-2 px-2 bg-baaqoon-100 dark:bg-baaqoon-800 hover:bg-baaqoon-200 dark:hover:bg-baaqoon-700 text-baaqoon-accentDark dark:text-baaqoon-300 text-xs font-medium rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 transition-colors"
+              className="py-2.5 px-2 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 transition-all hover:-translate-y-0.5"
             >
               👨‍🏫 أستاذ
             </button>
             <button
               onClick={() => handleDemoLogin('student')}
-              className="py-2 px-2 bg-baaqoon-100 dark:bg-baaqoon-800 hover:bg-baaqoon-200 dark:hover:bg-baaqoon-700 text-baaqoon-accentDark dark:text-baaqoon-300 text-xs font-medium rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 transition-colors"
+              className="py-2.5 px-2 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-400 text-xs font-bold rounded-xl border border-cyan-200 dark:border-cyan-800 transition-all hover:-translate-y-0.5"
             >
               👩‍🎓 طالب
             </button>

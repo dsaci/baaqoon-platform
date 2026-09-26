@@ -194,10 +194,10 @@ export default function DashboardLayout() {
               <Link
                 key={link.name}
                 to={link.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   isActive
-                    ? "bg-baaqoon-accent/10 dark:bg-baaqoon-accent/20 text-baaqoon-accentDark dark:text-baaqoon-accent font-medium"
-                    : "text-baaqoon-600 dark:text-baaqoon-400 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/50 hover:text-baaqoon-900 dark:hover:text-white"
+                    ? "bg-gradient-to-l from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-100 dark:border-emerald-800/50 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <Icon className="w-5 h-5" />
