@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../lib/axios";
 import { useNavigate } from "react-router-dom";
@@ -6,13 +6,27 @@ import {
   Clock,
   Video,
   FileText,
-  AlertCircle,
   BookOpen,
   Calendar,
   CheckSquare,
   Award,
+  Sparkles,
+  TrendingUp,
+  Star,
+  Zap,
+  Heart,
+  Target,
+  Flame,
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
+
+const motivationalQuotes = [
+  "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
+  "كل خطوة تقطعها تقربك من حلمك… لا تتوقف! 🚀",
+  "أنت أقوى مما تتصور… باقون وصامدون! 💪",
+  "النجاح يبدأ بخطوة… وأنت بدأت بالفعل! ✨",
+  "لا تقارن نفسك بالآخرين… قارن نفسك بالأمس! 🏆",
+];
 
 export default function StudentDashboard() {
   const { user } = useAuthStore();
@@ -20,6 +34,9 @@ export default function StudentDashboard() {
   const studentName = user
     ? `${user.firstName} ${user.lastName}`
     : "طالب باقون";
+
+  const quote =
+    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
   const { data: upcomingSessions = [] } = useQuery({
     queryKey: ["studentSessions"],
@@ -37,156 +54,380 @@ export default function StudentDashboard() {
     },
   });
 
+  const completedCount = assignments.filter(
+    (a: any) => a.submissions?.length > 0
+  ).length;
+  const pendingCount = assignments.length - completedCount;
+
   return (
     <div
       dir="rtl"
-      className="p-6 max-w-7xl mx-auto space-y-8 bg-baaqoon-50 dark:bg-baaqoon-950 min-h-screen"
+      className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 min-h-screen"
     >
-      {/* Welcome Header */}
-      <div className="flex justify-between items-center bg-white dark:bg-baaqoon-900 p-8 rounded-2xl shadow-sm border border-baaqoon-100 dark:border-baaqoon-800">
-        <div>
-          <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white mb-2">
-            مرحباً {studentName} 👋
-          </h1>
-          <p className="text-baaqoon-600 dark:text-baaqoon-300">
-            أهلاً بك في منصة باقون، دليلك نحو التفوق في الثانوية العامة! استمر
-            في التقدم.
-          </p>
-        </div>
-        <div className="hidden md:block">
-          <div className="w-24 h-24 bg-baaqoon-100 dark:bg-baaqoon-800 rounded-full flex items-center justify-center text-baaqoon-600 dark:text-baaqoon-400">
-            <Award size={40} />
+      {/* ══════════════════════ Hero Welcome Card ══════════════════════ */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 p-8 md:p-10 text-white shadow-2xl shadow-emerald-500/20">
+        {/* Decorative blobs */}
+        <div className="absolute -top-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-10 -right-10 w-60 h-60 bg-cyan-300/10 rounded-full blur-3xl" />
+        <div className="absolute top-4 left-4 w-20 h-20 bg-emerald-300/20 rounded-full blur-xl" />
+
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
+              <span className="text-emerald-100 text-sm font-medium">
+                مرحباً بعودتك!
+              </span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black">
+              أهلاً {studentName} 👋
+            </h1>
+            <p className="text-emerald-50/90 text-lg max-w-md leading-relaxed">
+              {quote}
+            </p>
+          </div>
+
+          {/* Avatar / Badge */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30 shadow-lg">
+                <Award className="w-10 h-10 md:w-12 md:h-12 text-yellow-300" />
+              </div>
+              <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full shadow-lg">
+                باقون 🇵🇸
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content Area (Sessions) */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="glass-panel p-6 rounded-2xl shadow-sm">
+      {/* ══════════════════════ Quick Stats ══════════════════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white/70 dark:bg-emerald-950/40 backdrop-blur-md rounded-2xl p-5 border border-emerald-100 dark:border-emerald-800/50 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group">
+          <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <Calendar className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300">
+            {upcomingSessions.length}
+          </p>
+          <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-medium">
+            حصص قادمة
+          </p>
+        </div>
+
+        <div className="bg-white/70 dark:bg-violet-950/40 backdrop-blur-md rounded-2xl p-5 border border-violet-100 dark:border-violet-800/50 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group">
+          <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <Target className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+          </div>
+          <p className="text-2xl font-black text-violet-700 dark:text-violet-300">
+            {pendingCount}
+          </p>
+          <p className="text-xs text-violet-600/70 dark:text-violet-400/70 font-medium">
+            واجبات معلقة
+          </p>
+        </div>
+
+        <div className="bg-white/70 dark:bg-rose-950/40 backdrop-blur-md rounded-2xl p-5 border border-rose-100 dark:border-rose-800/50 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group">
+          <div className="w-10 h-10 bg-rose-100 dark:bg-rose-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <CheckSquare className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          </div>
+          <p className="text-2xl font-black text-rose-700 dark:text-rose-300">
+            {completedCount}
+          </p>
+          <p className="text-xs text-rose-600/70 dark:text-rose-400/70 font-medium">
+            واجبات مُنجزة
+          </p>
+        </div>
+
+        <div className="bg-white/70 dark:bg-amber-950/40 backdrop-blur-md rounded-2xl p-5 border border-amber-100 dark:border-amber-800/50 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 group">
+          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <Flame className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <p className="text-2xl font-black text-amber-700 dark:text-amber-300">
+            {assignments.length}
+          </p>
+          <p className="text-xs text-amber-600/70 dark:text-amber-400/70 font-medium">
+            إجمالي الاختبارات
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ══════════════════════ Sessions Timeline ══════════════════════ */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-md rounded-2xl p-6 border border-teal-100 dark:border-teal-800/40 shadow-sm">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-2">
-                <Calendar className="text-baaqoon-accent" />
+              <h2 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-white" />
+                </div>
                 جدول حصصي
               </h2>
+              <button
+                onClick={() => navigate("/student/schedule")}
+                className="text-xs px-4 py-2 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-xl font-bold hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
+              >
+                عرض الجدول الكامل
+              </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {upcomingSessions.map((session: any, idx: number) => {
                 const isNow = idx === 0;
+                const sessionColors = [
+                  {
+                    bg: "from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40",
+                    border: "border-emerald-200 dark:border-emerald-800/50",
+                    icon: "bg-emerald-500",
+                    text: "text-emerald-700 dark:text-emerald-300",
+                  },
+                  {
+                    bg: "from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/40",
+                    border: "border-violet-200 dark:border-violet-800/50",
+                    icon: "bg-violet-500",
+                    text: "text-violet-700 dark:text-violet-300",
+                  },
+                  {
+                    bg: "from-cyan-50 to-sky-50 dark:from-cyan-950/40 dark:to-sky-950/40",
+                    border: "border-cyan-200 dark:border-cyan-800/50",
+                    icon: "bg-cyan-500",
+                    text: "text-cyan-700 dark:text-cyan-300",
+                  },
+                  {
+                    bg: "from-rose-50 to-pink-50 dark:from-rose-950/40 dark:to-pink-950/40",
+                    border: "border-rose-200 dark:border-rose-800/50",
+                    icon: "bg-rose-500",
+                    text: "text-rose-700 dark:text-rose-300",
+                  },
+                ];
+                const c = sessionColors[idx % sessionColors.length];
+
                 return (
-                  <div key={session.id} className="flex gap-4 relative">
-                    <div className="w-px h-full bg-baaqoon-200 dark:bg-baaqoon-700 absolute right-[19px] top-10"></div>
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 ring-4 ring-white dark:ring-baaqoon-900 ${isNow ? "bg-red-100 text-red-500" : "bg-baaqoon-100 text-baaqoon-accent"}`}
-                    >
-                      <Video size={18} />
-                    </div>
-                    <div className="bg-white dark:bg-baaqoon-800/20 rounded-xl p-4 flex-1 border border-baaqoon-100 dark:border-baaqoon-700">
-                      <div className="flex justify-between items-start mb-2">
+                  <div
+                    key={session.id}
+                    className={`bg-gradient-to-l ${c.bg} rounded-2xl p-5 border ${c.border} hover:shadow-md transition-all hover:-translate-y-0.5`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`w-12 h-12 ${c.icon} rounded-xl flex items-center justify-center shrink-0 shadow-lg`}
+                        >
+                          <Video className="w-5 h-5 text-white" />
+                        </div>
                         <div>
-                          {isNow ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-xs font-semibold mb-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-400 animate-pulse"></span>
-                              مباشر الآن
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-baaqoon-100 dark:bg-baaqoon-800 text-baaqoon-accentDark dark:text-baaqoon-accent text-xs font-semibold mb-2">
-                              قادمة
+                          {isNow && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 text-[11px] font-bold mb-2">
+                              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                              🔴 مباشر الآن
                             </span>
                           )}
-                          <h3 className="text-lg font-bold text-baaqoon-900 dark:text-white">
+                          <h3
+                            className={`text-base font-bold ${c.text} leading-tight`}
+                          >
                             {session.title}
                           </h3>
-                        </div>
-                        <div className="flex items-center text-baaqoon-500 dark:text-baaqoon-400 text-sm gap-1">
-                          <Clock size={14} />
-                          <span>
-                            {new Date(
-                              session.scheduledStartTime,
-                            ).toLocaleTimeString("ar-EG", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
+                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 gap-3 mt-2">
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} />
+                              {new Date(
+                                session.scheduledStartTime
+                              ).toLocaleTimeString("ar-EG", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar size={12} />
+                              {new Date(
+                                session.scheduledStartTime
+                              ).toLocaleDateString("ar-EG", {
+                                weekday: "long",
+                              })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <button
-                        onClick={() => navigate(`/sessions/${session.id}/room`)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto ${isNow ? "bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white" : "bg-baaqoon-100 text-baaqoon-500"}`}
+                        onClick={() =>
+                          navigate(`/sessions/${session.id}/room`)
+                        }
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all shrink-0 ${
+                          isNow
+                            ? "bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30 animate-pulse"
+                            : "bg-white/80 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
+                        }`}
                       >
-                        {isNow ? "انضم الآن" : "انضم الآن (يفتح في موعده)"}
+                        {isNow ? "🚀 انضم الآن" : "انتظار الموعد"}
                       </button>
                     </div>
                   </div>
                 );
               })}
+
               {upcomingSessions.length === 0 && (
-                <div className="text-center p-8 text-baaqoon-500">
-                  لا توجد حصص قادمة لفوجك!
+                <div className="text-center py-12 space-y-4">
+                  <div className="w-20 h-20 bg-teal-50 dark:bg-teal-900/20 rounded-full flex items-center justify-center mx-auto">
+                    <BookOpen className="w-8 h-8 text-teal-400" />
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">
+                    لا توجد حصص قادمة حالياً
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    استغل الوقت في مراجعة دروسك! أنت رائع! ⭐
+                  </p>
                 </div>
               )}
             </div>
           </div>
+
+          {/* ═══════ Motivational Banner ═══════ */}
+          <div className="bg-gradient-to-l from-pink-500 via-rose-500 to-fuchsia-500 rounded-2xl p-6 text-white shadow-lg shadow-rose-500/20 flex items-center gap-4">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shrink-0">
+              <Heart className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h3 className="font-black text-lg">أنت قادر على كل شيء! 💫</h3>
+              <p className="text-rose-100 text-sm mt-1">
+                كل يوم يمر هو فرصة جديدة للتعلم والتقدم. واصل واصل واصل!
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Sidebar (Tasks & Assessments) */}
-        <div className="space-y-8">
-          <div className="bg-white dark:bg-baaqoon-900 p-6 rounded-2xl shadow-sm border border-baaqoon-100 dark:border-baaqoon-800">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-baaqoon-900 dark:text-white flex items-center gap-2">
-                <CheckSquare className="text-baaqoon-accent" />
+        {/* ══════════════════════ Sidebar ══════════════════════ */}
+        <div className="space-y-6">
+          {/* Assignments Card */}
+          <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-md rounded-2xl p-6 border border-violet-100 dark:border-violet-800/40 shadow-sm">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-400 to-purple-500 rounded-lg flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
                 المهام والواجبات
               </h2>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {assignments.map((assignment: any) => {
                 const isCompleted = assignment.submissions?.length > 0;
                 return (
                   <div
                     key={assignment.id}
-                    className="p-4 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 bg-baaqoon-50 dark:bg-baaqoon-950 flex flex-col gap-3"
+                    className={`p-4 rounded-xl border transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                      isCompleted
+                        ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50"
+                        : "bg-gradient-to-l from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800/50"
+                    }`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 mb-3">
                       <div
-                        className={`p-2 rounded-lg ${isCompleted ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"}`}
+                        className={`p-2.5 rounded-xl shadow-sm ${
+                          isCompleted
+                            ? "bg-emerald-500 text-white"
+                            : "bg-gradient-to-br from-amber-400 to-orange-500 text-white"
+                        }`}
                       >
                         {isCompleted ? (
-                          <CheckSquare size={20} />
+                          <CheckSquare size={18} />
                         ) : (
-                          <FileText size={20} />
+                          <FileText size={18} />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-baaqoon-900 dark:text-white text-sm leading-tight mb-1">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight mb-1 line-clamp-2">
                           {assignment.title}
                         </h3>
-                        <div className="flex items-center text-xs text-baaqoon-500 dark:text-baaqoon-400 gap-2">
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} />
-                            موعد التسليم:{" "}
+                        <div className="flex items-center text-[11px] text-gray-500 dark:text-gray-400 gap-1">
+                          <Clock size={10} />
+                          <span>
                             {new Date(
-                              assignment.dueDate || new Date(),
+                              assignment.dueDate || new Date()
                             ).toLocaleDateString("ar-EG")}
                           </span>
                         </div>
                       </div>
+                      {isCompleted && (
+                        <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 shrink-0" />
+                      )}
                     </div>
                     <button
-                      onClick={() => !isCompleted && navigate(`/student/assessments/${assignment.id}/take`)}
-                      className={`w-full py-2 rounded-lg text-xs font-bold transition-colors ${isCompleted ? "bg-baaqoon-100 text-baaqoon-600 cursor-default" : "bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white"}`}
+                      onClick={() =>
+                        !isCompleted &&
+                        navigate(
+                          `/student/assessments/${assignment.id}/take`
+                        )
+                      }
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        isCompleted
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 cursor-default"
+                          : "bg-gradient-to-l from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-md shadow-violet-500/20 hover:shadow-lg"
+                      }`}
                     >
-                      {isCompleted ? "تم التسليم" : "ابدأ الحل"}
+                      {isCompleted ? "✅ أحسنت! تم التسليم" : "🚀 ابدأ الحل الآن"}
                     </button>
                   </div>
                 );
               })}
+
               {assignments.length === 0 && (
-                <div className="text-center p-8 text-baaqoon-500">
-                  لا توجد واجبات مطلوبة منك حالياً! استمتع بوقتك!
+                <div className="text-center py-10 space-y-3">
+                  <div className="w-16 h-16 bg-violet-50 dark:bg-violet-900/20 rounded-full flex items-center justify-center mx-auto">
+                    <Star className="w-7 h-7 text-violet-400" />
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+                    لا توجد واجبات حالياً!
+                  </p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    استغل الوقت وراجع دروسك يا بطل! 🏅
+                  </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Quick Links */}
+          <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-950/40 dark:to-cyan-950/40 rounded-2xl p-5 border border-teal-100 dark:border-teal-800/40">
+            <h3 className="font-bold text-sm text-teal-800 dark:text-teal-300 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              اختصارات سريعة
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate("/student/schedule")}
+                className="bg-white/80 dark:bg-gray-800/50 rounded-xl p-3 text-center hover:shadow-md transition-all hover:-translate-y-0.5 border border-teal-100 dark:border-teal-800/30"
+              >
+                <Calendar className="w-5 h-5 text-teal-500 mx-auto mb-1" />
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                  الجدول
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/student/textbooks")}
+                className="bg-white/80 dark:bg-gray-800/50 rounded-xl p-3 text-center hover:shadow-md transition-all hover:-translate-y-0.5 border border-teal-100 dark:border-teal-800/30"
+              >
+                <BookOpen className="w-5 h-5 text-violet-500 mx-auto mb-1" />
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                  الكتب
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/student/assessments")}
+                className="bg-white/80 dark:bg-gray-800/50 rounded-xl p-3 text-center hover:shadow-md transition-all hover:-translate-y-0.5 border border-teal-100 dark:border-teal-800/30"
+              >
+                <FileText className="w-5 h-5 text-rose-500 mx-auto mb-1" />
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                  الاختبارات
+                </span>
+              </button>
+              <button
+                onClick={() => navigate("/student/chat")}
+                className="bg-white/80 dark:bg-gray-800/50 rounded-xl p-3 text-center hover:shadow-md transition-all hover:-translate-y-0.5 border border-teal-100 dark:border-teal-800/30"
+              >
+                <Heart className="w-5 h-5 text-pink-500 mx-auto mb-1" />
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                  المحادثة
+                </span>
+              </button>
             </div>
           </div>
         </div>
