@@ -47,7 +47,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
     // Teachers are PENDING by default (require admin approval). Students are ACTIVE.
-    const accountStatus = data.primaryRole === "teacher" ? "pending" : "active";
+    const accountStatus = "pending";
 
     const newUser = await this.prisma.user.create({
       data: {
@@ -69,7 +69,7 @@ export class AuthService {
       },
     });
 
-    return this.login(newUser);
+    return { message: 'تم التسجيل بنجاح. حسابك الآن قيد المراجعة من قبل الإدارة.' };
   }
 
   async login(userOrData: any) {
@@ -97,7 +97,10 @@ export class AuthService {
       user = userOrData;
     }
 
-    if (user.status !== "active" && user.status !== "pending") {
+    if (user.status === "pending") {
+      throw new UnauthorizedException("حسابك قيد المراجعة من قبل الإدارة، يرجى الانتظار حتى يتم تفعيله.");
+    }
+    if (user.status !== "active") {
       throw new UnauthorizedException("هذا الحساب غير مفعل أو تم إيقافه");
     }
 

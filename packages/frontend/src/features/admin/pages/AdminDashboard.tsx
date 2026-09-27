@@ -4,11 +4,12 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
+import HrManagementAdminView from '../components/HrManagementAdminView';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts' | 'requests'>('cohorts');
+  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts' | 'requests' | 'hr'>('cohorts');
 
   const { data: adminStats, isLoading } = useQuery({
     queryKey: ['adminStats'],
@@ -112,6 +113,12 @@ export default function AdminDashboard() {
             التفويج والإسناد
           </button>
           <button 
+            onClick={() => setActiveTab('hr')}
+            className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'hr' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
+          >
+            إدارة الموارد البشرية
+          </button>
+          <button 
             onClick={() => setActiveTab('requests')}
             className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'requests' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
           >
@@ -127,6 +134,11 @@ export default function AdminDashboard() {
 
         <div className="p-8 min-h-[400px]">
           
+          {/* Tab: HR */}
+          {activeTab === 'hr' && (
+            <HrManagementAdminView />
+          )}
+
           {/* Tab: Requests */}
           {activeTab === 'requests' && (
             <CohortRequestsAdminView />
