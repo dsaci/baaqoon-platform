@@ -19,6 +19,8 @@ import {
   Flame,
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
+import ComingSoonSection from '../../../components/ui/ComingSoonSection';
+import { DownloadCloud, Trophy, LifeBuoy } from 'lucide-react';
 
 const motivationalQuotes = [
   "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
@@ -432,6 +434,32 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+
+      {/* Strategic Features (Coming Soon) */}
+      <ComingSoonSection 
+        features={[
+          {
+            id: 'offline',
+            title: 'العمل بدون إنترنت (Offline Sync)',
+            description: 'تحميل المكتبة والامتحانات لحلها والإنترنت مقطوع، وإرسال النتيجة آلياً عند عودة الاتصال.',
+            icon: DownloadCloud
+          },
+          {
+            id: 'trophies',
+            title: 'سجل إنجازاتي (My Trophies)',
+            description: 'لوحة تظهر أوسمتك، نقاطك، وترتيبك بين زملائك في الفوج لرفع حماسك.',
+            icon: Trophy
+          },
+          {
+            id: 'help',
+            title: 'طلب مساعدة سريع (Ask for Help)',
+            description: 'إرسال تنبيه سريع للأستاذ أثناء المذاكرة بضغطة زر عند مواجهة صعوبة في فهم الدرس.',
+            icon: LifeBuoy
+          }
+        ]} 
+      />
+
     </div>
   );
 }

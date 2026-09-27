@@ -4,6 +4,8 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SupervisorHrView from '../components/SupervisorHrView';
+import ComingSoonSection from '../../../components/ui/ComingSoonSection';
+import { Eye, Mic, Star } from 'lucide-react';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
@@ -308,6 +310,31 @@ export default function SupervisorDashboard() {
       
       {activeTab === 'teachers' && <SupervisorHrView role="teacher" />}
       {activeTab === 'students' && <SupervisorHrView role="student" />}
+
+      {/* Strategic Features (Coming Soon) */}
+      <ComingSoonSection 
+        features={[
+          {
+            id: 'class_visit',
+            title: 'زيارة صفية (Class Visit)',
+            description: 'الانضمام إلى أي بث مباشر شغال حالياً بصلاحيات "مستمع صامت" لتقييم أداء الأستاذ دون إزعاج الطلاب.',
+            icon: Eye
+          },
+          {
+            id: 'broadcast',
+            title: 'تعميم تربوي (Broadcast)',
+            description: 'إرسال رسالة جماعية في المحادثات لجميع أساتذة مادة تخصصك فقط.',
+            icon: Mic
+          },
+          {
+            id: 'teacher_eval',
+            title: 'تقييم الأستاذ (Teacher Evaluation)',
+            description: 'استمارة تتيح لك وضع تقييم لكل أستاذ بناءً على إنجازه وتفاعله مع المنهاج.',
+            icon: Star
+          }
+        ]} 
+      />
+
     </div>
   );
 }

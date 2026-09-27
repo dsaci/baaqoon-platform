@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
 import HrManagementAdminView from '../components/HrManagementAdminView';
+import ComingSoonSection from '../../../components/ui/ComingSoonSection';
+import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
