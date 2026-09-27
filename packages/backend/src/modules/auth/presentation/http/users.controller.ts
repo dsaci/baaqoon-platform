@@ -7,6 +7,32 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Patch('me/profile')
+  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string }) {
+    const userId = req.user.id || req.user.userId;
+    const updateData: any = {};
+    if (body.firstName) updateData.firstName = body.firstName;
+    if (body.lastName) updateData.lastName = body.lastName;
+    if (body.email) updateData.email = body.email;
+    if (body.phone !== undefined) updateData.phone = body.phone || null;
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        primaryRole: true,
+        status: true,
+        avatarUrl: true,
+      }
+    });
+    return updated;
+  }
+
   @Get('admin/list')
   async getAllUsers(@Req() req: any) {
     if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {

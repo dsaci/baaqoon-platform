@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Save, Camera, User, Phone, Mail } from 'lucide-react';
+import { X, Save, Camera, User, Phone, Mail, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { api } from '../../lib/axios';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -13,22 +14,48 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
-    phone: '',
-    bio: '',
+    phone: (user as any)?.phone || '',
   });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setSaved(false);
+    setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user) {
-      initialize({ ...user, firstName: formData.firstName, lastName: formData.lastName });
+    setSaving(true);
+    setError('');
+
+    try {
+      const res = await api.patch('/users/me/profile', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+      });
+
+      // Update local store with real data from server
+      if (user) {
+        initialize({ ...user, ...res.data });
+      }
+
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        onClose();
+      }, 1200);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'حدث خطأ أثناء حفظ البيانات. حاول مرة أخرى.');
+    } finally {
+      setSaving(false);
     }
-    onClose();
   };
 
   return (
@@ -37,7 +64,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-baaqoon-100 dark:border-baaqoon-800 bg-baaqoon-50 dark:bg-baaqoon-950/50">
-          <h2 className="text-xl font-bold text-baaqoon-900 dark:text-white">الملف الشخصي والبيانات</h2>
+          <h2 className="text-xl font-bold text-baaqoon-900 dark:text-white">تعديل بيانات الحساب</h2>
           <button onClick={onClose} className="text-baaqoon-500 dark:text-baaqoon-400 hover:text-red-500 transition-colors">
             <X className="w-6 h-6" />
           </button>
@@ -57,7 +84,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </button>
             </div>
             <div>
-              <h3 className="font-bold text-baaqoon-900 dark:text-white text-lg">الصورة الرمزية</h3>
+              <h3 className="font-bold text-baaqoon-900 dark:text-white text-lg">الصورة الشخصية</h3>
               <p className="text-sm text-baaqoon-500 dark:text-baaqoon-400">PNG أو JPG بحجم لا يتجاوز 2MB</p>
             </div>
           </div>
@@ -103,13 +130,34 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             />
           </div>
 
+          {/* Error */}
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm font-bold border border-red-200 dark:border-red-800">
+              {error}
+            </div>
+          )}
+
+          {/* Success */}
+          {saved && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-sm font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" /> تم حفظ التعديلات بنجاح في قاعدة البيانات ✅
+            </div>
+          )}
+
           <div className="pt-4 border-t border-baaqoon-100 dark:border-baaqoon-800 flex justify-end gap-3">
             <button type="button" onClick={onClose} className="px-5 py-2.5 text-baaqoon-600 dark:text-baaqoon-400 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 rounded-lg transition-colors font-medium">
               إلغاء
             </button>
-            <button type="submit" className="flex items-center gap-2 px-6 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white rounded-lg transition-colors shadow-md font-bold">
-              <Save className="w-4 h-4" />
-              حفظ البيانات
+            <button 
+              type="submit" 
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white rounded-lg transition-colors shadow-md font-bold disabled:opacity-50"
+            >
+              {saving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> جاري الحفظ...</>
+              ) : (
+                <><Save className="w-4 h-4" /> حفظ التعديلات</>
+              )}
             </button>
           </div>
 
