@@ -213,17 +213,17 @@ export default function DashboardLayout() {
               </Link>
             );
           })}
-        </nav>
 
-        <div className="p-4 border-t border-baaqoon-100 dark:border-baaqoon-800">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            {t("common.logout")}
-          </button>
-        </div>
+          <div className="pt-4 mt-4 border-t border-baaqoon-100 dark:border-baaqoon-800">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              {t("common.logout")}
+            </button>
+          </div>
+        </nav>
       </aside>
 
       {/* Main Content */}
