@@ -42,12 +42,16 @@ export default function TeacherDashboard() {
     return new Date(dateString).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Mock data representing the strictly engineered backend
+  const totalCohorts = myCohorts?.length || 0;
+  const todaySessionsCount = sessions.filter((s:any) => new Date(s.scheduledStartTime).toDateString() === new Date().toDateString()).length;
+  const completedSessionsCount = sessions.filter((s:any) => s.status === 'completed').length;
+  const totalStudents = myCohorts?.reduce((acc: number, c: any) => acc + (c.enrollments?.length || 0), 0) || 0;
+
   const stats = [
-    { label: 'الأفواج النشطة', value: '3', icon: Users, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
-    { label: 'حصص اليوم', value: sessions.filter((s:any) => new Date(s.scheduledStartTime).toDateString() === new Date().toDateString()).length.toString(), icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
-    { label: 'واجبات بانتظار التقييم', value: '14', icon: Clock, color: 'text-baaqoon-red', bg: 'bg-red-50' },
-    { label: 'نسبة الحضور الكلية', value: '92%', icon: CheckCircle, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: 'الأفواج النشطة', value: totalCohorts.toString(), icon: Users, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: 'حصص اليوم', value: todaySessionsCount.toString(), icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: 'الحصص المنجزة', value: completedSessionsCount.toString(), icon: Clock, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/50' },
+    { label: 'إجمالي الطلاب', value: totalStudents.toString(), icon: CheckCircle, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
   ];
 
   return (
