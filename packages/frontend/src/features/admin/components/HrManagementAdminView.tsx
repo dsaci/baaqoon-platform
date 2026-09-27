@@ -21,6 +21,8 @@ export default function HrManagementAdminView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_pending_users'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
     }
   });
 

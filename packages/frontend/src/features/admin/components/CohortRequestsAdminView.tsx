@@ -56,7 +56,7 @@ export default function CohortRequestsAdminView() {
                 <h3 className="font-black text-lg text-slate-900 dark:text-white">{req.suggestedName}</h3>
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                مقدم الطلب: <span className="font-bold">{req.teacher?.firstName} {req.teacher?.lastName}</span> | المادة: <span className="font-bold">{req.subject?.name}</span>
+                مقدم الطلب: <span className="font-bold">{req.teacher?.firstName} {req.teacher?.lastName}</span> | المادة: <span className="font-bold">{req.subject?.nameAr || req.subject?.name}</span>
               </p>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">العدد المتوقع: {req.expectedStudents} طلاب</p>
               {req.notes && (

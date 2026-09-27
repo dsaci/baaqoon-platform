@@ -26,16 +26,10 @@ export class GroupsController {
     const students = await this.prisma.user.count({ where: { primaryRole: 'student' } });
     const cohorts = await this.prisma.cohort.count();
     const activeSessions = await this.prisma.session.count({ where: { status: 'scheduled' } });
-
-    const recentTeachers = await this.prisma.user.findMany({
-      where: { primaryRole: 'teacher' },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
+    const pendingUsers = await this.prisma.user.count({ where: { status: 'pending' } });
 
     const recentCohorts = await this.prisma.cohort.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 5,
       include: {
         instructors: true,
         enrollments: true
@@ -50,8 +44,7 @@ export class GroupsController {
     }
 
     return {
-      stats: { teachers, students, cohorts, activeSessions },
-      recentTeachers,
+      stats: { teachers, students, cohorts, activeSessions, pendingUsers },
       recentCohorts
     };
   }
