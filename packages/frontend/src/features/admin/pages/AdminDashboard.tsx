@@ -3,11 +3,12 @@ import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X } from 'lucide-
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts'>('cohorts');
+  const [activeTab, setActiveTab] = useState<'pending_teachers' | 'cohorts' | 'requests'>('cohorts');
 
   const { data: adminStats, isLoading } = useQuery({
     queryKey: ['adminStats'],
@@ -111,6 +112,12 @@ export default function AdminDashboard() {
             التفويج والإسناد
           </button>
           <button 
+            onClick={() => setActiveTab('requests')}
+            className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'requests' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
+          >
+            طلبات فتح الأفواج
+          </button>
+          <button 
             onClick={() => setActiveTab('pending_teachers')}
             className={`px-8 py-5 text-sm font-black transition-all ${activeTab === 'pending_teachers' ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
           >
@@ -120,6 +127,11 @@ export default function AdminDashboard() {
 
         <div className="p-8 min-h-[400px]">
           
+          {/* Tab: Requests */}
+          {activeTab === 'requests' && (
+            <CohortRequestsAdminView />
+          )}
+
           {/* Tab: Pending Teachers */}
           {activeTab === 'pending_teachers' && (
             <div className="space-y-4">

@@ -34,27 +34,27 @@ enum UserStatus {
 }
 
 model User {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email          String?         @unique @db.VarChar(255)
-  phone          String?         @unique @db.VarChar(32)
-  passwordHash   String          @db.VarChar(255)
-  firstName      String          @db.VarChar(100)
-  lastName       String          @db.VarChar(100)
-  avatarUrl      String?         @db.VarChar(1024)
-  primaryRole    UserRole
-  status         UserStatus      @default(pending)
-  academicBranch AcademicBranch?
-  curriculumType CurriculumType?
-  supervisedSubjectId String? @db.Uuid
-  supervisedSubject   Subject? @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id], onDelete: SetNull)
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String?         @unique @db.VarChar(255)
+  phone               String?         @unique @db.VarChar(32)
+  passwordHash        String          @db.VarChar(255)
+  firstName           String          @db.VarChar(100)
+  lastName            String          @db.VarChar(100)
+  avatarUrl           String?         @db.VarChar(1024)
+  primaryRole         UserRole
+  status              UserStatus      @default(pending)
+  academicBranch      AcademicBranch?
+  curriculumType      CurriculumType?
+  supervisedSubjectId String?         @db.Uuid
+  supervisedSubject   Subject?        @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id], onDelete: SetNull)
 
-  emailVerified  Boolean         @default(false)
-  timezone       String          @default("Asia/Gaza") @db.VarChar(64)
-  locale         String          @default("ar") @db.VarChar(10)
-  lastLoginAt    DateTime?       @db.Timestamptz()
-  createdAt      DateTime        @default(now()) @db.Timestamptz()
-  updatedAt      DateTime        @updatedAt @db.Timestamptz()
-  deletedAt      DateTime?       @db.Timestamptz()
+  emailVerified Boolean   @default(false)
+  timezone      String    @default("Asia/Gaza") @db.VarChar(64)
+  locale        String    @default("ar") @db.VarChar(10)
+  lastLoginAt   DateTime? @db.Timestamptz()
+  createdAt     DateTime  @default(now()) @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @db.Timestamptz()
+  deletedAt     DateTime? @db.Timestamptz()
 
   roles              UserRoleAssignment[]
   taughtSessions     Session[]
@@ -69,6 +69,7 @@ model User {
   resolvedReports    Report[]                  @relation("ReportResolver")
   notifications      Notification[]
   createdExamCamps   ExamPrepCamp[]
+  CohortRequest      CohortRequest[]
 
   @@map("users")
   @@schema("auth")
@@ -145,8 +146,9 @@ model Subject {
   createdAt          DateTime         @default(now()) @db.Timestamptz()
   updatedAt          DateTime         @updatedAt @db.Timestamptz()
 
-  courses Course[]
-  supervisors User[] @relation("SubjectSupervisors")
+  courses       Course[]
+  supervisors   User[]          @relation("SubjectSupervisors")
+  CohortRequest CohortRequest[]
 
   @@map("subjects")
   @@schema("curriculum")
@@ -237,18 +239,18 @@ model CurriculumUnit {
 }
 
 model CurriculumLesson {
-  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  unitId                   String   @db.Uuid
-  orderIndex               Int
-  title                    String   @db.VarChar(200)
-  
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  unitId     String @db.Uuid
+  orderIndex Int
+  title      String @db.VarChar(200)
+
   // Pedagogical Data
-  lessonType               String?  @db.VarChar(100)
-  domain                   String?  @db.VarChar(150)
-  sourceText               String?  @db.VarChar(255)
-  learningObjectives       String[]
-  learningSequence         Json?
-  
+  lessonType         String?  @db.VarChar(100)
+  domain             String?  @db.VarChar(150)
+  sourceText         String?  @db.VarChar(255)
+  learningObjectives String[]
+  learningSequence   Json?
+
   estimatedDurationMinutes Int?     @db.SmallInt
   teacherGuide             String?
   pdfStartPage             Int?     @db.SmallInt
@@ -481,6 +483,33 @@ model AttendanceEvent {
 
   @@map("attendance_events")
   @@schema("attendance")
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("groups")
+}
+
+model CohortRequest {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId        String        @db.Uuid
+  subjectId        String        @db.Uuid
+  suggestedName    String        @db.VarChar(100)
+  expectedStudents Int           @db.SmallInt
+  notes            String?       @db.Text
+  status           RequestStatus @default(pending)
+  rejectionReason  String?       @db.Text
+  createdAt        DateTime      @default(now()) @db.Timestamptz()
+  updatedAt        DateTime      @updatedAt @db.Timestamptz()
+
+  teacher User    @relation(fields: [teacherId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@map("cohort_requests")
+  @@schema("groups")
 }
 
 // ============================================================================
@@ -741,6 +770,7 @@ model ExamPrepCamp {
   @@map("exam_prep_camps")
   @@schema("curriculum")
 }
+
 enum QuestionType {
   multiple_choice
   true_false
@@ -751,19 +781,19 @@ enum QuestionType {
 }
 
 model QuestionTemplate {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  curriculumLessonId String           @db.Uuid
-  type               QuestionType     @default(multiple_choice)
-  content            String           @db.Text
-  options            Json?            // For multiple choice
-  correctAnswer      String?          @db.Text
-  explanation        String?          @db.Text
-  difficulty         Int              @default(1) @db.SmallInt
-  isActive           Boolean          @default(true)
-  createdAt          DateTime         @default(now()) @db.Timestamptz()
-  updatedAt          DateTime         @updatedAt @db.Timestamptz()
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  curriculumLessonId String       @db.Uuid
+  type               QuestionType @default(multiple_choice)
+  content            String       @db.Text
+  options            Json? // For multiple choice
+  correctAnswer      String?      @db.Text
+  explanation        String?      @db.Text
+  difficulty         Int          @default(1) @db.SmallInt
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now()) @db.Timestamptz()
+  updatedAt          DateTime     @updatedAt @db.Timestamptz()
 
-  lesson CurriculumLesson @relation(fields: [curriculumLessonId], references: [id], onDelete: Cascade)
+  lesson              CurriculumLesson     @relation(fields: [curriculumLessonId], references: [id], onDelete: Cascade)
   assessmentQuestions AssessmentQuestion[]
 
   @@map("question_templates")
@@ -771,11 +801,11 @@ model QuestionTemplate {
 }
 
 model AssessmentQuestion {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assessmentId       String           @db.Uuid
-  questionTemplateId String           @db.Uuid
+  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId       String  @db.Uuid
+  questionTemplateId String  @db.Uuid
   orderIndex         Int
-  scoreWeight        Decimal          @default(1.0) @db.Decimal(5,2)
+  scoreWeight        Decimal @default(1.0) @db.Decimal(5, 2)
 
   assessment       Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   questionTemplate QuestionTemplate @relation(fields: [questionTemplateId], references: [id], onDelete: Restrict)

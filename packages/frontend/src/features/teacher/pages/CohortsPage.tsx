@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Users, Book, Settings, MoreVertical, Plus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import CohortRequestModal from '../components/CohortRequestModal';
 
 export default function CohortsPage() {
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
   const { data: myCohorts, isLoading: loadingCohorts } = useQuery({
     queryKey: ['myCohorts'],
     queryFn: async () => {
@@ -44,7 +47,10 @@ export default function CohortsPage() {
           <p className="text-baaqoon-500 dark:text-baaqoon-400 mt-1">تابع أفواجك، أدر الطلاب، وقم بتنظيم محتوى المادة.</p>
         </div>
         
-        <button className="px-4 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+        <button 
+          onClick={() => setIsRequestModalOpen(true)}
+          className="px-4 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+        >
           <Plus className="w-5 h-5" />
           طلب فتح فوج جديد
         </button>
@@ -136,6 +142,11 @@ export default function CohortsPage() {
           )}
         </div>
       )}
+
+      <CohortRequestModal 
+        isOpen={isRequestModalOpen} 
+        onClose={() => setIsRequestModalOpen(false)} 
+      />
     </div>
   );
 }

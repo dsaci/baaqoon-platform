@@ -190,5 +190,50 @@ export class GroupsController {
       cohortName: cohort.name,
       units: progress 
     };
+  @Post('requests')
+  async createCohortRequest(@Req() req: any, @Body() body: any) {
+    const userId = req.user.id || req.user.userId;
+    return this.prisma.cohortRequest.create({
+      data: {
+        teacherId: userId,
+        subjectId: body.subjectId,
+        suggestedName: body.suggestedName,
+        expectedStudents: parseInt(body.expectedStudents, 10),
+        notes: body.notes,
+        status: 'pending'
+      }
+    });
+  }
+
+  @Get('requests')
+  async getCohortRequests(@Req() req: any) {
+    const role = req.user.primaryRole;
+    if (role === 'admin' || role === 'super_admin') {
+      return this.prisma.cohortRequest.findMany({
+        include: {
+          teacher: { select: { firstName: true, lastName: true } },
+          subject: { select: { name: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      const userId = req.user.id || req.user.userId;
+      return this.prisma.cohortRequest.findMany({
+        where: { teacherId: userId },
+        include: { subject: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+  }
+
+  @Patch('requests/:id/status')
+  async updateCohortRequestStatus(@Param('id') id: string, @Body() body: { status: string, rejectionReason?: string }) {
+    return this.prisma.cohortRequest.update({
+      where: { id },
+      data: {
+        status: body.status as any,
+        rejectionReason: body.rejectionReason
+      }
+    });
   }
 }
