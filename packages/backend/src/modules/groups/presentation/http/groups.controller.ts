@@ -56,6 +56,51 @@ export class GroupsController {
     };
   }
 
+  @Get('supervisor/hr')
+  async getSupervisorHR(@Req() req: any) {
+    const userId = req.user.id || req.user.userId;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const supervisedSubjectId = user?.supervisedSubjectId;
+
+    if (!supervisedSubjectId) {
+      return { teachers: [], students: [] };
+    }
+
+    const teachers = await this.prisma.user.findMany({
+      where: {
+        primaryRole: 'teacher',
+        cohortInstructors: {
+          some: {
+            cohort: {
+              course: {
+                subjectId: supervisedSubjectId
+              }
+            }
+          }
+        }
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true }
+    });
+
+    const students = await this.prisma.user.findMany({
+      where: {
+        primaryRole: 'student',
+        cohortEnrollments: {
+          some: {
+            cohort: {
+              course: {
+                subjectId: supervisedSubjectId
+              }
+            }
+          }
+        }
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true }
+    });
+
+    return { teachers, students };
+  }
+
   @Get('supervisor/stats')
   async getSupervisorStats(@Req() req: any) {
     const totalCohorts = await this.prisma.cohort.count();

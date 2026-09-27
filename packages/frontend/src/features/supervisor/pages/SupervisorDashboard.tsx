@@ -3,11 +3,13 @@ import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, Mess
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import SupervisorHrView from '../components/SupervisorHrView';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students'>('stats');
 
   const { data: statsData, isLoading } = useQuery({
     queryKey: ['supervisorStats'],
@@ -43,7 +45,30 @@ export default function SupervisorDashboard() {
         </p>
       </header>
 
-      {/* Stats Grid */}
+      <div className="flex border-b border-baaqoon-200 dark:border-baaqoon-800 mb-6 gap-4">
+        <button 
+          onClick={() => setActiveTab('stats')}
+          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'stats' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+        >
+          الإحصائيات والمتابعة
+        </button>
+        <button 
+          onClick={() => setActiveTab('teachers')}
+          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'teachers' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+        >
+          أساتذة المادة
+        </button>
+        <button 
+          onClick={() => setActiveTab('students')}
+          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'students' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+        >
+          طلبة المادة
+        </button>
+      </div>
+
+      {activeTab === 'stats' && (
+        <>
+          {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="glass-panel p-6 flex items-start gap-4">
           <div className="p-3 rounded-lg bg-indigo-50 text-indigo-500">
@@ -278,6 +303,11 @@ export default function SupervisorDashboard() {
           </section>
         </div>
       </div>
+      </>
+      )}
+      
+      {activeTab === 'teachers' && <SupervisorHrView role="teacher" />}
+      {activeTab === 'students' && <SupervisorHrView role="student" />}
     </div>
   );
 }
