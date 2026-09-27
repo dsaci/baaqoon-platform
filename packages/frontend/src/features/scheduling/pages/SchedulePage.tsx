@@ -231,12 +231,16 @@ export default function SchedulePage() {
 
               <div className="text-right w-full max-w-sm bg-white dark:bg-baaqoon-900 p-6 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800">
                 <h3 className="font-bold text-baaqoon-900 dark:text-white mb-3">
-                  المناهج المتوفرة حالياً:
+                  المناهج المتوفرة لديك:
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-baaqoon-700 dark:text-baaqoon-300 text-sm">
-                  <li>المطالعة والقواعد والتعبير</li>
-                  <li>الأدب والبلاغة</li>
-                  <li>الدراسات التاريخية</li>
+                  {cohorts?.length > 0 ? (
+                    Array.from(new Set(cohorts.map((c: any) => c.course?.subject?.name || c.subject || 'مادة متخصصة'))).map((subjName: any, idx) => (
+                      <li key={idx}>{subjName}</li>
+                    ))
+                  ) : (
+                    <li className="text-slate-400">لا توجد مناهج مسندة إليك حالياً.</li>
+                  )}
                 </ul>
               </div>
             </div>
