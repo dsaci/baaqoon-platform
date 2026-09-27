@@ -2,28 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Joyride, STATUS } from 'react-joyride';
 import { useAuthStore } from '../../store/useAuthStore';
 import { HelpCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 const JoyrideComponent = Joyride as any;
 
 export default function AppTour() {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [run, setRun] = useState(false);
   
-  // Check if tour was already completed
+  const currentPath = location.pathname;
+
+  // Check if tour was already completed for THIS specific page
   useEffect(() => {
     if (user) {
-      const tourCompleted = localStorage.getItem(`tour_completed_${user.id}`);
+      // Create a unique key for user + path. For dynamic routes, we can just use the base path
+      const pathKey = currentPath.split('/')[2] || 'dashboard'; 
+      const tourKey = `tour_completed_${user.id}_${pathKey}`;
+      
+      const tourCompleted = localStorage.getItem(tourKey);
+      
       if (!tourCompleted) {
         // slight delay to ensure UI is rendered
-        const timer = setTimeout(() => setRun(true), 1000);
+        const timer = setTimeout(() => setRun(true), 800);
         return () => clearTimeout(timer);
+      } else {
+        setRun(false); // Stop if it was running on previous page
       }
     }
-  }, [user]);
+  }, [user, currentPath]);
 
   if (!user) return null;
 
   let steps: any[] = [];
+  const pathKey = currentPath.split('/')[2] || 'dashboard';
 
   const commonStyles = {
     options: {
@@ -56,107 +68,138 @@ export default function AppTour() {
     }
   };
 
-  if (user.primaryRole === 'teacher') {
+  // ----------------------------------------------------
+  // ROUTE-SPECIFIC STEPS
+  // ----------------------------------------------------
+  
+  if (pathKey === 'dashboard') {
+    if (user.primaryRole === 'teacher') {
+      steps = [
+        {
+          target: 'body',
+          placement: 'center',
+          content: 'أهلاً بك في منصة باقون! هنا لوحة التحكم الرئيسية الخاصة بك حيث تتابع إنجازاتك اليومية.',
+          title: 'مرحباً بك أستاذنا القدير'
+        },
+        {
+          target: 'a[href="/teacher/dashboard"]',
+          content: 'هذا هو زر اللوحة الرئيسية، يعيدك دائماً إلى هنا.',
+          title: 'اللوحة الرئيسية',
+        },
+        {
+          target: 'a[href="/teacher/cohorts"]',
+          content: 'من هنا يمكنك إدارة الأفواج وإضافة الطلاب ومتابعة تقدمهم.',
+          title: 'إدارة الأفواج',
+        },
+        {
+          target: 'a[href="/teacher/schedule"]',
+          content: 'بناء وتخطيط الحصص المباشرة يتم من خلال هذه النافذة.',
+          title: 'بناء الحصص الذكية',
+        }
+      ];
+    } else if (user.primaryRole === 'student') {
+      steps = [
+        {
+          target: 'body',
+          placement: 'center',
+          content: 'مرحباً بك يا بطل! هذه شاشتك الرئيسية لمتابعة دروسك وواجباتك.',
+          title: 'أهلاً بك في باقون'
+        }
+      ];
+    } else if (user.primaryRole === 'admin' || user.primaryRole === 'super_admin') {
+      steps = [
+        {
+          target: 'body',
+          placement: 'center',
+          content: 'مرحباً بك في لوحة تحكم الإدارة العليا. من هنا تسيطر على كل المنصة.',
+          title: 'إدارة باقون'
+        }
+      ];
+    } else if (user.primaryRole === 'supervisor' || user.primaryRole === 'subject_supervisor') {
+      steps = [
+        {
+          target: 'body',
+          placement: 'center',
+          content: 'مرحباً بك في منصة باقون. بصفتك مشرفاً، ستقوم هنا بمتابعة الجودة.',
+          title: 'لوحة المشرف'
+        }
+      ];
+    }
+  } 
+  else if (pathKey === 'cohorts') {
     steps = [
       {
         target: 'body',
         placement: 'center',
-        content: 'أهلاً بك في منصة باقون! دعنا نأخذك في جولة سريعة للتعرف على أدواتك كأستاذ.',
-        title: 'مرحباً بك أستاذنا الفاضل 👨‍🏫'
+        content: 'في هذه الصفحة تظهر جميع الأفواج الدراسية المسندة إليك.',
+        title: 'إدارة الأفواج'
       },
       {
-        target: 'a[href="/teacher/dashboard"]',
-        content: 'هذه هي لوحة القيادة الرئيسية حيث تجد ملخصاً سريعاً لحصصك وتقدمك في المنهاج.',
-        title: 'لوحة القيادة',
-      },
-      {
-        target: 'a[href="/teacher/cohorts"]',
-        content: 'من هنا يمكنك متابعة أفواجك الطلابية المخصصة لك ومعرفة طلابك.',
-        title: 'إدارة الأفواج',
-      },
-      {
-        target: 'a[href="/teacher/schedule"]',
-        content: 'هنا يمكنك بناء حصصك المباشرة وبدء البث المباشر مع الطلاب بنقرة واحدة.',
-        title: 'جدول الحصص والبث المباشر',
-      },
-      {
-        target: 'a[href="/teacher/assessments"]',
-        content: 'قم بتوليد امتحانات ذكية وتصحيحها وإدارتها من هذا القسم.',
-        title: 'التقييمات الذكية',
-      },
-      {
-        target: 'a[href="/teacher/textbooks"]',
-        content: 'تصفح الكتب المدرسية والمناهج المعتمدة بصيغة رقمية.',
-        title: 'المكتبة الرقمية',
-      },
-      {
-        target: 'a[href="/teacher/chat"]',
-        content: 'تواصل مع طلابك وزملائك بسهولة عبر نظام المحادثات الفورية.',
-        title: 'المحادثات',
+        target: 'button:has(svg.lucide-plus)',
+        content: 'يمكنك من هنا تقديم طلب للإدارة العليا لفتح فوج جديد إذا دعت الحاجة.',
+        title: 'طلب فتح فوج'
       }
     ];
-  } else if (user.primaryRole === 'student') {
+  }
+  else if (pathKey === 'schedule') {
     steps = [
       {
         target: 'body',
         placement: 'center',
-        content: 'أهلاً بك يا بطل في منصة باقون! جولة سريعة لمعرفة أدواتك.',
-        title: 'مرحباً بك 🎓'
+        content: 'هذه الصفحة مخصصة لبناء الحصص المباشرة وجدولتها.',
+        title: 'بناء الحصص'
       },
       {
-        target: 'a[href="/student/dashboard"]',
-        content: 'لوحتك الرئيسية لمعرفة حصصك القادمة ومتابعة تقدمك.',
-        title: 'الرئيسية',
-      },
-      {
-        target: 'a[href="/student/schedule"]',
-        content: 'من هنا يمكنك الدخول إلى الحصص المباشرة وقت انعقادها.',
-        title: 'الحصص المباشرة',
-      },
-      {
-        target: 'a[href="/student/assessments"]',
-        content: 'تجد هنا الامتحانات والواجبات المطلوبة منك.',
-        title: 'الامتحانات',
+        target: 'button:has(svg.lucide-calendar)',
+        content: 'اضغط هنا لفتح المولد الذكي الذي يقرأ المنهاج ويساعدك في جدولة الدرس.',
+        title: 'المولد الذكي'
       }
     ];
-  } else if (user.primaryRole === 'admin' || user.primaryRole === 'super_admin') {
+  }
+  else if (pathKey === 'chat') {
     steps = [
       {
         target: 'body',
         placement: 'center',
-        content: 'أهلاً بك في لوحة الإدارة العامة لمنصة باقون.',
-        title: 'الإدارة 👑'
+        content: 'هنا يمكنك التواصل بشكل مباشر مع طلابك وأفواجك.',
+        title: 'نظام المحادثات'
       },
       {
-        target: 'a[href="/admin/dashboard"]',
-        content: 'من هنا تقوم بـ "التفويج" (إنشاء الأفواج) وإسناد الأساتذة لكل فوج.',
-        title: 'التفويج والإسناد',
-      },
-      {
-        target: 'a[href="/admin/database"]',
-        content: 'لإدارة كافة مستخدمي المنصة (أساتذة، طلاب، مشرفين).',
-        title: 'قاعدة البيانات',
+        target: 'input[placeholder="ابحث في المحادثات..."]',
+        content: 'استخدم شريط البحث للوصول السريع إلى محادثة معينة.',
+        title: 'البحث السريع'
       }
     ];
-  } else if (user.primaryRole === 'supervisor' || user.primaryRole === 'subject_supervisor') {
+  }
+  else if (pathKey === 'timetable') {
     steps = [
       {
         target: 'body',
         placement: 'center',
-        content: 'أهلاً بك مشرفنا التربوي. لنتعرف على أدوات المتابعة.',
-        title: 'الإشراف التربوي 📋'
-      },
-      {
-        target: 'a[href="/supervisor/dashboard"]',
-        content: 'نظرة عامة على أداء الأساتذة والمناهج ضمن تخصصك.',
-        title: 'لوحة المشرف',
-      },
-      {
-        target: 'a[href="/supervisor/teachers"]',
-        content: 'متابعة الأساتذة الذين يدرسون المادة التي تشرف عليها.',
-        title: 'متابعة الأساتذة',
+        content: 'جدولك الأسبوعي يعرض جميع الحصص المباشرة المنظمة حسب الأيام والساعات.',
+        title: 'الجدول الأسبوعي'
       }
     ];
+  }
+  else if (pathKey === 'assessments') {
+    steps = [
+      {
+        target: 'body',
+        placement: 'center',
+        content: 'هنا يمكنك تصميم اختبارات ذكية ومتابعة درجات الطلاب.',
+        title: 'التقييمات والاختبارات'
+      },
+      {
+        target: 'button:has(svg.lucide-plus)',
+        content: 'استخدم هذا الزر لبناء اختبار جديد باستخدام الذكاء الاصطناعي أو بنك الأسئلة.',
+        title: 'توليد اختبار'
+      }
+    ];
+  }
+
+  // If there are no specific steps for this page, don't run the tour
+  if (steps.length === 0) {
+    return null;
   }
 
   const handleJoyrideCallback = (data: any) => {
@@ -165,12 +208,14 @@ export default function AppTour() {
     
     if (finishedStatuses.includes(status)) {
       setRun(false);
-      localStorage.setItem(`tour_completed_${user.id}`, 'true');
+      const tourKey = `tour_completed_${user.id}_${pathKey}`;
+      localStorage.setItem(tourKey, 'true');
     }
   };
 
   const restartTour = () => {
-    localStorage.removeItem(`tour_completed_${user.id}`);
+    const tourKey = `tour_completed_${user.id}_${pathKey}`;
+    localStorage.removeItem(tourKey);
     setRun(true);
   };
 
@@ -185,7 +230,7 @@ export default function AppTour() {
         locale={{
           back: 'السابق',
           close: 'إغلاق',
-          last: 'إنهاء الجولة',
+          last: 'إنهاء الدليل',
           next: 'التالي',
           skip: 'تخطي'
         }}
@@ -196,11 +241,11 @@ export default function AppTour() {
         }}
       />
       
-      {/* Floating help button to restart tour */}
+      {/* Floating help button to restart tour for current page */}
       <button 
         onClick={restartTour}
         className="fixed bottom-6 left-6 z-50 bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 p-3 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all border border-violet-100 dark:border-slate-700 group flex items-center gap-2"
-        title="دليل استخدام المنصة"
+        title="دليل استخدام الصفحة"
       >
         <HelpCircle className="w-6 h-6" />
         <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold text-slate-700 dark:text-slate-300">
