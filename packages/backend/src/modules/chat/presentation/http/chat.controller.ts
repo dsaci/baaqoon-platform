@@ -19,9 +19,6 @@ export class ChatController {
         }
       },
       include: {
-        cohort: {
-          select: { name: true }
-        },
         participants: {
           include: {
             user: {
@@ -37,12 +34,19 @@ export class ChatController {
       orderBy: { updatedAt: 'desc' }
     });
 
+    const cohortIds = conversations.map(c => c.cohortId).filter(id => id !== null) as string[];
+    const cohorts = cohortIds.length > 0 
+      ? await this.prisma.cohort.findMany({ where: { id: { in: cohortIds } }, select: { id: true, name: true } })
+      : [];
+    const cohortMap = new Map(cohorts.map(c => [c.id, c.name]));
+
     return conversations.map(c => {
       // Find other participant name for display if it's private, else use cohort name
       const otherParticipant = c.participants.find(p => p.userId !== userId)?.user;
+      const cohortName = c.cohortId ? cohortMap.get(c.cohortId) : null;
       return {
         id: c.id,
-        name: c.cohort?.name || (otherParticipant ? `${otherParticipant.firstName} ${otherParticipant.lastName}` : 'محادثة'),
+        name: cohortName || (otherParticipant ? `${otherParticipant.firstName} ${otherParticipant.lastName}` : 'محادثة'),
         role: c.type === 'cohort_group' ? 'group' : otherParticipant?.primaryRole,
         lastMessage: c.messages[0]?.content || '',
         lastMessageTime: c.messages[0]?.createdAt || c.updatedAt

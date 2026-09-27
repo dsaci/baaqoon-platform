@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Req, Post, Body, Param, Patch } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 
 @Controller('groups')
@@ -66,35 +66,37 @@ export class GroupsController {
       return { teachers: [], students: [] };
     }
 
+    const courses = await this.prisma.course.findMany({
+      where: { subjectId: supervisedSubjectId },
+      select: { id: true }
+    });
+    const courseIds = courses.map(c => c.id);
+
+    const cohorts = await this.prisma.cohort.findMany({
+      where: { courseId: { in: courseIds } },
+      select: { id: true }
+    });
+    const cohortIds = cohorts.map(c => c.id);
+
+    const instructors = await this.prisma.cohortInstructor.findMany({
+      where: { cohortId: { in: cohortIds } },
+      select: { teacherId: true }
+    });
+    const teacherIds = [...new Set(instructors.map(i => i.teacherId))];
+
+    const enrollments = await this.prisma.cohortEnrollment.findMany({
+      where: { cohortId: { in: cohortIds } },
+      select: { studentId: true }
+    });
+    const studentIds = [...new Set(enrollments.map(e => e.studentId))];
+
     const teachers = await this.prisma.user.findMany({
-      where: {
-        primaryRole: 'teacher',
-        cohortInstructors: {
-          some: {
-            cohort: {
-              course: {
-                subjectId: supervisedSubjectId
-              }
-            }
-          }
-        }
-      },
+      where: { id: { in: teacherIds }, primaryRole: 'teacher' },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
     const students = await this.prisma.user.findMany({
-      where: {
-        primaryRole: 'student',
-        cohortEnrollments: {
-          some: {
-            cohort: {
-              course: {
-                subjectId: supervisedSubjectId
-              }
-            }
-          }
-        }
-      },
+      where: { id: { in: studentIds }, primaryRole: 'student' },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
@@ -127,13 +129,16 @@ export class GroupsController {
     if (role === 'teacher') {
       whereClause = { instructors: { some: { teacherId: userId } } };
     } else if (role === 'supervisor' || role === 'subject_supervisor') {
-      whereClause = {
-        course: {
+      const courses = await this.prisma.course.findMany({
+        where: {
           subject: {
             supervisors: { some: { id: userId } }
           }
-        }
-      };
+        },
+        select: { id: true }
+      });
+      const courseIds = courses.map(c => c.id);
+      whereClause = { courseId: { in: courseIds } };
     } else if (role === 'super_admin' || role === 'admin') {
       whereClause = {}; // Admin gets all cohorts
     } else if (role === 'student') {
@@ -188,23 +193,27 @@ export class GroupsController {
     const cohort = await this.prisma.cohort.findUnique({
       where: { id },
       include: {
-        curriculumVersion: {
-          include: {
-            units: {
-              include: {
-                lessons: { orderBy: { orderIndex: 'asc' } }
-              },
-              orderBy: { orderIndex: 'asc' }
-            }
-          }
-        },
         sessions: {
           where: { lessonId: { not: null } }
         }
       }
     });
 
-    if (!cohort || !cohort.curriculumVersion) return { units: [] };
+    if (!cohort) return { units: [] };
+
+    const curriculumVersion = await this.prisma.curriculumVersion.findUnique({
+      where: { id: cohort.curriculumVersionId },
+      include: {
+        units: {
+          include: {
+            lessons: { orderBy: { orderIndex: 'asc' } }
+          },
+          orderBy: { orderIndex: 'asc' }
+        }
+      }
+    });
+
+    if (!curriculumVersion) return { units: [] };
 
     // Calculate progress
     const completedLessonIds = new Set(
@@ -213,7 +222,7 @@ export class GroupsController {
         .map(s => s.lessonId)
     );
 
-    const progress = cohort.curriculumVersion.units.map(unit => {
+    const progress = curriculumVersion.units.map(unit => {
       const lessons = unit.lessons.map(lesson => ({
         id: lesson.id,
         title: lesson.title,
@@ -235,6 +244,7 @@ export class GroupsController {
       cohortName: cohort.name,
       units: progress 
     };
+  }
   @Post('requests')
   async createCohortRequest(@Req() req: any, @Body() body: any) {
     const userId = req.user.id || req.user.userId;
@@ -257,7 +267,7 @@ export class GroupsController {
       return this.prisma.cohortRequest.findMany({
         include: {
           teacher: { select: { firstName: true, lastName: true } },
-          subject: { select: { name: true } }
+          subject: { select: { nameAr: true } }
         },
         orderBy: { createdAt: 'desc' }
       });
@@ -265,7 +275,7 @@ export class GroupsController {
       const userId = req.user.id || req.user.userId;
       return this.prisma.cohortRequest.findMany({
         where: { teacherId: userId },
-        include: { subject: { select: { name: true } } },
+        include: { subject: { select: { nameAr: true } } },
         orderBy: { createdAt: 'desc' }
       });
     }
