@@ -21,6 +21,14 @@ export default function SupervisorDashboard() {
     }
   });
 
+  const progressQuery = useQuery({
+    queryKey: ['supervisorProgress'],
+    queryFn: async () => {
+      const res = await api.get('/groups/supervisor/progress');
+      return res.data;
+    }
+  });
+
   const handleNudge = (id: string) => {
     setNudgeStatus(prev => ({ ...prev, [id]: 'جاري الإرسال...' }));
     setTimeout(() => {
@@ -217,47 +225,42 @@ export default function SupervisorDashboard() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-baaqoon-900 dark:text-white flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-indigo-500" />
-                مدى تقدم الدروس (المنهاج)
+                متابعة نشاط الأساتذة في المنهاج (تلقائي)
               </h2>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <h3 className="font-bold text-indigo-900">الفيزياء - علمي</h3>
-                    <p className="text-xs text-indigo-700">أ. أحمد الخطيب</p>
-                  </div>
-                  <span className="text-sm font-bold text-indigo-700">45% إنجاز</span>
-                </div>
-                <div className="w-full bg-indigo-200 rounded-full h-2 mb-2">
-                  <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '45%' }}></div>
-                </div>
-                <p className="text-xs text-indigo-600">
-                  آخر تحديث: أتمّ (الفصل 2: الحركة الدورانية) اليوم.
-                </p>
-              </div>
+              {progressQuery.isLoading ? (
+                <div className="text-center py-4 text-slate-500">جاري تحميل بيانات التقدم...</div>
+              ) : progressQuery.data && progressQuery.data.length > 0 ? (
+                progressQuery.data.map((cohortProgress: any, index: number) => {
+                  const colors = [
+                    { bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-100 dark:border-indigo-800/50', textTitle: 'text-indigo-900 dark:text-indigo-100', textSub: 'text-indigo-700 dark:text-indigo-300', textAccent: 'text-indigo-600 dark:text-indigo-400', barBg: 'bg-indigo-200 dark:bg-indigo-900/40', barFill: 'bg-indigo-600' },
+                    { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-800/50', textTitle: 'text-emerald-900 dark:text-emerald-100', textSub: 'text-emerald-700 dark:text-emerald-300', textAccent: 'text-emerald-600 dark:text-emerald-400', barBg: 'bg-emerald-200 dark:bg-emerald-900/40', barFill: 'bg-emerald-500' },
+                    { bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-100 dark:border-orange-800/50', textTitle: 'text-orange-900 dark:text-orange-100', textSub: 'text-orange-700 dark:text-orange-300', textAccent: 'text-orange-600 dark:text-orange-400', barBg: 'bg-orange-200 dark:bg-orange-900/40', barFill: 'bg-orange-500' }
+                  ];
+                  const color = colors[index % colors.length];
 
-              <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <h3 className="font-bold text-orange-900">اللغة العربية - أدبي</h3>
-                    <p className="text-xs text-orange-700">أ. محمود حسن</p>
-                  </div>
-                  <span className="text-sm font-bold text-orange-700">15% إنجاز (متأخر)</span>
-                </div>
-                <div className="w-full bg-orange-200 rounded-full h-2 mb-2">
-                  <div className="bg-orange-500 h-2 rounded-full" style={{ width: '15%' }}></div>
-                </div>
-                <p className="text-xs text-orange-600">
-                  تحذير: الأستاذ متأخر عن الخطة الزمنية بأسبوعين.
-                </p>
-                <button 
-                  onClick={() => alert('تم توجيهك إلى شاشة المحادثات الخاصة، حيث يمكنك مناقشة خطة تدارك التأخير في المنهاج مع الأستاذ محمود حسن.')}
-                  className="mt-3 text-xs bg-orange-200 text-orange-800 px-3 py-1.5 rounded-md hover:bg-orange-300 font-bold transition-colors"
-                >
-                  فتح تواصل رقمي مع الأستاذ
-                </button>
-              </div>
+                  return (
+                    <div key={cohortProgress.cohortId} className={`p-4 ${color.bg} rounded-lg border ${color.border}`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <h3 className={`font-bold ${color.textTitle}`}>{cohortProgress.cohortName}</h3>
+                          <p className={`text-xs ${color.textSub}`}>الأستاذ: {cohortProgress.teacherName}</p>
+                        </div>
+                        <span className={`text-sm font-bold ${color.textSub}`}>{cohortProgress.percentage}% إنجاز</span>
+                      </div>
+                      <div className={`w-full ${color.barBg} rounded-full h-2 mb-2`}>
+                        <div className={`${color.barFill} h-2 rounded-full`} style={{ width: `${cohortProgress.percentage}%` }}></div>
+                      </div>
+                      <p className={`text-xs ${color.textAccent} font-medium`}>
+                        أتمّ الأستاذ {cohortProgress.completedLessons} من أصل {cohortProgress.totalLessons} دروس. (تُحدّث النسبة تلقائياً بمجرد تقديم الحصة الافتراضية لمنع غفلة الأستاذ).
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-4 text-slate-500 dark:text-slate-400">لا توجد أفواج حالياً لتتبع تقدمها.</div>
+              )}
             </div>
           </section>
         </div>
