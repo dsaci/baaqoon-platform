@@ -1,7 +1,9 @@
-import { Controller, Get, Req, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Req, Post, Body, Param, Patch, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
 @Controller('groups')
+@UseGuards(JwtAuthGuard)
 export class GroupsController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -148,74 +150,79 @@ export class GroupsController {
 
   @Get('supervisor/progress')
   async getSupervisorProgress(@Req() req: any) {
-    if (req.user.primaryRole !== 'supervisor' && req.user.primaryRole !== 'subject_supervisor') {
-      return { error: 'Unauthorized' };
-    }
-
-    const supervisor = await this.prisma.user.findUnique({
-      where: { id: req.user.id || req.user.userId }
-    });
-
-    if (!supervisor || !supervisor.supervisedSubjectId) return [];
-
-    const courses = await this.prisma.course.findMany({
-      where: { subjectId: supervisor.supervisedSubjectId },
-      select: { id: true }
-    });
-    const courseIds = courses.map(c => c.id);
-
-    const cohorts = await this.prisma.cohort.findMany({
-      where: { courseId: { in: courseIds } },
-      include: {
-        instructors: true,
-        sessions: {
-          where: { lessonId: { not: null } }
-        }
+    try {
+      if (req.user.primaryRole !== 'supervisor' && req.user.primaryRole !== 'subject_supervisor') {
+        return { error: 'Unauthorized' };
       }
-    });
 
-    const results = [];
-    for (const cohort of cohorts) {
-      const curriculumVersion = await this.prisma.curriculumVersion.findUnique({
-        where: { id: cohort.curriculumVersionId },
-        include: { units: { include: { lessons: true } } }
+      const supervisor = await this.prisma.user.findUnique({
+        where: { id: req.user.id || req.user.userId }
       });
-      
-      let totalLessons = 0;
-      if (curriculumVersion) {
-        curriculumVersion.units.forEach(u => totalLessons += u.lessons.length);
-      }
 
-      const completedLessons = new Set(
-        cohort.sessions
-          .filter((s: any) => s.status === 'completed' || new Date(s.scheduledEndTime || s.scheduledStartTime) < new Date())
-          .map((s: any) => s.lessonId)
-      ).size;
+      if (!supervisor || !supervisor.supervisedSubjectId) return [];
 
-      const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      
-      let teacherName = 'غير محدد';
-      if (cohort.instructors.length > 0) {
-        const teacher = await this.prisma.user.findUnique({
-          where: { id: cohort.instructors[0].teacherId },
-          select: { firstName: true, lastName: true }
+      const courses = await this.prisma.course.findMany({
+        where: { subjectId: supervisor.supervisedSubjectId },
+        select: { id: true }
+      });
+      const courseIds = courses.map(c => c.id);
+
+      const cohorts = await this.prisma.cohort.findMany({
+        where: { courseId: { in: courseIds } },
+        include: {
+          instructors: true,
+          sessions: {
+            where: { lessonId: { not: null } }
+          }
+        }
+      });
+
+      const results = [];
+      for (const cohort of cohorts) {
+        const curriculumVersion = await this.prisma.curriculumVersion.findUnique({
+          where: { id: cohort.curriculumVersionId },
+          include: { units: { include: { lessons: true } } }
         });
-        if (teacher) {
-          teacherName = `${teacher.firstName} ${teacher.lastName}`;
+        
+        let totalLessons = 0;
+        if (curriculumVersion) {
+          curriculumVersion.units.forEach((u: any) => totalLessons += u.lessons.length);
         }
+
+        const completedLessons = new Set(
+          cohort.sessions
+            .filter((s: any) => s.status === 'completed' || new Date(s.scheduledEndTime || s.scheduledStartTime) < new Date())
+            .map((s: any) => s.lessonId)
+        ).size;
+
+        const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+        
+        let teacherName = 'غير محدد';
+        if (cohort.instructors.length > 0) {
+          const teacher = await this.prisma.user.findUnique({
+            where: { id: cohort.instructors[0].teacherId },
+            select: { firstName: true, lastName: true }
+          });
+          if (teacher) {
+            teacherName = `${teacher.firstName} ${teacher.lastName}`;
+          }
+        }
+
+        results.push({
+          cohortId: cohort.id,
+          cohortName: cohort.name,
+          teacherName,
+          totalLessons,
+          completedLessons,
+          percentage
+        });
       }
 
-      results.push({
-        cohortId: cohort.id,
-        cohortName: cohort.name,
-        teacherName,
-        totalLessons,
-        completedLessons,
-        percentage
-      });
+      return results;
+    } catch (error) {
+      console.error('Error in getSupervisorProgress:', error);
+      throw error;
     }
-
-    return results;
   }
 
   @Post('cohorts')
