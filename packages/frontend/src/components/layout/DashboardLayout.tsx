@@ -154,7 +154,12 @@ export default function DashboardLayout() {
     return baseLinks;
   };
 
-  const navLinks = [...getNavLinks(), { name: "مقالات وتدريبات وامتحانات (قيد التطوير)", path: `/${user?.primaryRole?.includes('admin') ? 'admin' : user?.primaryRole?.includes('supervisor') ? 'supervisor' : user?.primaryRole || 'student'}/coming-soon`, icon: BookOpen }];
+    const basePath = user?.primaryRole?.includes('admin') ? 'admin' : user?.primaryRole?.includes('supervisor') ? 'supervisor' : user?.primaryRole || 'student';
+  const navLinks = [
+    ...getNavLinks(),
+    { name: "مقالات وتدريبات وامتحانات (قيد التطوير)", path: `/${basePath}/coming-soon-articles`, icon: BookOpen },
+    { name: "التوزيع السنوي والأسبوعي (قيد التطوير)", path: `/${basePath}/coming-soon-distribution`, icon: Calendar }
+  ];
 
   return (
     <div className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 flex pt-1">

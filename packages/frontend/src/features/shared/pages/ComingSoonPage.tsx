@@ -1,11 +1,21 @@
 import React from 'react';
 import { Settings, Hammer } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 export default function ComingSoonPage() {
+  const location = useLocation();
+  
+  let featureName = "هذه الميزة";
+  if (location.pathname.includes('articles')) {
+    featureName = "ميزة المقالات والتدريبات والامتحانات";
+  } else if (location.pathname.includes('distribution')) {
+    featureName = "ميزة التوزيع السنوي والأسبوعي";
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in-up">
       <div className="w-24 h-24 bg-baaqoon-100 dark:bg-baaqoon-900/50 rounded-full flex items-center justify-center mb-6 relative">
-        <Settings className="w-12 h-12 text-baaqoon-400 dark:text-baaqoon-600 animate-spin-slow" />
+        <Settings className="w-12 h-12 text-baaqoon-400 dark:text-baaqoon-600 animate-[spin_4s_linear_infinite]" />
         <Hammer className="w-8 h-8 text-baaqoon-accent absolute bottom-4 right-4 animate-bounce" />
       </div>
       
@@ -14,7 +24,7 @@ export default function ComingSoonPage() {
       </h1>
       
       <p className="text-baaqoon-500 dark:text-baaqoon-400 max-w-md mx-auto text-lg leading-relaxed">
-        نحن نعمل حالياً على إضافة ميزة "التوزيع السنوي والأسبوعي" وربطها بالمنظومة الشاملة لباقون. ستكون متاحة قريباً جداً!
+        نحن نعمل حالياً على إضافة {featureName} وربطها بالمنظومة الشاملة لباقون. ستكون متاحة قريباً جداً!
       </p>
       
       <div className="mt-8">
