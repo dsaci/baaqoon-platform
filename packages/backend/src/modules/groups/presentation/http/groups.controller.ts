@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Post, Body, Param, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, Post, Body, Param, Patch, Delete, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
@@ -20,6 +20,27 @@ export class GroupsController {
       }
     });
     return { teachers, courses };
+  }
+
+  @Get('admin/database')
+  async getAdminDatabase() {
+    const users = await this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true }
+    });
+    const subjects = await this.prisma.subject.findMany({
+      include: { courses: true }
+    });
+    const cohorts = await this.prisma.cohort.findMany({
+      include: {
+        instructors: true,
+        enrollments: true
+      }
+    });
+    const courses = await this.prisma.course.findMany({
+      include: { subject: { select: { nameAr: true } } }
+    });
+    return { users, subjects, cohorts, courses };
   }
 
   @Get('admin/stats')
@@ -55,14 +76,16 @@ export class GroupsController {
   async getSupervisorHR(@Req() req: any) {
     const userId = req.user.id || req.user.userId;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const supervisedSubjectId = user?.supervisedSubjectId;
-
-    if (!supervisedSubjectId) {
-      return { teachers: [], students: [] };
+    const role = user?.primaryRole;
+    
+    let subjectFilter = {};
+    if (role === 'subject_supervisor') {
+      if (!user?.supervisedSubjectId) return { teachers: [], students: [] };
+      subjectFilter = { subjectId: user.supervisedSubjectId };
     }
 
     const courses = await this.prisma.course.findMany({
-      where: { subjectId: supervisedSubjectId },
+      where: subjectFilter,
       select: { id: true }
     });
     const courseIds = courses.map(c => c.id);
@@ -100,17 +123,54 @@ export class GroupsController {
 
   @Get('supervisor/stats')
   async getSupervisorStats(@Req() req: any) {
-    const totalCohorts = await this.prisma.cohort.count();
-    const totalStudents = await this.prisma.cohortEnrollment.count();
+    const userId = req.user.id || req.user.userId;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const role = user?.primaryRole;
+    
+    let subjectFilter = {};
+    let supervisedSubject = null;
+
+    if (role === 'subject_supervisor') {
+      if (user?.supervisedSubjectId) {
+        subjectFilter = { subjectId: user.supervisedSubjectId };
+        supervisedSubject = await this.prisma.subject.findUnique({ where: { id: user.supervisedSubjectId } });
+      }
+    }
+
+    const courses = await this.prisma.course.findMany({
+      where: subjectFilter,
+      select: { id: true }
+    });
+    const courseIds = courses.map(c => c.id);
+
+    const totalCohorts = await this.prisma.cohort.count({ where: { courseId: { in: courseIds } } });
+    
+    const cohorts = await this.prisma.cohort.findMany({
+      where: { courseId: { in: courseIds } },
+      select: { id: true }
+    });
+    const cohortIds = cohorts.map(c => c.id);
+
+    const totalStudents = await this.prisma.cohortEnrollment.count({ where: { cohortId: { in: cohortIds } } });
+    
+    const instructors = await this.prisma.cohortInstructor.findMany({
+      where: { cohortId: { in: cohortIds } },
+      select: { teacherId: true }
+    });
+    const totalTeachers = new Set(instructors.map(i => i.teacherId)).size;
+
     const recentAssessments = await this.prisma.assessment.findMany({
+      where: { cohortId: { in: cohortIds } },
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: { cohort: true }
     });
+    
     return {
+      supervisedSubject,
       totalCohorts,
       totalStudents,
-      totalTeachers: 5,
+      totalTeachers,
       recentAssessments
     };
   }
@@ -123,7 +183,7 @@ export class GroupsController {
     let whereClause: any = {};
     if (role === 'teacher') {
       whereClause = { instructors: { some: { teacherId: userId } } };
-    } else if (role === 'supervisor' || role === 'subject_supervisor') {
+    } else if (role === 'subject_supervisor') {
       const courses = await this.prisma.course.findMany({
         where: {
           subject: {
@@ -151,18 +211,19 @@ export class GroupsController {
   @Get('supervisor/progress')
   async getSupervisorProgress(@Req() req: any) {
     try {
-      if (req.user.primaryRole !== 'supervisor' && req.user.primaryRole !== 'subject_supervisor') {
+      const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+      const role = user?.primaryRole;
+      
+      let subjectFilter = {};
+      if (role === 'subject_supervisor') {
+        if (!user?.supervisedSubjectId) return [];
+        subjectFilter = { subjectId: user.supervisedSubjectId };
+      } else if (role !== 'admin' && role !== 'super_admin') {
         return { error: 'Unauthorized' };
       }
 
-      const supervisor = await this.prisma.user.findUnique({
-        where: { id: req.user.id || req.user.userId }
-      });
-
-      if (!supervisor || !supervisor.supervisedSubjectId) return [];
-
       const courses = await this.prisma.course.findMany({
-        where: { subjectId: supervisor.supervisedSubjectId },
+        where: subjectFilter,
         select: { id: true }
       });
       const courseIds = courses.map(c => c.id);
@@ -362,5 +423,20 @@ export class GroupsController {
         rejectionReason: body.rejectionReason
       }
     });
+  }
+
+  @Delete('cohorts/:id')
+  async deleteCohort(@Req() req: any, @Param('id') id: string) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+      return { error: 'Unauthorized' };
+    }
+    
+    // Prisma cascade or manual delete
+    await this.prisma.cohortInstructor.deleteMany({ where: { cohortId: id } });
+    await this.prisma.cohortEnrollment.deleteMany({ where: { cohortId: id } });
+    await this.prisma.session.deleteMany({ where: { cohortId: id } });
+    await this.prisma.assessment.deleteMany({ where: { cohortId: id } });
+    
+    return this.prisma.cohort.delete({ where: { id } });
   }
 }

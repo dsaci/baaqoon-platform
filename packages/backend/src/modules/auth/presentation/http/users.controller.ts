@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { PrismaService } from '../../../../core/database/prisma.service';
 
@@ -64,5 +64,18 @@ export class UsersController {
       where: { id },
       data: { status: body.status as any }
     });
+  }
+
+  @Delete('admin/:id')
+  async deleteUser(@Req() req: any, @Param('id') id: string) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+      return { error: 'Unauthorized' };
+    }
+    // Delete related
+    await this.prisma.cohortInstructor.deleteMany({ where: { teacherId: id } });
+    await this.prisma.cohortEnrollment.deleteMany({ where: { studentId: id } });
+    await this.prisma.session.deleteMany({ where: { teacherId: id } });
+    
+    return this.prisma.user.delete({ where: { id } });
   }
 }

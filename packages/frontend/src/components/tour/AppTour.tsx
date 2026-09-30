@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Joyride, STATUS } from 'react-joyride';
 import type { Step, TooltipRenderProps } from 'react-joyride';
 import { useLocation } from 'react-router-dom';
@@ -11,6 +11,11 @@ export default function AppTour() {
   const [run, setRun] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const dontShowAgainRef = useRef(dontShowAgain);
+
+  useEffect(() => {
+    dontShowAgainRef.current = dontShowAgain;
+  }, [dontShowAgain]);
 
   // Extract the main path key (e.g., 'dashboard', 'schedule')
   const pathParts = location.pathname.split('/').filter(Boolean);
@@ -167,7 +172,7 @@ export default function AppTour() {
       localStorage.setItem(`tour_completed_${user?.id}_${pathKey}`, 'true');
 
       // If user checked "Don't show again" across the whole app
-      if (dontShowAgain) {
+      if (dontShowAgainRef.current) {
         localStorage.setItem(`tour_opt_out_all_${user?.id}`, 'true');
       }
     }

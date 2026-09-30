@@ -48,10 +48,10 @@ export default function SupervisorDashboard() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
           <Activity className="w-8 h-8 text-baaqoon-accent" />
-          مرحباً بك {user?.firstName} {user?.lastName} - لوحة تحكم المشرفين
+          مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (statsData?.supervisedSubject?.nameAr || 'غير محدد')}
         </h1>
-        <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2">
-          إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين وإنجازاتهم
+        <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2 font-bold">
+          إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
         </p>
       </header>
 
