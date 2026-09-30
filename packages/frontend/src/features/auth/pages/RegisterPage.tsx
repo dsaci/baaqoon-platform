@@ -76,16 +76,8 @@ export default function RegisterPage() {
       };
       
       const response = await api.post('/auth/register', payload);
-      const { user, accessToken } = response.data;
-      setAuth(user, accessToken);
-
-      if (user.primaryRole === 'student') {
-        navigate('/student/dashboard', { state: { justRegistered: true } });
-      } else if (user.primaryRole === 'subject_supervisor') {
-        navigate('/supervisor/dashboard', { state: { justRegistered: true } });
-      } else {
-        navigate('/teacher/dashboard', { state: { justRegistered: true } });
-      }
+      alert('تم التسجيل بنجاح! حسابك الآن قيد المراجعة، يرجى انتظار تفعيل الإدارة.');
+      navigate('/login');
     } catch (err: any) {
       setError(err.response?.data?.message || 'حدث خطأ أثناء إنشاء الحساب');
     } finally {
