@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "auth", "users", "curriculum", "groups", "scheduling", "attendance", "assessments", "chat", "audit", "notifications"]
+  schemas = ["public", "users", "curriculum", "groups", "scheduling", "attendance", "assessments", "chat", "audit", "notifications"]
 }
 
 // ============================================================================
@@ -21,7 +21,7 @@ enum UserRole {
   teacher
   student
 
-  @@schema("auth")
+  @@schema("users")
 }
 
 enum UserStatus {
@@ -30,7 +30,7 @@ enum UserStatus {
   suspended
   deactivated
 
-  @@schema("auth")
+  @@schema("users")
 }
 
 model User {
@@ -72,7 +72,7 @@ model User {
   CohortRequest      CohortRequest[]
 
   @@map("users")
-  @@schema("auth")
+  @@schema("users")
 }
 
 model UserRoleAssignment {
@@ -85,7 +85,7 @@ model UserRoleAssignment {
 
   @@id([userId, role])
   @@map("user_roles")
-  @@schema("auth")
+  @@schema("users")
 }
 
 // ... (Note: For brevity in the MVP scaffolding, other modules like Curriculum,
