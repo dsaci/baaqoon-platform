@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
@@ -24,8 +25,8 @@ async function main() {
     data: {
       firstName: 'نصر الدين',
       lastName: 'دريسي',
-      email: 'drissi@baaqoon.ps', // The user can change this
-      password: hashedPassword,
+      email: 'drissi@baaqoon.ps',
+      passwordHash: hashedPassword,
       primaryRole: 'super_admin',
       status: 'active'
     }

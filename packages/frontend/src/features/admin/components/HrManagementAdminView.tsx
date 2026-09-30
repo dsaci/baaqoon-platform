@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 } from 'lucide-react';
 
 export default function HrManagementAdminView() {
   const queryClient = useQueryClient();
@@ -12,6 +12,16 @@ export default function HrManagementAdminView() {
     queryFn: async () => {
       const res = await api.get('/users/admin/list');
       return res.data;
+    }
+  });
+
+  
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.delete(`/users/admin/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
     }
   });
 
@@ -130,6 +140,20 @@ export default function HrManagementAdminView() {
                         </button>
                       )}
                       
+                      
+                      <button
+                        onClick={() => {
+                          if(window.confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء!')) {
+                            deleteMutation.mutate(u.id);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                        title="حذف نهائي"
+                        className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors ml-1"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+
                       {u.status !== 'suspended' && (
                         <button
                           onClick={() => {
