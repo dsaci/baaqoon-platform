@@ -61,7 +61,7 @@ export default function CohortRequestModal({ isOpen, onClose }: { isOpen: boolea
             >
               <option value="">اختر المادة...</option>
               {courses.map((c: any) => (
-                <option key={c.subject.id} value={c.subject.id}>{c.subject.name} - {c.grade}</option>
+                <option key={c.subject.id} value={c.subject.id}>{c.subject.nameAr || c.title} - {c.gradeLevel || c.grade}</option>
               ))}
             </select>
           </div>
