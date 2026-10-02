@@ -15,7 +15,7 @@ export default function CohortRequestModal({ isOpen, onClose }: { isOpen: boolea
   const { data: courses = [] } = useQuery({
     queryKey: ['courses_for_request'],
     queryFn: async () => {
-      const res = await api.get('/curriculum/courses');
+      const res = await api.get('/curriculum/subjects');
       return res.data;
     },
     enabled: isOpen
@@ -60,9 +60,9 @@ export default function CohortRequestModal({ isOpen, onClose }: { isOpen: boolea
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-violet-500"
             >
               <option value="">اختر المادة...</option>
-              {courses.map((c: any) => (
-                <option key={c.subject.id} value={c.subject.id}>{c.subject.nameAr || c.title} - {c.gradeLevel || c.grade}</option>
-              ))}
+              {courses.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.nameAr}</option>
+                ))}
             </select>
           </div>
 
