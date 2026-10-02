@@ -98,7 +98,7 @@ export class AuthService {
     }
 
     if (user.status === "pending") {
-      throw new UnauthorizedException("حسابك قيد المراجعة من قبل الإدارة، يرجى الانتظار حتى يتم تفعيله.");
+      throw new UnauthorizedException("لا بد من تفعيل الحساب من طرف المدير.");
     }
     if (user.status !== "active") {
       throw new UnauthorizedException("هذا الحساب غير مفعل أو تم إيقافه");
