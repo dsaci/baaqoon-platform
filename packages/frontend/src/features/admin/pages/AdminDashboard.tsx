@@ -325,21 +325,10 @@ export default function AdminDashboard() {
                   required
                 >
                   <option value="">-- اختر المادة --</option>
-                  {Object.entries(
-                      (adminData?.courses || []).reduce((acc: any, c: any) => {
-                        const subj = c.subject?.nameAr || 'مواد أخرى';
-                        if (!acc[subj]) acc[subj] = [];
-                        acc[subj].push(c);
-                        return acc;
-                      }, {})
-                    ).map(([subjectName, courses]: any) => (
-                      <optgroup key={subjectName} label={subjectName}>
-                        {courses.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.title}</option>
-                        ))}
-                      </optgroup>
+                  {adminData?.courses?.map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
                     ))}
-                </select>
+                  </select>
               </div>
 
               <div>
