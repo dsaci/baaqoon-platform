@@ -6,12 +6,549 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas = ["public", "users", "curriculum", "groups", "scheduling", "attendance", "assessments", "chat", "audit", "notifications"]
+  schemas  = ["assessments", "attendance", "audit", "chat", "curriculum", "groups", "notifications", "public", "scheduling", "users"]
 }
 
-// ============================================================================
-// AUTH & USERS SCHEMA
-// ============================================================================
+model User {
+  id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String?                   @unique @db.VarChar(255)
+  phone               String?                   @unique @db.VarChar(32)
+  passwordHash        String                    @db.VarChar(255)
+  firstName           String                    @db.VarChar(100)
+  lastName            String                    @db.VarChar(100)
+  avatarUrl           String?                   @db.VarChar(1024)
+  primaryRole         UserRole
+  status              UserStatus                @default(pending)
+  academicBranch      AcademicBranch?
+  curriculumType      CurriculumType?
+  supervisedSubjectId String?                   @db.Uuid
+  emailVerified       Boolean                   @default(false)
+  timezone            String                    @default("Asia/Gaza") @db.VarChar(64)
+  locale              String                    @default("ar") @db.VarChar(10)
+  lastLoginAt         DateTime?                 @db.Timestamptz(6)
+  createdAt           DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                  @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?                 @db.Timestamptz(6)
+  gradedSubmissions   AssessmentSubmission[]    @relation("GraderSubmission")
+  submissions         AssessmentSubmission[]    @relation("StudentSubmission")
+  createdAssessments  Assessment[]
+  markedAttendances   SessionAttendance[]       @relation("AttendanceMarker")
+  attendances         SessionAttendance[]       @relation("StudentAttendance")
+  participations      ConversationParticipant[]
+  sentMessages        Message[]                 @relation("MessageSender")
+  sentReports         Report[]                  @relation("ReportSender")
+  resolvedReports     Report[]                  @relation("ReportResolver")
+  createdExamCamps    ExamPrepCamp[]
+  CohortRequest       CohortRequest[]
+  notifications       Notification[]
+  taughtSessions      Session[]
+  roles               UserRoleAssignment[]
+  supervisedSubject   Subject?                  @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id])
+
+  @@map("users")
+  @@schema("users")
+}
+
+model UserRoleAssignment {
+  userId      String   @db.Uuid
+  role        UserRole
+  grantedAt   DateTime @default(now()) @db.Timestamptz(6)
+  grantedById String?  @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+  @@schema("users")
+}
+
+model Subject {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String           @unique @db.VarChar(32)
+  nameAr             String           @db.VarChar(150)
+  nameEn             String?          @db.VarChar(150)
+  description        String?
+  iconUrl            String?          @db.VarChar(1024)
+  curriculumType     CurriculumType   @default(governmental)
+  applicableBranches AcademicBranch[]
+  isActive           Boolean          @default(true)
+  createdAt          DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @db.Timestamptz(6)
+  courses            Course[]
+  CohortRequest      CohortRequest[]
+  supervisors        User[]           @relation("SubjectSupervisors")
+
+  @@map("subjects")
+  @@schema("curriculum")
+}
+
+model Course {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectId      String              @db.Uuid
+  code           String              @unique @db.VarChar(64)
+  title          String              @db.VarChar(200)
+  slug           String              @unique @db.VarChar(200)
+  curriculumType CurriculumType
+  academicBranch AcademicBranch
+  gradeLevel     GradeLevel
+  academicYear   String              @db.VarChar(9)
+  description    String?
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(6)
+  subject        Subject             @relation(fields: [subjectId], references: [id])
+  versions       CurriculumVersion[]
+  textbooks      Textbook[]
+
+  @@map("courses")
+  @@schema("curriculum")
+}
+
+model Textbook {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId        String?          @db.Uuid
+  title           String           @db.VarChar(200)
+  author          String?          @db.VarChar(200)
+  publicationYear Int?
+  pdfUrl          String           @db.VarChar(1024)
+  coverUrl        String?          @db.VarChar(1024)
+  totalPages      Int?             @db.SmallInt
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  units           CurriculumUnit[]
+  course          Course?          @relation(fields: [courseId], references: [id])
+
+  @@map("textbooks")
+  @@schema("curriculum")
+}
+
+model CurriculumVersion {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId      String           @db.Uuid
+  versionTag    String           @db.VarChar(32)
+  status        CurriculumStatus @default(draft)
+  isDefault     Boolean          @default(false)
+  changelog     String?
+  publishedAt   DateTime?        @db.Timestamptz(6)
+  publishedById String?          @db.Uuid
+  createdAt     DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @db.Timestamptz(6)
+  units         CurriculumUnit[]
+  course        Course           @relation(fields: [courseId], references: [id])
+
+  @@unique([courseId, versionTag])
+  @@map("curriculum_versions")
+  @@schema("curriculum")
+}
+
+model CurriculumUnit {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  curriculumVersionId String             @db.Uuid
+  textbookId          String?            @db.Uuid
+  orderIndex          Int
+  title               String             @db.VarChar(200)
+  description         String?
+  pdfStartPage        Int?               @db.SmallInt
+  pdfEndPage          Int?               @db.SmallInt
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  lessons             CurriculumLesson[]
+  version             CurriculumVersion  @relation(fields: [curriculumVersionId], references: [id], onDelete: Cascade)
+  textbook            Textbook?          @relation(fields: [textbookId], references: [id])
+
+  @@unique([curriculumVersionId, orderIndex])
+  @@map("curriculum_units")
+  @@schema("curriculum")
+}
+
+model CurriculumLesson {
+  id                       String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  unitId                   String              @db.Uuid
+  orderIndex               Int
+  title                    String              @db.VarChar(200)
+  lessonType               String?             @db.VarChar(100)
+  domain                   String?             @db.VarChar(150)
+  sourceText               String?             @db.VarChar(255)
+  learningObjectives       String[]
+  learningSequence         Json?
+  estimatedDurationMinutes Int?                @db.SmallInt
+  teacherGuide             String?
+  pdfStartPage             Int?                @db.SmallInt
+  pdfEndPage               Int?                @db.SmallInt
+  createdAt                DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime            @updatedAt @db.Timestamptz(6)
+  assessments              Assessment[]
+  questionTemplates        QuestionTemplate[]
+  unit                     CurriculumUnit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sessions                 CurriculumSession[]
+  liveSessions             Session[]
+
+  @@unique([unitId, orderIndex])
+  @@map("curriculum_lessons")
+  @@schema("curriculum")
+}
+
+model CurriculumSession {
+  id                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId                   String           @db.Uuid
+  orderIndex                 Int
+  title                      String           @db.VarChar(200)
+  sessionPlan                String?
+  recommendedDurationMinutes Int              @default(60) @db.SmallInt
+  createdAt                  DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime         @updatedAt @db.Timestamptz(6)
+  lesson                     CurriculumLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sessions                   Session[]
+
+  @@unique([lessonId, orderIndex])
+  @@map("curriculum_sessions")
+  @@schema("curriculum")
+}
+
+model Cohort {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId            String             @db.Uuid
+  curriculumVersionId String             @db.Uuid
+  name                String             @db.VarChar(150)
+  code                String             @unique @db.VarChar(64)
+  status              CohortStatus       @default(draft)
+  minStudents         Int                @default(3) @db.SmallInt
+  maxStudents         Int                @default(12) @db.SmallInt
+  startDate           DateTime           @db.Date
+  endDate             DateTime           @db.Date
+  createdById         String?            @db.Uuid
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  assessments         Assessment[]
+  enrollments         CohortEnrollment[]
+  instructors         CohortInstructor[]
+  sessions            Session[]
+
+  @@map("cohorts")
+  @@schema("groups")
+}
+
+model CohortInstructor {
+  cohortId     String   @db.Uuid
+  teacherId    String   @db.Uuid
+  role         String   @default("primary_teacher") @db.VarChar(32)
+  assignedAt   DateTime @default(now()) @db.Timestamptz(6)
+  assignedById String?  @db.Uuid
+  cohort       Cohort   @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@id([cohortId, teacherId])
+  @@map("cohort_instructors")
+  @@schema("groups")
+}
+
+model CohortEnrollment {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cohortId         String           @db.Uuid
+  studentId        String           @db.Uuid
+  status           EnrollmentStatus @default(applied)
+  enrolledAt       DateTime         @default(now()) @db.Timestamptz(6)
+  completedAt      DateTime?        @db.Timestamptz(6)
+  withdrawnAt      DateTime?        @db.Timestamptz(6)
+  withdrawalReason String?
+  version          Int              @default(1)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(6)
+  cohort           Cohort           @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@unique([cohortId, studentId])
+  @@map("cohort_enrollments")
+  @@schema("groups")
+}
+
+model Session {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cohortId            String              @db.Uuid
+  curriculumSessionId String?             @db.Uuid
+  lessonId            String?             @db.Uuid
+  teacherId           String              @db.Uuid
+  title               String              @db.VarChar(200)
+  description         String?
+  status              SessionStatus       @default(scheduled)
+  scheduledStartTime  DateTime            @db.Timestamptz(6)
+  scheduledEndTime    DateTime            @db.Timestamptz(6)
+  actualStartTime     DateTime?           @db.Timestamptz(6)
+  actualEndTime       DateTime?           @db.Timestamptz(6)
+  jitsiRoomName       String?             @db.VarChar(255)
+  jitsiJwtToken       String?
+  cancellationReason  String?
+  rescheduledToId     String?             @db.Uuid
+  version             Int                 @default(1)
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime            @updatedAt @db.Timestamptz(6)
+  attendances         SessionAttendance[]
+  cohort              Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  curriculumSession   CurriculumSession?  @relation(fields: [curriculumSessionId], references: [id])
+  lesson              CurriculumLesson?   @relation(fields: [lessonId], references: [id])
+  rescheduledTo       Session?            @relation("SessionReschedules", fields: [rescheduledToId], references: [id])
+  reschedules         Session[]           @relation("SessionReschedules")
+  teacher             User                @relation(fields: [teacherId], references: [id])
+
+  @@map("sessions")
+  @@schema("scheduling")
+}
+
+model SessionAttendance {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId            String            @db.Uuid
+  studentId            String            @db.Uuid
+  status               AttendanceStatus  @default(absent_unexcused)
+  firstEntryTime       DateTime?         @db.Timestamptz(6)
+  lastExitTime         DateTime?         @db.Timestamptz(6)
+  totalDurationSeconds Int               @default(0)
+  markedById           String?           @db.Uuid
+  teacherNotes         String?
+  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(6)
+  events               AttendanceEvent[]
+  markedBy             User?             @relation("AttendanceMarker", fields: [markedById], references: [id])
+  session              Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student              User              @relation("StudentAttendance", fields: [studentId], references: [id])
+
+  @@unique([sessionId, studentId])
+  @@map("session_attendance")
+  @@schema("attendance")
+}
+
+model AttendanceEvent {
+  id                  BigInt              @id @default(autoincrement())
+  sessionAttendanceId String              @db.Uuid
+  sessionId           String              @db.Uuid
+  studentId           String              @db.Uuid
+  eventType           AttendanceEventType
+  eventTime           DateTime            @default(now()) @db.Timestamptz(6)
+  ipAddress           String?
+  clientDeviceInfo    Json?
+  createdAt           DateTime            @default(now()) @db.Timestamptz(6)
+  sessionAttendance   SessionAttendance   @relation(fields: [sessionAttendanceId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_events")
+  @@schema("attendance")
+}
+
+model CohortRequest {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherId        String        @db.Uuid
+  subjectId        String        @db.Uuid
+  suggestedName    String        @db.VarChar(100)
+  expectedStudents Int           @db.SmallInt
+  notes            String?
+  status           RequestStatus @default(pending)
+  rejectionReason  String?
+  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
+  subject          Subject       @relation(fields: [subjectId], references: [id])
+  teacher          User          @relation(fields: [teacherId], references: [id])
+
+  @@map("cohort_requests")
+  @@schema("groups")
+}
+
+model Assessment {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cohortId           String                 @db.Uuid
+  curriculumLessonId String?                @db.Uuid
+  title              String                 @db.VarChar(200)
+  description        String?
+  type               AssessmentType
+  dueDate            DateTime               @db.Timestamptz(6)
+  maxScore           Decimal                @db.Decimal(5, 2)
+  createdById        String                 @db.Uuid
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(6)
+  attachments        AssessmentAttachment[]
+  questions          AssessmentQuestion[]
+  submissions        AssessmentSubmission[]
+  cohort             Cohort                 @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  createdBy          User                   @relation(fields: [createdById], references: [id])
+  curriculumLesson   CurriculumLesson?      @relation(fields: [curriculumLessonId], references: [id])
+
+  @@map("assessments")
+  @@schema("assessments")
+}
+
+model AssessmentAttachment {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String     @db.Uuid
+  fileName     String     @db.VarChar(255)
+  fileUrl      String     @db.VarChar(1024)
+  fileSize     Int
+  mimeType     String     @db.VarChar(100)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_attachments")
+  @@schema("assessments")
+}
+
+model AssessmentSubmission {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String                 @db.Uuid
+  studentId    String                 @db.Uuid
+  status       SubmissionStatus       @default(draft)
+  score        Decimal?               @db.Decimal(5, 2)
+  feedback     String?
+  submittedAt  DateTime?              @db.Timestamptz(6)
+  gradedAt     DateTime?              @db.Timestamptz(6)
+  gradedById   String?                @db.Uuid
+  version      Int                    @default(1)
+  createdAt    DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime               @updatedAt @db.Timestamptz(6)
+  assessment   Assessment             @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  gradedBy     User?                  @relation("GraderSubmission", fields: [gradedById], references: [id])
+  student      User                   @relation("StudentSubmission", fields: [studentId], references: [id])
+  attachments  SubmissionAttachment[]
+
+  @@unique([assessmentId, studentId])
+  @@map("assessment_submissions")
+  @@schema("assessments")
+}
+
+model SubmissionAttachment {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId String               @db.Uuid
+  fileName     String               @db.VarChar(255)
+  fileUrl      String               @db.VarChar(1024)
+  fileSize     Int
+  mimeType     String               @db.VarChar(100)
+  createdAt    DateTime             @default(now()) @db.Timestamptz(6)
+  submission   AssessmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_attachments")
+  @@schema("assessments")
+}
+
+model Conversation {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cohortId     String?                   @db.Uuid
+  type         ConversationType
+  createdAt    DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime                  @updatedAt @db.Timestamptz(6)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+  @@schema("chat")
+}
+
+model ConversationParticipant {
+  conversationId String       @db.Uuid
+  userId         String       @db.Uuid
+  joinedAt       DateTime     @default(now()) @db.Timestamptz(6)
+  lastReadAt     DateTime?    @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@map("conversation_participants")
+  @@schema("chat")
+}
+
+model Message {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId   String        @db.Uuid
+  senderId         String        @db.Uuid
+  content          String
+  status           MessageStatus @default(pending_scan)
+  version          Int           @default(1)
+  moderationReason String?
+  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
+  conversation     Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender           User          @relation("MessageSender", fields: [senderId], references: [id])
+  reports          Report[]
+
+  @@map("messages")
+  @@schema("chat")
+}
+
+model Report {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String       @db.Uuid
+  reporterId      String       @db.Uuid
+  reason          String
+  status          ReportStatus @default(submitted)
+  resolutionNotes String?
+  resolvedById    String?      @db.Uuid
+  version         Int          @default(1)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
+  message         Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter        User         @relation("ReportSender", fields: [reporterId], references: [id])
+  resolvedBy      User?        @relation("ReportResolver", fields: [resolvedById], references: [id])
+
+  @@map("reports")
+  @@schema("chat")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @db.Uuid
+  title     String           @db.VarChar(150)
+  body      String
+  type      NotificationType @default(system)
+  isRead    Boolean          @default(false)
+  actionUrl String?          @db.VarChar(1024)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@schema("notifications")
+}
+
+model ExamPrepCamp {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String       @db.VarChar(150)
+  description String?
+  type        ExamPrepType
+  startDate   DateTime     @db.Timestamptz(6)
+  endDate     DateTime     @db.Timestamptz(6)
+  isActive    Boolean      @default(true)
+  createdById String       @db.Uuid
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  creator     User         @relation(fields: [createdById], references: [id])
+
+  @@map("exam_prep_camps")
+  @@schema("curriculum")
+}
+
+model QuestionTemplate {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  curriculumLessonId  String               @db.Uuid
+  type                QuestionType         @default(multiple_choice)
+  content             String
+  options             Json?
+  correctAnswer       String?
+  explanation         String?
+  difficulty          Int                  @default(1) @db.SmallInt
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+  assessmentQuestions AssessmentQuestion[]
+  lesson              CurriculumLesson     @relation(fields: [curriculumLessonId], references: [id], onDelete: Cascade)
+
+  @@map("question_templates")
+  @@schema("assessments")
+}
+
+model AssessmentQuestion {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId       String           @db.Uuid
+  questionTemplateId String           @db.Uuid
+  orderIndex         Int
+  scoreWeight        Decimal          @default(1.0) @db.Decimal(5, 2)
+  assessment         Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questionTemplate   QuestionTemplate @relation(fields: [questionTemplateId], references: [id])
+
+  @@unique([assessmentId, questionTemplateId])
+  @@map("assessment_questions")
+  @@schema("assessments")
+}
 
 enum UserRole {
   super_admin
@@ -32,69 +569,6 @@ enum UserStatus {
 
   @@schema("users")
 }
-
-model User {
-  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email               String?         @unique @db.VarChar(255)
-  phone               String?         @unique @db.VarChar(32)
-  passwordHash        String          @db.VarChar(255)
-  firstName           String          @db.VarChar(100)
-  lastName            String          @db.VarChar(100)
-  avatarUrl           String?         @db.VarChar(1024)
-  primaryRole         UserRole
-  status              UserStatus      @default(pending)
-  academicBranch      AcademicBranch?
-  curriculumType      CurriculumType?
-  supervisedSubjectId String?         @db.Uuid
-  supervisedSubject   Subject?        @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id], onDelete: SetNull)
-
-  emailVerified Boolean   @default(false)
-  timezone      String    @default("Asia/Gaza") @db.VarChar(64)
-  locale        String    @default("ar") @db.VarChar(10)
-  lastLoginAt   DateTime? @db.Timestamptz()
-  createdAt     DateTime  @default(now()) @db.Timestamptz()
-  updatedAt     DateTime  @updatedAt @db.Timestamptz()
-  deletedAt     DateTime? @db.Timestamptz()
-
-  roles              UserRoleAssignment[]
-  taughtSessions     Session[]
-  attendances        SessionAttendance[]       @relation("StudentAttendance")
-  markedAttendances  SessionAttendance[]       @relation("AttendanceMarker")
-  createdAssessments Assessment[]
-  submissions        AssessmentSubmission[]    @relation("StudentSubmission")
-  gradedSubmissions  AssessmentSubmission[]    @relation("GraderSubmission")
-  participations     ConversationParticipant[]
-  sentMessages       Message[]                 @relation("MessageSender")
-  sentReports        Report[]                  @relation("ReportSender")
-  resolvedReports    Report[]                  @relation("ReportResolver")
-  notifications      Notification[]
-  createdExamCamps   ExamPrepCamp[]
-  CohortRequest      CohortRequest[]
-
-  @@map("users")
-  @@schema("users")
-}
-
-model UserRoleAssignment {
-  userId      String   @db.Uuid
-  role        UserRole
-  grantedAt   DateTime @default(now()) @db.Timestamptz()
-  grantedById String?  @db.Uuid
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([userId, role])
-  @@map("user_roles")
-  @@schema("users")
-}
-
-// ... (Note: For brevity in the MVP scaffolding, other modules like Curriculum,
-// Scheduling, and Attendance will be mapped to Prisma models incrementally 
-// as we generate the NestJS backend resources to avoid a 2000-line schema initially).
-
-// ============================================================================
-// CURRICULUM SCHEMA
-// ============================================================================
 
 enum AcademicBranch {
   scientific
@@ -129,168 +603,6 @@ enum CurriculumStatus {
   @@schema("curriculum")
 }
 
-// ============================================================================
-// SCHEMA: curriculum (Subjects, Courses, Units, Lessons)
-// ============================================================================
-
-model Subject {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code               String           @unique @db.VarChar(32)
-  nameAr             String           @db.VarChar(150)
-  nameEn             String?          @db.VarChar(150)
-  description        String?
-  iconUrl            String?          @db.VarChar(1024)
-  curriculumType     CurriculumType   @default(governmental)
-  applicableBranches AcademicBranch[]
-  isActive           Boolean          @default(true)
-  createdAt          DateTime         @default(now()) @db.Timestamptz()
-  updatedAt          DateTime         @updatedAt @db.Timestamptz()
-
-  courses       Course[]
-  supervisors   User[]          @relation("SubjectSupervisors")
-  CohortRequest CohortRequest[]
-
-  @@map("subjects")
-  @@schema("curriculum")
-}
-
-model Course {
-  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  subjectId      String         @db.Uuid
-  code           String         @unique @db.VarChar(64)
-  title          String         @db.VarChar(200)
-  slug           String         @unique @db.VarChar(200)
-  curriculumType CurriculumType
-  academicBranch AcademicBranch
-  gradeLevel     GradeLevel
-  academicYear   String         @db.VarChar(9)
-  description    String?
-  isActive       Boolean        @default(true)
-  createdAt      DateTime       @default(now()) @db.Timestamptz()
-  updatedAt      DateTime       @updatedAt @db.Timestamptz()
-
-  subject   Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  versions  CurriculumVersion[]
-  textbooks Textbook[]
-
-  @@map("courses")
-  @@schema("curriculum")
-}
-
-model Textbook {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId        String?  @db.Uuid
-  title           String   @db.VarChar(200)
-  author          String?  @db.VarChar(200)
-  publicationYear Int?
-  pdfUrl          String   @db.VarChar(1024)
-  coverUrl        String?  @db.VarChar(1024)
-  totalPages      Int?     @db.SmallInt
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now()) @db.Timestamptz()
-  updatedAt       DateTime @updatedAt @db.Timestamptz()
-
-  course Course?          @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  units  CurriculumUnit[]
-
-  @@map("textbooks")
-  @@schema("curriculum")
-}
-
-model CurriculumVersion {
-  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId      String           @db.Uuid
-  versionTag    String           @db.VarChar(32)
-  status        CurriculumStatus @default(draft)
-  isDefault     Boolean          @default(false)
-  changelog     String?
-  publishedAt   DateTime?        @db.Timestamptz()
-  publishedById String?          @db.Uuid
-  createdAt     DateTime         @default(now()) @db.Timestamptz()
-  updatedAt     DateTime         @updatedAt @db.Timestamptz()
-
-  course Course           @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  units  CurriculumUnit[]
-
-  @@unique([courseId, versionTag])
-  @@map("curriculum_versions")
-  @@schema("curriculum")
-}
-
-model CurriculumUnit {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  curriculumVersionId String   @db.Uuid
-  textbookId          String?  @db.Uuid
-  orderIndex          Int
-  title               String   @db.VarChar(200)
-  description         String?
-  pdfStartPage        Int?     @db.SmallInt
-  pdfEndPage          Int?     @db.SmallInt
-  createdAt           DateTime @default(now()) @db.Timestamptz()
-  updatedAt           DateTime @updatedAt @db.Timestamptz()
-
-  version  CurriculumVersion  @relation(fields: [curriculumVersionId], references: [id], onDelete: Cascade)
-  textbook Textbook?          @relation(fields: [textbookId], references: [id], onDelete: SetNull)
-  lessons  CurriculumLesson[]
-
-  @@unique([curriculumVersionId, orderIndex])
-  @@map("curriculum_units")
-  @@schema("curriculum")
-}
-
-model CurriculumLesson {
-  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  unitId     String @db.Uuid
-  orderIndex Int
-  title      String @db.VarChar(200)
-
-  // Pedagogical Data
-  lessonType         String?  @db.VarChar(100)
-  domain             String?  @db.VarChar(150)
-  sourceText         String?  @db.VarChar(255)
-  learningObjectives String[]
-  learningSequence   Json?
-
-  estimatedDurationMinutes Int?     @db.SmallInt
-  teacherGuide             String?
-  pdfStartPage             Int?     @db.SmallInt
-  pdfEndPage               Int?     @db.SmallInt
-  createdAt                DateTime @default(now()) @db.Timestamptz()
-  updatedAt                DateTime @updatedAt @db.Timestamptz()
-
-  unit              CurriculumUnit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  sessions          CurriculumSession[]
-  liveSessions      Session[]
-  assessments       Assessment[]
-  questionTemplates QuestionTemplate[]
-
-  @@unique([unitId, orderIndex])
-  @@map("curriculum_lessons")
-  @@schema("curriculum")
-}
-
-model CurriculumSession {
-  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  lessonId                   String   @db.Uuid
-  orderIndex                 Int
-  title                      String   @db.VarChar(200)
-  sessionPlan                String?
-  recommendedDurationMinutes Int      @default(60) @db.SmallInt
-  createdAt                  DateTime @default(now()) @db.Timestamptz()
-  updatedAt                  DateTime @updatedAt @db.Timestamptz()
-
-  lesson   CurriculumLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  sessions Session[]
-
-  @@unique([lessonId, orderIndex])
-  @@map("curriculum_sessions")
-  @@schema("curriculum")
-}
-
-// ============================================================================
-// GROUPS (COHORTS) SCHEMA
-// ============================================================================
-
 enum CohortStatus {
   draft
   recruiting
@@ -312,68 +624,6 @@ enum EnrollmentStatus {
   @@schema("groups")
 }
 
-model Cohort {
-  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  courseId            String       @db.Uuid
-  curriculumVersionId String       @db.Uuid
-  name                String       @db.VarChar(150)
-  code                String       @unique @db.VarChar(64)
-  status              CohortStatus @default(draft)
-  minStudents         Int          @default(3) @db.SmallInt
-  maxStudents         Int          @default(12) @db.SmallInt
-  startDate           DateTime     @db.Date
-  endDate             DateTime     @db.Date
-  createdById         String?      @db.Uuid
-  createdAt           DateTime     @default(now()) @db.Timestamptz()
-  updatedAt           DateTime     @updatedAt @db.Timestamptz()
-
-  instructors CohortInstructor[]
-  enrollments CohortEnrollment[]
-  sessions    Session[]
-  assessments Assessment[]
-
-  @@map("cohorts")
-  @@schema("groups")
-}
-
-model CohortInstructor {
-  cohortId     String   @db.Uuid
-  teacherId    String   @db.Uuid
-  role         String   @default("primary_teacher") @db.VarChar(32)
-  assignedAt   DateTime @default(now()) @db.Timestamptz()
-  assignedById String?  @db.Uuid
-
-  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-
-  @@id([cohortId, teacherId])
-  @@map("cohort_instructors")
-  @@schema("groups")
-}
-
-model CohortEnrollment {
-  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cohortId         String           @db.Uuid
-  studentId        String           @db.Uuid
-  status           EnrollmentStatus @default(applied)
-  enrolledAt       DateTime         @default(now()) @db.Timestamptz()
-  completedAt      DateTime?        @db.Timestamptz()
-  withdrawnAt      DateTime?        @db.Timestamptz()
-  withdrawalReason String?
-  version          Int              @default(1) // For optimistic locking with XState
-  createdAt        DateTime         @default(now()) @db.Timestamptz()
-  updatedAt        DateTime         @updatedAt @db.Timestamptz()
-
-  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-
-  @@unique([cohortId, studentId])
-  @@map("cohort_enrollments")
-  @@schema("groups")
-}
-
-// ============================================================================
-// SCHEDULING SCHEMA
-// ============================================================================
-
 enum SessionStatus {
   scheduled
   open
@@ -384,47 +634,6 @@ enum SessionStatus {
 
   @@schema("scheduling")
 }
-
-model Session {
-  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cohortId            String        @db.Uuid
-  curriculumSessionId String?       @db.Uuid
-  lessonId            String?       @db.Uuid
-  teacherId           String        @db.Uuid
-  title               String        @db.VarChar(200)
-  description         String?
-  status              SessionStatus @default(scheduled)
-
-  scheduledStartTime DateTime  @db.Timestamptz()
-  scheduledEndTime   DateTime  @db.Timestamptz()
-  actualStartTime    DateTime? @db.Timestamptz()
-  actualEndTime      DateTime? @db.Timestamptz()
-
-  jitsiRoomName      String? @db.VarChar(255)
-  jitsiJwtToken      String?
-  cancellationReason String?
-  rescheduledToId    String? @db.Uuid
-
-  version   Int      @default(1)
-  createdAt DateTime @default(now()) @db.Timestamptz()
-  updatedAt DateTime @updatedAt @db.Timestamptz()
-
-  // Relations
-  cohort            Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  curriculumSession CurriculumSession?  @relation(fields: [curriculumSessionId], references: [id], onDelete: SetNull)
-  lesson            CurriculumLesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  teacher           User                @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  rescheduledTo     Session?            @relation("SessionReschedules", fields: [rescheduledToId], references: [id], onDelete: SetNull)
-  reschedules       Session[]           @relation("SessionReschedules")
-  attendances       SessionAttendance[]
-
-  @@map("sessions")
-  @@schema("scheduling")
-}
-
-// ============================================================================
-// ATTENDANCE SCHEMA
-// ============================================================================
 
 enum AttendanceStatus {
   present
@@ -444,47 +653,6 @@ enum AttendanceEventType {
   @@schema("attendance")
 }
 
-model SessionAttendance {
-  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sessionId            String           @db.Uuid
-  studentId            String           @db.Uuid
-  status               AttendanceStatus @default(absent_unexcused)
-  firstEntryTime       DateTime?        @db.Timestamptz()
-  lastExitTime         DateTime?        @db.Timestamptz()
-  totalDurationSeconds Int              @default(0)
-  markedById           String?          @db.Uuid
-  teacherNotes         String?
-
-  createdAt DateTime @default(now()) @db.Timestamptz()
-  updatedAt DateTime @updatedAt @db.Timestamptz()
-
-  session  Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  student  User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Restrict)
-  markedBy User?             @relation("AttendanceMarker", fields: [markedById], references: [id], onDelete: SetNull)
-  events   AttendanceEvent[]
-
-  @@unique([sessionId, studentId])
-  @@map("session_attendance")
-  @@schema("attendance")
-}
-
-model AttendanceEvent {
-  id                  BigInt              @id @default(autoincrement())
-  sessionAttendanceId String              @db.Uuid
-  sessionId           String              @db.Uuid
-  studentId           String              @db.Uuid
-  eventType           AttendanceEventType
-  eventTime           DateTime            @default(now()) @db.Timestamptz()
-  ipAddress           String? // Prisma doesn't natively support Inet in all methods easily, mapped as String
-  clientDeviceInfo    Json?
-  createdAt           DateTime            @default(now()) @db.Timestamptz()
-
-  sessionAttendance SessionAttendance @relation(fields: [sessionAttendanceId], references: [id], onDelete: Cascade)
-
-  @@map("attendance_events")
-  @@schema("attendance")
-}
-
 enum RequestStatus {
   pending
   approved
@@ -492,29 +660,6 @@ enum RequestStatus {
 
   @@schema("groups")
 }
-
-model CohortRequest {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  teacherId        String        @db.Uuid
-  subjectId        String        @db.Uuid
-  suggestedName    String        @db.VarChar(100)
-  expectedStudents Int           @db.SmallInt
-  notes            String?       @db.Text
-  status           RequestStatus @default(pending)
-  rejectionReason  String?       @db.Text
-  createdAt        DateTime      @default(now()) @db.Timestamptz()
-  updatedAt        DateTime      @updatedAt @db.Timestamptz()
-
-  teacher User    @relation(fields: [teacherId], references: [id])
-  subject Subject @relation(fields: [subjectId], references: [id])
-
-  @@map("cohort_requests")
-  @@schema("groups")
-}
-
-// ============================================================================
-// ASSESSMENTS SCHEMA
-// ============================================================================
 
 enum AssessmentType {
   quiz
@@ -534,88 +679,6 @@ enum SubmissionStatus {
 
   @@schema("assessments")
 }
-
-model Assessment {
-  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cohortId           String         @db.Uuid
-  curriculumLessonId String?        @db.Uuid
-  title              String         @db.VarChar(200)
-  description        String?
-  type               AssessmentType
-  dueDate            DateTime       @db.Timestamptz()
-  maxScore           Decimal        @db.Decimal(5, 2)
-  createdById        String         @db.Uuid
-  createdAt          DateTime       @default(now()) @db.Timestamptz()
-  updatedAt          DateTime       @updatedAt @db.Timestamptz()
-
-  cohort           Cohort                 @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  curriculumLesson CurriculumLesson?      @relation(fields: [curriculumLessonId], references: [id], onDelete: SetNull)
-  createdBy        User                   @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  submissions      AssessmentSubmission[]
-  attachments      AssessmentAttachment[]
-  questions        AssessmentQuestion[]
-
-  @@map("assessments")
-  @@schema("assessments")
-}
-
-model AssessmentAttachment {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assessmentId String   @db.Uuid
-  fileName     String   @db.VarChar(255)
-  fileUrl      String   @db.VarChar(1024)
-  fileSize     Int // in bytes
-  mimeType     String   @db.VarChar(100)
-  createdAt    DateTime @default(now()) @db.Timestamptz()
-
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-
-  @@map("assessment_attachments")
-  @@schema("assessments")
-}
-
-model AssessmentSubmission {
-  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assessmentId String           @db.Uuid
-  studentId    String           @db.Uuid
-  status       SubmissionStatus @default(draft)
-  score        Decimal?         @db.Decimal(5, 2)
-  feedback     String?
-  submittedAt  DateTime?        @db.Timestamptz()
-  gradedAt     DateTime?        @db.Timestamptz()
-  gradedById   String?          @db.Uuid
-  version      Int              @default(1) // For XState Optimistic Locking
-  createdAt    DateTime         @default(now()) @db.Timestamptz()
-  updatedAt    DateTime         @updatedAt @db.Timestamptz()
-
-  assessment  Assessment             @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  student     User                   @relation("StudentSubmission", fields: [studentId], references: [id], onDelete: Restrict)
-  gradedBy    User?                  @relation("GraderSubmission", fields: [gradedById], references: [id], onDelete: SetNull)
-  attachments SubmissionAttachment[]
-
-  @@unique([assessmentId, studentId])
-  @@map("assessment_submissions")
-  @@schema("assessments")
-}
-
-model SubmissionAttachment {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  submissionId String   @db.Uuid
-  fileName     String   @db.VarChar(255)
-  fileUrl      String   @db.VarChar(1024)
-  fileSize     Int // in bytes
-  mimeType     String   @db.VarChar(100)
-  createdAt    DateTime @default(now()) @db.Timestamptz()
-
-  submission AssessmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("submission_attachments")
-  @@schema("assessments")
-}
-
-// ============================================================================
-// CHAT & MODERATION SCHEMA
-// ============================================================================
 
 enum ConversationType {
   private
@@ -645,77 +708,6 @@ enum ReportStatus {
   @@schema("chat")
 }
 
-model Conversation {
-  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cohortId  String?          @db.Uuid
-  type      ConversationType
-  createdAt DateTime         @default(now()) @db.Timestamptz()
-  updatedAt DateTime         @updatedAt @db.Timestamptz()
-
-  participants ConversationParticipant[]
-  messages     Message[]
-
-  @@map("conversations")
-  @@schema("chat")
-}
-
-model ConversationParticipant {
-  conversationId String    @db.Uuid
-  userId         String    @db.Uuid
-  joinedAt       DateTime  @default(now()) @db.Timestamptz()
-  lastReadAt     DateTime? @db.Timestamptz()
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([conversationId, userId])
-  @@map("conversation_participants")
-  @@schema("chat")
-}
-
-model Message {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId   String        @db.Uuid
-  senderId         String        @db.Uuid
-  content          String        @db.Text
-  status           MessageStatus @default(pending_scan)
-  version          Int           @default(1)
-  moderationReason String?
-  createdAt        DateTime      @default(now()) @db.Timestamptz()
-  updatedAt        DateTime      @updatedAt @db.Timestamptz()
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
-  reports      Report[]
-
-  @@map("messages")
-  @@schema("chat")
-}
-
-model Report {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  messageId       String       @db.Uuid
-  reporterId      String       @db.Uuid
-  reason          String
-  status          ReportStatus @default(submitted)
-  resolutionNotes String?
-  resolvedById    String?      @db.Uuid
-  version         Int          @default(1)
-  createdAt       DateTime     @default(now()) @db.Timestamptz()
-  updatedAt       DateTime     @updatedAt @db.Timestamptz()
-
-  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  reporter   User    @relation("ReportSender", fields: [reporterId], references: [id], onDelete: Restrict)
-  resolvedBy User?   @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
-
-  @@map("reports")
-  @@schema("chat")
-}
-
-// ============================================================================
-// NOTIFICATIONS SCHEMA
-// ============================================================================
-
 enum NotificationType {
   system
   enrollment
@@ -726,48 +718,10 @@ enum NotificationType {
   @@schema("notifications")
 }
 
-model Notification {
-  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String           @db.Uuid
-  title     String           @db.VarChar(150)
-  body      String           @db.Text
-  type      NotificationType @default(system)
-  isRead    Boolean          @default(false)
-  actionUrl String?          @db.VarChar(1024)
-  createdAt DateTime         @default(now()) @db.Timestamptz()
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-  @@schema("notifications")
-}
-
-// ============================================================================
-// EXAM PREPARATION SCHEMA
-// ============================================================================
-
 enum ExamPrepType {
   quarterly
   final
 
-  @@schema("curriculum")
-}
-
-model ExamPrepCamp {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String       @db.VarChar(150)
-  description String?      @db.Text
-  type        ExamPrepType
-  startDate   DateTime     @db.Timestamptz()
-  endDate     DateTime     @db.Timestamptz()
-  isActive    Boolean      @default(true)
-  createdById String       @db.Uuid
-  createdAt   DateTime     @default(now()) @db.Timestamptz()
-  updatedAt   DateTime     @updatedAt @db.Timestamptz()
-
-  creator User @relation(fields: [createdById], references: [id])
-
-  @@map("exam_prep_camps")
   @@schema("curriculum")
 }
 
@@ -777,40 +731,5 @@ enum QuestionType {
   short_answer
   essay
 
-  @@schema("assessments")
-}
-
-model QuestionTemplate {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  curriculumLessonId String       @db.Uuid
-  type               QuestionType @default(multiple_choice)
-  content            String       @db.Text
-  options            Json? // For multiple choice
-  correctAnswer      String?      @db.Text
-  explanation        String?      @db.Text
-  difficulty         Int          @default(1) @db.SmallInt
-  isActive           Boolean      @default(true)
-  createdAt          DateTime     @default(now()) @db.Timestamptz()
-  updatedAt          DateTime     @updatedAt @db.Timestamptz()
-
-  lesson              CurriculumLesson     @relation(fields: [curriculumLessonId], references: [id], onDelete: Cascade)
-  assessmentQuestions AssessmentQuestion[]
-
-  @@map("question_templates")
-  @@schema("assessments")
-}
-
-model AssessmentQuestion {
-  id                 String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  assessmentId       String  @db.Uuid
-  questionTemplateId String  @db.Uuid
-  orderIndex         Int
-  scoreWeight        Decimal @default(1.0) @db.Decimal(5, 2)
-
-  assessment       Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  questionTemplate QuestionTemplate @relation(fields: [questionTemplateId], references: [id], onDelete: Restrict)
-
-  @@unique([assessmentId, questionTemplateId])
-  @@map("assessment_questions")
   @@schema("assessments")
 }
