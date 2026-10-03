@@ -90,7 +90,7 @@ export default function AdminDashboard() {
   const handleDeleteCohort = async (id: string, name: string) => {
     if (confirm(`هل أنت متأكد من حذف الفوج "${name}"؟ هذه العملية لا يمكن التراجع عنها.`)) {
       try {
-        await api.delete(`/groups/admin/cohorts/${id}`);
+        await api.delete(`/groups/cohorts/${id}`);
         queryClient.invalidateQueries({ queryKey: ['adminData'] });
         queryClient.invalidateQueries({ queryKey: ['adminStats'] });
       } catch (err) {

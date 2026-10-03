@@ -44,7 +44,7 @@ export default function EditCohortModal({
     e.preventDefault();
     setIsLoading(true);
     try {
-      await api.patch(`/groups/admin/cohorts/${cohort.id}`, {
+      await api.patch(`/groups/cohorts/${cohort.id}`, {
         name,
         code,
         teacherId,
