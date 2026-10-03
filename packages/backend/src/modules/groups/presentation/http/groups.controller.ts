@@ -5,6 +5,81 @@ import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 @Controller('groups')
 @UseGuards(JwtAuthGuard)
 export class GroupsController {
+
+  @Get('admin/distribution')
+  async getAdminDistribution() {
+    const subjects = await this.prisma.subject.findMany({
+      orderBy: { nameAr: 'asc' },
+      include: {
+        supervisors: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        },
+        courses: {
+          include: {
+            cohorts: {
+              where: { status: { not: 'archived' } },
+              include: {
+                instructors: {
+                  include: {
+                    teacher: { select: { id: true, firstName: true, lastName: true, email: true } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Flatten teachers per subject for convenience
+    const formattedSubjects = subjects.map(subject => {
+      const teachersMap = new Map();
+      subject.courses.forEach(course => {
+        course.cohorts.forEach(cohort => {
+          cohort.instructors.forEach(instructor => {
+             if (instructor.teacher) {
+               teachersMap.set(instructor.teacher.id, instructor.teacher);
+             }
+          });
+        });
+      });
+      return {
+        ...subject,
+        courses: undefined, // remove raw courses to save bandwidth
+        teachers: Array.from(teachersMap.values())
+      };
+    });
+
+    const supervisors = await this.prisma.user.findMany({
+      where: { primaryRole: 'subject_supervisor' },
+      select: { id: true, firstName: true, lastName: true, email: true }
+    });
+
+    return { subjects: formattedSubjects, supervisors };
+  }
+
+  @Patch('admin/distribution/:subjectId/supervisor/:userId')
+  async assignSupervisor(@Req() req: any, @Param('subjectId') subjectId: string, @Param('userId') userId: string) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+      return { error: 'Unauthorized' };
+    }
+    
+    if (userId === 'none') {
+      // Unassign all supervisors from this subject
+      await this.prisma.user.updateMany({
+        where: { supervisedSubjectId: subjectId, primaryRole: 'subject_supervisor' },
+        data: { supervisedSubjectId: null }
+      });
+      return { success: true };
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { supervisedSubjectId: subjectId }
+      });
+      return { success: true };
+    }
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('admin/data')
@@ -51,6 +126,7 @@ export class GroupsController {
   async getAdminStats() {
     const teachers = await this.prisma.user.count({ where: { primaryRole: 'teacher' } });
     const students = await this.prisma.user.count({ where: { primaryRole: 'student' } });
+    const supervisors = await this.prisma.user.count({ where: { primaryRole: 'subject_supervisor' } });
     const cohorts = await this.prisma.cohort.count();
     const activeSessions = await this.prisma.session.count({ where: { status: 'scheduled' } });
     const pendingUsers = await this.prisma.user.count({ where: { status: 'pending' } });
@@ -71,7 +147,7 @@ export class GroupsController {
     }
 
     return {
-      stats: { teachers, students, cohorts, activeSessions, pendingUsers },
+      stats: { teachers, students, supervisors, cohorts, activeSessions, pendingUsers },
       recentCohorts
     };
   }

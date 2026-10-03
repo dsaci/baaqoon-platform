@@ -158,7 +158,7 @@ export default function DashboardLayout() {
   const navLinks = [
     ...getNavLinks(),
     { name: "مقالات وتدريبات وامتحانات (قيد التطوير)", path: `/${basePath}/coming-soon-articles`, icon: BookOpen },
-    { name: "التفويج والإسناد", path: `/${basePath}/dashboard`, icon: Calendar },
+    { name: "الإسناد الأكاديمي", path: `/${basePath}/distribution`, icon: Calendar },
   ];
 
   return (

@@ -23,6 +23,7 @@ import TakeAssessmentPage from "./features/student/pages/TakeAssessmentPage";
 // Admin Pages
 import AdminDashboard from "./features/admin/pages/AdminDashboard";
 import AdminDatabasePage from "./features/admin/pages/AdminDatabasePage";
+import DistributionAdminPage from "./features/admin/pages/DistributionAdminPage";
 
 // Supervisor Pages
 import SupervisorDashboard from "./features/supervisor/pages/SupervisorDashboard";
@@ -129,7 +130,7 @@ function App() {
       >
         <Route path="dashboard" element={<TeacherDashboard />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
+          <Route path="distribution" element={<DistributionAdminPage />} />
         
         <Route path="cohorts" element={<CohortsPage />} />
         <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
