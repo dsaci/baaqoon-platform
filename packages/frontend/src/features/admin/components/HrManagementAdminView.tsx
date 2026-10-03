@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus } from 'lucide-react';
 
 export default function HrManagementAdminView() {
   const queryClient = useQueryClient();
