@@ -1,4 +1,4 @@
-      <EditCohortModal isOpen={!!editingCohort} onClose={() => setEditingCohort(null)} cohort={editingCohort} adminData={adminData} />\nimport React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 , Edit, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import EditCohortModal from '../components/EditCohortModal';
@@ -503,6 +503,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      <EditCohortModal isOpen={!!editingCohort} onClose={() => setEditingCohort(null)} cohort={editingCohort} adminData={adminData} />
     </div>
   );
 }
