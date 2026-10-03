@@ -11,7 +11,11 @@ export class GroupsController {
   async getAdminData() {
     const teachers = await this.prisma.user.findMany({
       where: { primaryRole: 'teacher' },
-      select: { id: true, firstName: true, lastName: true, email: true }
+      select: { id: true, firstName: true, lastName: true, email: true, supervisedSubjectId: true }
+    });
+    const students = await this.prisma.user.findMany({
+      where: { primaryRole: 'student' },
+      select: { id: true, firstName: true, lastName: true, email: true, academicBranch: true, curriculumType: true }
     });
     const courses = await this.prisma.course.findMany({
       include: {
@@ -19,7 +23,7 @@ export class GroupsController {
         versions: { where: { isDefault: true }, select: { id: true, versionTag: true } }
       }
     });
-    return { teachers, courses };
+    return { teachers, students, courses };
   }
 
   @Get('admin/database')
