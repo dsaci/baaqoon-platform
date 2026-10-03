@@ -177,8 +177,14 @@ export default function HrManagementAdminView() {
                           <CheckCircle className="w-5 h-5" />
                         </button>
                       )}
-                      
-                      
+                      <button
+                        onClick={() => { setSelectedUserForReset(u); setIsResetPasswordOpen(true); }}
+                        title="تغيير كلمة المرور"
+                        className="p-2 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors ml-1"
+                      >
+                        <Key className="w-5 h-5" />
+                      </button>
+
                       <button
                         onClick={() => {
                           if(window.confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء!')) {
