@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+      <EditCohortModal isOpen={!!editingCohort} onClose={() => setEditingCohort(null)} cohort={editingCohort} adminData={adminData} />\nimport React, { useState } from 'react';
 import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 , Edit, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import EditCohortModal from '../components/EditCohortModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
