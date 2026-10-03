@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = 'packages/frontend/src/features/admin/components/HrManagementAdminView.tsx';
+const path = '../frontend/src/features/admin/components/HrManagementAdminView.tsx';
 let code = fs.readFileSync(path, 'utf8');
 
 if (!code.includes('isAddUserOpen')) {
@@ -69,4 +69,7 @@ if (!code.includes('isAddUserOpen')) {
   code = code.replace("</div>\n    </div>\n  );\n}", modalCode + "\n      </div>\n    </div>\n  );\n}");
 
   fs.writeFileSync(path, code);
+  console.log("SUCCESS");
+} else {
+  console.log("ALREADY APPLIED");
 }

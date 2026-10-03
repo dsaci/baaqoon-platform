@@ -5,6 +5,18 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
+
+  @Patch('admin/:id/password')
+  async resetPassword(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    const bcrypt = require('bcrypt');
+    const passwordHash = await bcrypt.hash(body.password, 12);
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash }
+    });
+  }
+
   @Post('admin/create')
   async createUser(@Req() req: any, @Body() body: any) {
     if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();

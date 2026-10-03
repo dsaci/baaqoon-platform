@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key } from 'lucide-react';
 
 export default function HrManagementAdminView() {
   const queryClient = useQueryClient();
   const [roleFilter, setRoleFilter] = useState('all');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student' });
 
   const { data: users = [], isLoading } = useQuery({
@@ -27,6 +30,18 @@ export default function HrManagementAdminView() {
       queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
       setIsAddUserOpen(false);
       setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student' });
+    }
+  });
+  
+  
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      return api.patch(`/users/admin/${id}/password`, { password });
+    },
+    onSuccess: () => {
+      alert('تم تغيير كلمة المرور بنجاح');
+      setIsResetPasswordOpen(false);
+      setNewPassword('');
     }
   });
   
@@ -227,6 +242,23 @@ export default function HrManagementAdminView() {
             <div className="flex gap-3 mt-6">
               <button onClick={() => setIsAddUserOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 rounded-xl font-bold">إلغاء</button>
               <button onClick={() => addMutation.mutate({...newUser, password: newUser.password || '123456'})} disabled={addMutation.isPending} className="flex-2 px-4 py-3 bg-violet-600 text-white rounded-xl font-bold w-2/3">إضافة وتفعيل</button>
+            </div>
+          </div>
+        </div>
+      )}
+  
+      
+      {isResetPasswordOpen && selectedUserForReset && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md shadow-2xl p-6">
+            <h2 className="text-xl font-black mb-4 dark:text-white">تغيير كلمة المرور</h2>
+            <p className="mb-4 text-slate-600 dark:text-slate-400">للمستخدم: {selectedUserForReset.firstName} {selectedUserForReset.lastName}</p>
+            <div className="space-y-4">
+              <input type="password" placeholder="كلمة المرور الجديدة" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setIsResetPasswordOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 rounded-xl font-bold">إلغاء</button>
+              <button onClick={() => resetPasswordMutation.mutate({ id: selectedUserForReset.id, password: newPassword })} disabled={resetPasswordMutation.isPending || !newPassword} className="flex-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold w-2/3">حفظ الكلمة الجديدة</button>
             </div>
           </div>
         </div>
