@@ -67,8 +67,22 @@ export default function AdminDashboard() {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [editingCohort, setEditingCohort] = useState<any>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
+  
+  const handleDeleteCohort = async (id: string, name: string) => {
+    if (confirm(`هل أنت متأكد من حذف الفوج "${name}"؟ هذه العملية لا يمكن التراجع عنها.`)) {
+      try {
+        await api.delete(`/groups/admin/cohorts/${id}`);
+        queryClient.invalidateQueries({ queryKey: ['adminData'] });
+        queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      } catch (err) {
+        alert("حدث خطأ أثناء الحذف");
+      }
+    }
+  };
+  
   const handleCreateCohortSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCohortName || !newCohortCode || !selectedCourseId || !selectedTeacherId) {
