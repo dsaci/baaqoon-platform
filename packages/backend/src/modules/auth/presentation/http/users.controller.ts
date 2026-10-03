@@ -6,6 +6,31 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 @UseGuards(JwtAuthGuard)
 export class UsersController {
 
+  @Get('admin/password-requests')
+  async listPasswordRequests(@Req() req: any) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    return this.prisma.$queryRawUnsafe(`
+      SELECT r.id, r.created_at AS "createdAt", u.id AS "userId", u."firstName", u."lastName",
+             u.email, u.phone, u."primaryRole"
+      FROM users.password_reset_requests r JOIN users.users u ON u.id = r.user_id
+      WHERE r.status = 'pending' ORDER BY r.created_at DESC`);
+  }
+
+  @Post('admin/password-requests/:id/:action')
+  async resolvePasswordRequest(@Req() req: any, @Param('id') id: string, @Param('action') action: string) {
+    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    const rows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT user_id, new_password_hash FROM users.password_reset_requests WHERE id=$1::uuid AND status='pending'`, id);
+    if (!rows.length) return { ok: false };
+    if (action === 'approve') {
+      await this.prisma.user.update({ where: { id: rows[0].user_id }, data: { passwordHash: rows[0].new_password_hash } });
+    }
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE users.password_reset_requests SET status=$2, resolved_at=now() WHERE id=$1::uuid`,
+      id, action === 'approve' ? 'approved' : 'rejected');
+    return { ok: true };
+  }
+
   @Patch('admin/:id/password')
   async resetPassword(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();

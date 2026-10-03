@@ -17,6 +17,29 @@ export class AuthService {
     private prisma: PrismaService, // Used only for registration creation
   ) {}
 
+  async requestPasswordReset(data: any) {
+    const identifier = (data?.identifier || '').trim();
+    const newPassword = data?.newPassword || '';
+    if (!identifier || newPassword.length < 6) {
+      throw new ConflictException("أدخل البريد أو الهاتف وكلمة مرور جديدة (6 أحرف على الأقل)");
+    }
+    const user = await this.usersFacade.getUserByIdentifier(identifier);
+    if (!user) {
+      throw new ConflictException("لا يوجد حساب بهذا البريد أو رقم الهاتف");
+    }
+    const hash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE users.password_reset_requests SET status='cancelled', resolved_at=now() WHERE user_id=$1::uuid AND status='pending'`,
+      user.id,
+    );
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO users.password_reset_requests (user_id, new_password_hash) VALUES ($1::uuid, $2)`,
+      user.id,
+      hash,
+    );
+    return { message: "تم إرسال طلب تغيير كلمة المرور إلى المدير. ستتمكن من الدخول بالكلمة الجديدة بعد موافقته." };
+  }
+
   async register(data: any) {
     if (!data.recaptchaToken) {
       throw new UnauthorizedException("إثبات أنك لست روبوت مطلوب (reCAPTCHA)");

@@ -24,6 +24,11 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post("password-reset-request")
+  async passwordResetRequest(@Body() body: any) {
+    return this.authService.requestPasswordReset(body);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("me")
   getProfile(@Request() req: any) {

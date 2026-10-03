@@ -5,6 +5,7 @@ import logo from '../../../assets/logo.jpg';
 import { api } from '../../../lib/axios';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
@@ -136,7 +138,15 @@ export default function LoginPage() {
             {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
             {isLoading ? t('common.loading') : t('common.login')}
           </button>
-        </form>
+        
+            <div className="text-right mt-2 mb-4">
+              <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-emerald-600 hover:text-emerald-700 font-bold transition-colors">
+                نسيت كلمة المرور؟
+              </button>
+            </div>
+  
+          </form>
+          {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
 
         <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
           {t('auth.no_account')}{' '}

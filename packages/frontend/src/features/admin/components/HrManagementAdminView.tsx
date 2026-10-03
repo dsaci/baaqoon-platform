@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import PasswordRequestsModal from './PasswordRequestsModal';
 import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key } from 'lucide-react';
 
 export default function HrManagementAdminView() {
   const queryClient = useQueryClient();
   const [roleFilter, setRoleFilter] = useState('all');
+  const [isPasswordRequestsOpen, setIsPasswordRequestsOpen] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null);
@@ -87,6 +89,10 @@ export default function HrManagementAdminView() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
+          <div className="flex gap-2">
+          <button onClick={() => setIsPasswordRequestsOpen(true)} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all">
+            <Key className="w-5 h-5" /> طلبات كلمات المرور
+          </button>
           <button 
             onClick={() => setIsAddUserOpen(true)}
             className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all"
@@ -94,6 +100,7 @@ export default function HrManagementAdminView() {
             <UserPlus className="w-5 h-5" />
             إضافة مستخدم جديد
           </button>
+          </div>
         </div>
         {/* Sub-tabs for filtering */}
       <div className="flex flex-wrap gap-3">
@@ -270,6 +277,11 @@ export default function HrManagementAdminView() {
         </div>
       )}
   
+      
+      {isPasswordRequestsOpen && (
+        <PasswordRequestsModal onClose={() => setIsPasswordRequestsOpen(false)} />
+      )}
+
       </div>
     </div>
   );
