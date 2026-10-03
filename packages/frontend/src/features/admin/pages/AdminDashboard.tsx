@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const [newCohortCode, setNewCohortCode] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
 
   const handleCreateCohortSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +87,7 @@ export default function AdminDashboard() {
       courseId: selectedCourseId,
       curriculumVersionId: course.versions[0].id,
       teacherId: selectedTeacherId,
-      studentIds: []
+      studentIds: selectedStudentIds
     });
   };
 

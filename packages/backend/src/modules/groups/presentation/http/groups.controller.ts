@@ -26,7 +26,7 @@ export class GroupsController {
   async getAdminDatabase() {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true }
+      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true, supervisedSubjectId: true, academicBranch: true, curriculumType: true }
     });
     const subjects = await this.prisma.subject.findMany({
       include: { courses: true }
