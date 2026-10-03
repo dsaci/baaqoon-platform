@@ -129,8 +129,8 @@ function App() {
         }
       >
         <Route path="dashboard" element={<TeacherDashboard />} />
-        <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="distribution" element={<DistributionAdminPage />} />
+          <Route path="coming-soon-articles" element={<ComingSoonPage />} />
+          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
         
         <Route path="cohorts" element={<CohortsPage />} />
         <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
@@ -174,8 +174,8 @@ function App() {
         }
       >
         <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
+          <Route path="coming-soon-articles" element={<ComingSoonPage />} />
+          <Route path="distribution" element={<DistributionAdminPage />} />
         
         <Route path="database" element={<AdminDatabasePage />} />
       </Route>
