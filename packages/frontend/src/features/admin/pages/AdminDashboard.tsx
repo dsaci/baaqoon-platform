@@ -11,7 +11,23 @@ import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests'>('hr');
+  
+  const searchParams = new URLSearchParams(window.location.search);
+  const tabParam = searchParams.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
+  const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests'>(tabParam || 'hr');
+
+  React.useEffect(() => {
+    const handleLocationChange = () => {
+      const search = new URLSearchParams(window.location.search);
+      const tab = search.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
+      if (tab) setActiveTab(tab);
+    };
+
+    // Keep activeTab in sync with URL
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
 
   const { data: adminStats, isLoading } = useQuery({
     queryKey: ['adminStats'],
