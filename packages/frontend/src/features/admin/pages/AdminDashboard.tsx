@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 } from 'lucide-react';
+import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 , Edit, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
