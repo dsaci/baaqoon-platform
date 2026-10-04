@@ -13,39 +13,39 @@ export class GroupsController {
       include: {
         supervisors: {
           select: { id: true, firstName: true, lastName: true, email: true }
-        },
-        courses: {
-          include: {
-            cohorts: {
-              where: { status: { not: 'archived' } },
-              include: {
-                instructors: {
-                  include: {
-                    teacher: { select: { id: true, firstName: true, lastName: true, email: true } }
-                  }
-                }
-              }
-            }
-          }
         }
       }
     });
 
-    // Flatten teachers per subject for convenience
+    const courses = await this.prisma.course.findMany({
+      select: { id: true, subjectId: true }
+    });
+
+    const cohorts = await this.prisma.cohort.findMany({
+      select: { id: true, courseId: true }
+    });
+
+    const instructors = await this.prisma.cohortInstructor.findMany({
+      where: { cohortId: { in: cohorts.map(c => c.id) } }
+    });
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: instructors.map(i => i.teacherId) } },
+      select: { id: true, firstName: true, lastName: true, email: true }
+    });
+
     const formattedSubjects = subjects.map(subject => {
+      const subjectCourses = courses.filter(c => c.subjectId === subject.id).map(c => c.id);
+      const subjectCohorts = cohorts.filter(c => subjectCourses.includes(c.courseId)).map(c => c.id);
+      
       const teachersMap = new Map();
-      subject.courses.forEach(course => {
-        course.cohorts.forEach(cohort => {
-          cohort.instructors.forEach(instructor => {
-             if (instructor.teacher) {
-               teachersMap.set(instructor.teacher.id, instructor.teacher);
-             }
-          });
-        });
+      instructors.filter(inst => subjectCohorts.includes(inst.cohortId)).forEach(inst => {
+        const teacher = users.find(u => u.id === inst.teacherId);
+        if (teacher) teachersMap.set(teacher.id, teacher);
       });
+
       return {
         ...subject,
-        courses: undefined, // remove raw courses to save bandwidth
         teachers: Array.from(teachersMap.values())
       };
     });
