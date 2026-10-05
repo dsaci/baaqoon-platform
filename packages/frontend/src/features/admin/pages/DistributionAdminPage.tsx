@@ -3,7 +3,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { Shield, User, Users, BookOpen, AlertCircle } from 'lucide-react';
 
-export default function DistributionAdminPage() {
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: 'red', background: 'white' }}>
+          <h1>Something went wrong in DistributionAdminPage.</h1>
+          <pre>{this.state.error && this.state.error.toString()}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DistributionAdminPageInner() {
   const queryClient = useQueryClient();
   const [assigningSubjectId, setAssigningSubjectId] = useState<string | null>(null);
 
@@ -146,3 +168,5 @@ export default function DistributionAdminPage() {
     </div>
   );
 }
+
+export default function DistributionAdminPage() { return <ErrorBoundary><DistributionAdminPageInner /></ErrorBoundary>; }
