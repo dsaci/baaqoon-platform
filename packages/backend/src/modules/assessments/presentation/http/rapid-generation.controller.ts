@@ -12,10 +12,10 @@ export class AssessmentsController {
   @Post('generate')
   async generateAssessment(
     @Req() req: any,
-    @Body() body: { cohortId: string; curriculumLessonId: string }
+    @Body() body: { cohortId: string; curriculumLessonId: string; questionCount?: number }
   ) {
     const teacherId = req.user?.id || req.user?.userId || 'demo-teacher-001'; // Mock ID for testing
-    return this.rapidGenService.generateAssessment(body.cohortId, body.curriculumLessonId, teacherId);
+    return this.rapidGenService.generateAssessment(body.cohortId, body.curriculumLessonId, teacherId, body.questionCount);
   }
 
   @Post()

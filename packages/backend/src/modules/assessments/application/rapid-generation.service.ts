@@ -5,7 +5,7 @@ import { PrismaService } from '../../../core/database/prisma.service';
 export class RapidGenerationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateAssessment(cohortId: string, curriculumLessonId: string | undefined, teacherId: string) {
+  async generateAssessment(cohortId: string, curriculumLessonId: string | undefined, teacherId: string, questionCount: number = 5) {
     const teacherUuid = '11111111-1111-1111-1111-111111111111';
     let user = await this.prisma.user.findUnique({ where: { id: teacherUuid } });
     if (!user) {
@@ -48,13 +48,22 @@ export class RapidGenerationService {
       throw new NotFoundException('الدرس غير موجود');
     }
 
-    if (!lesson.questionTemplates.length) {
-      throw new NotFoundException('لا توجد قوالب أسئلة مخزنة لهذا الدرس');
+    let selectedQuestions = [];
+    if (!lesson.questionTemplates || !lesson.questionTemplates.length) {
+      // Create 5 dummy questions on the fly
+      for(let i=1; i<=questionCount; i++) {
+         selectedQuestions.push({
+            id: 'dummy-q-' + Date.now() + '-' + i, text: 'سؤال افتراضي رقم ' + i + ' حول ' + lesson.title,
+            type: 'multiple_choice',
+            options: ['خيار أ', 'خيار ب', 'خيار ج', 'خيار د'],
+            correctAnswer: 'خيار أ',
+            points: 2
+         });
+      }
+    } else {
+      const shuffled = lesson.questionTemplates.sort(() => 0.5 - Math.random());
+      selectedQuestions = shuffled.slice(0, questionCount);
     }
-
-    // Select 5 random questions
-    const shuffled = lesson.questionTemplates.sort(() => 0.5 - Math.random());
-    const selectedQuestions = shuffled.slice(0, 5);
 
     // Ensure we have some mock students in the cohort
     let students = await this.prisma.user.findMany({ where: { primaryRole: 'student' }, take: 3 });
