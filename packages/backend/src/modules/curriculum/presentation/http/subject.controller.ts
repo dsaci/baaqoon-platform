@@ -18,10 +18,10 @@ export class SubjectController {
     const role = req.user?.primaryRole;
     const supervisedSubjectId = req.user?.supervisedSubjectId;
     let filterId = undefined;
-    if (role === 'teacher' || role === 'subject_supervisor') {
+        if (role === 'subject_supervisor') {
       if (supervisedSubjectId) filterId = supervisedSubjectId;
-      else return []; // if teacher has no subject, return empty
     }
+    // Teachers and Admins can see the whole tree
     return this.subjectService.getCurriculumTree(filterId);
   }
 }
