@@ -21,7 +21,7 @@ export class AssessmentsController {
   @Post()
   async createManualAssessment(
     @Req() req: any,
-    @Body() body: { title: string; cohortId?: string }
+    @Body() body: { title: string; cohortId?: string; description?: string; subject?: string }
   ) {
     const teacherId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
     
@@ -36,6 +36,7 @@ export class AssessmentsController {
     return this.prisma.assessment.create({
       data: {
         title: body.title,
+          description: body.subject ? "الموضوع: " + body.subject + "\n\n" + (body.description || "") : body.description,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         maxScore: 100,
         type: 'assignment',

@@ -19,6 +19,8 @@ export default function CreateAssessmentModal({ isOpen, onClose, defaultMode = '
   
   // Manual Mode State
   const [manualTitle, setManualTitle] = useState('');
+  const [manualSubject, setManualSubject] = useState('');
+  const [manualDetails, setManualDetails] = useState('');
   const [questionCount, setQuestionCount] = useState(5);
 
   const [loading, setLoading] = useState(false);
@@ -55,6 +57,8 @@ export default function CreateAssessmentModal({ isOpen, onClose, defaultMode = '
         if (!manualTitle.trim()) throw new Error('الرجاء إدخال عنوان الواجب');
         const res = await api.post('/assessments', {
           title: manualTitle,
+          subject: manualSubject,
+          description: manualDetails,
         });
         queryClient.invalidateQueries({ queryKey: ['assessments'] });
         navigate(`/teacher/assessments/${res.data.id}/grade`);
@@ -146,20 +150,46 @@ export default function CreateAssessmentModal({ isOpen, onClose, defaultMode = '
             </div>
           ) : (
             <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-baaqoon-700 dark:text-baaqoon-300 mb-2">
+                    عنوان الواجب / الاختبار
+                  </label>
+                  <input 
+                    type="text" 
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    placeholder="مثال: واجب منزلي..."
+                    className="w-full px-4 py-3 border border-baaqoon-200 rounded-lg focus:ring-2 focus:ring-baaqoon-accent/50 outline-none dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-baaqoon-700 dark:text-baaqoon-300 mb-2">
+                    الموضوع (اختياري)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={manualSubject}
+                    onChange={(e) => setManualSubject(e.target.value)}
+                    placeholder="مثال: الرياضيات، اللغة العربية..."
+                    className="w-full px-4 py-3 border border-baaqoon-200 rounded-lg focus:ring-2 focus:ring-baaqoon-accent/50 outline-none dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-bold text-baaqoon-700 dark:text-baaqoon-300 mb-2">
-                  عنوان الواجب / الاختبار (إدخال يدوي)
+                  تفاصيل الواجب (مساحة للكتابة)
                 </label>
-                <input 
-                  type="text" 
-                  value={manualTitle}
-                  onChange={(e) => setManualTitle(e.target.value)}
-                  placeholder="مثال: واجب منزلي في القواعد..."
-                  className="w-full px-4 py-3 border border-baaqoon-200 rounded-lg focus:ring-2 focus:ring-baaqoon-accent/50 outline-none dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white"
+                <textarea 
+                  value={manualDetails}
+                  onChange={(e) => setManualDetails(e.target.value)}
+                  placeholder="اكتب تفاصيل الواجب هنا..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-baaqoon-200 rounded-lg focus:ring-2 focus:ring-baaqoon-accent/50 outline-none dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white resize-none"
                 />
               </div>
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-xl text-sm leading-relaxed">
-                <strong>ملاحظة:</strong> في وضع الإدخال اليدوي، سيتم إنشاء ملف واجب فارغ يمكنك لاحقاً إضافة الأسئلة إليه بشكل مباشر، دون الارتباط بهيكل المنهج.
+                <strong>ملاحظة:</strong> سيتم إنشاء الواجب فارغاً بناءً على التفاصيل المدخلة، ويمكنك لاحقاً تقييمه بشكل يدوي.
               </div>
             </div>
           )}
