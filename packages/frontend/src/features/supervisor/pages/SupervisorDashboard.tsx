@@ -120,6 +120,12 @@ export default function SupervisorDashboard() {
           >
             سجل النشاط
           </button>
+          <button 
+            onClick={() => setActiveTab('cohorts')}
+            className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'cohorts' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          >
+            الأفواج والإسناد
+          </button>
         </div>
 
       {activeTab === 'stats' && (
