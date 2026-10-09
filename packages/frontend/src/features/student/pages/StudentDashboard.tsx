@@ -40,6 +40,14 @@ export default function StudentDashboard() {
   const quote =
     motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
+  const { data: studentCohorts = [] } = useQuery({
+    queryKey: ["studentCohorts"],
+    queryFn: async () => {
+      const res = await api.get("/groups/cohorts/me");
+      return res.data;
+    },
+  });
+
   const { data: upcomingSessions = [] } = useQuery({
     queryKey: ["studentSessions"],
     queryFn: async () => {
