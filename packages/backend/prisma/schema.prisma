@@ -25,6 +25,7 @@ model User {
   emailVerified       Boolean                   @default(false)
   timezone            String                    @default("Asia/Gaza") @db.VarChar(64)
   locale              String                    @default("ar") @db.VarChar(10)
+    nationality         String?                   @db.VarChar(100)
   lastLoginAt         DateTime?                 @db.Timestamptz(6)
   createdAt           DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime                  @updatedAt @db.Timestamptz(6)

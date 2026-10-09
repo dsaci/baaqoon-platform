@@ -82,6 +82,7 @@ export class AuthService {
         status: accountStatus,
         phone: data.phone || null,
         academicBranch: data.branch || null,
+        nationality: data.nationality || null,
         curriculumType: data.curriculumType || null,
         supervisedSubjectId: data.supervisedSubjectId || null,
         roles: {
