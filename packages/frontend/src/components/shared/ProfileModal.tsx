@@ -14,7 +14,8 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
-    phone: (user as any)?.phone || '',
+    phone: user?.phone || '',
+    nationality: user?.nationality || ''
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -22,7 +23,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setSaved(false);
     setError('');

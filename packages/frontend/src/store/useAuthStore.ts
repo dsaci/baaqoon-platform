@@ -8,6 +8,8 @@ export interface User {
   lastName: string;
   primaryRole: 'super_admin' | 'admin' | 'supervisor' | 'subject_supervisor' | 'teacher' | 'student' | 'tech_support';
   status?: string;
+  phone?: string;
+  nationality?: string;
 }
 
 interface AuthState {

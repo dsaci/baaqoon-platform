@@ -18,7 +18,7 @@ export default function AdminDashboard() {
   
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
-  const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests'>(tabParam || 'hr');
+  const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests' | 'activity'>(tabParam as any || 'hr');
 
   React.useEffect(() => {
     const handleLocationChange = () => {
@@ -177,23 +177,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => {
-          const Icon = stat.icon;
-          return (
-            <div key={idx} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 p-5 flex items-start gap-4 rounded-2xl shadow-sm transition-transform hover:-translate-y-1">
-              <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                <Icon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stat.value}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      
 
       {/* Main Admin Panel */}
       <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-2xl shadow-lg overflow-hidden">
