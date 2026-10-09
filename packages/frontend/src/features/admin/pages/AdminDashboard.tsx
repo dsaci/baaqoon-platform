@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 , Edit, Trash2 } from 'lucide-react';
+import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3, Edit, Trash2, Database, Users2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import EditCohortModal from '../components/EditCohortModal';
@@ -125,12 +125,20 @@ export default function AdminDashboard() {
     });
   };
 
-  const stats = [
-    { label: 'المشرفون', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: 'الأساتذة', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
-    { label: 'الطلبة', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
-    { label: 'الأفواج', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20' },
-    { label: 'الحصص المجدولة', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+  const platformButtons = [
+    { label: 'إدارة النظام وقاعدة البيانات', desc: 'تسيير المنصة الرئيسية، الأقسام، والمواد', icon: Database, color: 'text-slate-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/database') },
+    { label: 'الإسناد الأكاديمي', desc: 'توزيع المهام والمشرفين على المواد الدراسية', icon: Users2, color: 'text-indigo-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/distribution') },
+  ];
+
+  const monitoringButtons = [
+    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard') },
+    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard?tab=teachers') },
+    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard?tab=students') },
+  ];
+
+  const classButtons = [
+    { label: 'تسيير الأفواج التربوية', desc: 'إنشاء الأفواج، تفويج الطلبة، وتوزيع الأساتذة', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-fuchsia-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('cohorts') },
+    { label: 'الحصص المباشرة والنشطة', desc: 'مراقبة الدروس المباشرة ومواعيدها', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/schedule') },
   ];
 
   const tabs = [
