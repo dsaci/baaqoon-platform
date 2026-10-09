@@ -72,7 +72,7 @@ export default function LoginPage() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
       
-      {/* Top Flag Strip */}
+      {/* Top Flag {/* Bottom Flag Strip */}
       <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50 shadow-md" />
       
       {/* Theme and Lang controls at the top */}
@@ -154,42 +154,9 @@ export default function LoginPage() {
             {t('common.register')}
           </Link>
         </p>
-
-        {/* Demo Section */}
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-3">
-          <p className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5 font-bold">
-            <FlaskConical className="w-3.5 h-3.5" />
-            دخول تجريبي سريع
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleDemoLogin('super_admin')}
-              className="py-2.5 px-2 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 transition-all hover:-translate-y-0.5"
-            >
-              👑 مدير عام
-            </button>
-            <button
-              onClick={() => handleDemoLogin('supervisor')}
-              className="py-2.5 px-2 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-800 transition-all hover:-translate-y-0.5"
-            >
-              👁️ مشرف / منسق
-            </button>
-            <button
-              onClick={() => handleDemoLogin('teacher')}
-              className="py-2.5 px-2 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 transition-all hover:-translate-y-0.5"
-            >
-              👨‍🏫 أستاذ
-            </button>
-            <button
-              onClick={() => handleDemoLogin('student')}
-              className="py-2.5 px-2 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-400 text-xs font-bold rounded-xl border border-cyan-200 dark:border-cyan-800 transition-all hover:-translate-y-0.5"
-            >
-              👩‍🎓 طالب
-            </button>
-          </div>
         </div>
-      </div>
-      {/* Bottom Flag Strip */}
+
+         {/* Bottom Flag Strip */}
       <div className="flag-strip w-full fixed bottom-0 left-0 right-0 z-50" />
     </div>
   );

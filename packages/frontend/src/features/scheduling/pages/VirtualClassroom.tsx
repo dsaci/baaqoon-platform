@@ -107,16 +107,10 @@ export default function VirtualClassroom() {
           >
             العودة للسابق
           </button>
-              {user?.primaryRole === 'teacher' && (
-        <AttendanceModal 
-          isOpen={isAttendanceModalOpen} 
-          onClose={() => setIsAttendanceModalOpen(false)} 
-          sessionId={sessionId!} 
-        />
-      )}
-    </div>
-  );
-}
+        </div>
+      </div>
+    );
+  }
 
   const tools = [
     { id: 'select', icon: MousePointer2, label: 'تحديد' },
@@ -343,6 +337,13 @@ export default function VirtualClassroom() {
           </div>
         </div>
       </div>
+      {user?.primaryRole === 'teacher' && (
+        <AttendanceModal 
+          isOpen={isAttendanceModalOpen} 
+          onClose={() => setIsAttendanceModalOpen(false)} 
+          sessionId={sessionId!} 
+        />
+      )}
     </div>
   );
 }
