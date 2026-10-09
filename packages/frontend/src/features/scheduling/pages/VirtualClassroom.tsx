@@ -7,6 +7,7 @@ import {
   Mic, Video, MonitorUp, Settings, Maximize2
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import AttendanceModal from '../components/AttendanceModal';
 
 declare global {
   interface Window {
@@ -25,6 +26,7 @@ export default function VirtualClassroom() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEnding, setIsEnding] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [activeTool, setActiveTool] = useState('pen');
   const [activeTab, setActiveTab] = useState('video'); // 'video' | 'chat' | 'participants'
 
@@ -105,10 +107,16 @@ export default function VirtualClassroom() {
           >
             العودة للسابق
           </button>
-        </div>
-      </div>
-    );
-  }
+              {user?.primaryRole === 'teacher' && (
+        <AttendanceModal 
+          isOpen={isAttendanceModalOpen} 
+          onClose={() => setIsAttendanceModalOpen(false)} 
+          sessionId={sessionId!} 
+        />
+      )}
+    </div>
+  );
+}
 
   const tools = [
     { id: 'select', icon: MousePointer2, label: 'تحديد' },

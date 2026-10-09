@@ -3,6 +3,69 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 
 @Controller('sessions')
 export class SessionsController {
+  @Get(':id/attendance')
+  async getSessionAttendance(@Param('id') sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId }
+    });
+
+    if (!session) throw new Error('Session not found');
+
+    const enrollments = await this.prisma.cohortEnrollment.findMany({
+      where: { cohortId: session.cohortId }
+    });
+
+    const studentIds = enrollments.map(e => e.studentId);
+    
+    const students = await this.prisma.user.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true }
+    });
+
+    const attendances = await this.prisma.sessionAttendance.findMany({
+      where: { sessionId }
+    });
+
+    return students.map(student => {
+      const attendance = attendances.find(a => a.studentId === student.id);
+      return {
+        studentId: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        status: attendance?.status || 'absent_unexcused',
+        id: attendance?.id
+      };
+    });
+  }
+
+  async saveSessionAttendance(@Req() req: any, @Param('id') sessionId: string, @Body() body: { records: { studentId: string; status: any }[] }) {
+    const teacherId = req.user?.id || req.user?.userId;
+    
+    // Upsert each record
+    for (const record of body.records) {
+      await this.prisma.sessionAttendance.upsert({
+        where: {
+          sessionId_studentId: {
+            sessionId: sessionId,
+            studentId: record.studentId
+          }
+        },
+        update: {
+          status: record.status,
+          markedById: teacherId
+        },
+        create: {
+          sessionId: sessionId,
+          studentId: record.studentId,
+          status: record.status,
+          markedById: teacherId
+        }
+      });
+    }
+
+    return { success: true };
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('bulk-schedule')
