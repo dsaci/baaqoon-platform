@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell } from 'lucide-react';
 
 export default function HrManagementAdminView() {
   const queryClient = useQueryClient();
@@ -20,6 +20,15 @@ export default function HrManagementAdminView() {
       const res = await api.get('/curriculum/subjects');
       return res.data;
     }
+  });
+
+  const { data: passwordRequests = [] } = useQuery({
+    queryKey: ['admin_password_requests'],
+    queryFn: async () => {
+      const res = await api.get('/users/admin/password-requests');
+      return res.data;
+    },
+    refetchInterval: 10000 // Poll every 10 seconds for notifications
   });
 
   const { data: users = [], isLoading } = useQuery({
@@ -98,8 +107,17 @@ export default function HrManagementAdminView() {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
           <div className="flex gap-2">
-          <button onClick={() => setIsPasswordRequestsOpen(true)} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all">
+          <button onClick={() => setIsPasswordRequestsOpen(true)} className="relative px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all">
             <Key className="w-5 h-5" /> طلبات كلمات المرور
+            {passwordRequests.length > 0 && (
+              <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-6 w-6 bg-red-500 items-center justify-center text-xs text-white font-black shadow-lg ring-2 ring-white dark:ring-slate-900 border-2 border-red-200">
+                  {passwordRequests.length}
+                </span>
+                <Bell className="absolute -top-4 -right-1 w-4 h-4 text-red-500 animate-bounce drop-shadow-md" />
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setIsAddUserOpen(true)}
