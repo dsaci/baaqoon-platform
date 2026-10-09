@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SupervisorHrView from '../components/SupervisorHrView';
 import ActivityLogsView from '../../admin/components/ActivityLogsView';
+import SupervisorCohortsView from '../components/SupervisorCohortsView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
 
@@ -22,7 +23,7 @@ export default function SupervisorDashboard() {
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
-  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'activity'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'activity' | 'cohorts'>(initialTab as any);
 
   const { data: statsData, isLoading } = useQuery({
     queryKey: ['supervisorStats'],
@@ -359,6 +360,7 @@ export default function SupervisorDashboard() {
       {activeTab === 'teachers' && <SupervisorHrView role="teacher" />}
       {activeTab === 'students' && <SupervisorHrView role="student" />}
         {activeTab === 'activity' && <ActivityLogsView />}
+        {activeTab === 'cohorts' && <SupervisorCohortsView />}
 
       {/* Strategic Features (Coming Soon) */}
       <ComingSoonSection 
