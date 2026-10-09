@@ -24,6 +24,15 @@ export default function SupervisorDashboard() {
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
   const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts'>(initialTab as any);
 
+  
+  const { data: monitoringData } = useQuery({
+    queryKey: ['supervisorMonitoring'],
+    queryFn: async () => {
+      const res = await api.get('/sessions/monitoring');
+      return res.data;
+    },
+  });
+
   const { data: statsData, isLoading } = useQuery({
     queryKey: ['supervisorStats'],
     queryFn: async () => {
@@ -237,30 +246,32 @@ export default function SupervisorDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-gray-50 dark:border-baaqoon-800/50">
-                    <td className="p-3">لغة عربية - أ-2</td>
-                    <td className="p-3">أ. محمود حسن</td>
-                    <td className="p-3 text-red-600 font-medium">تغيب 3 طلاب</td>
-                    <td className="p-3 text-green-600">حضر بالموعد</td>
-                    <td className="p-3">
-                      <button onClick={() => { setSelectedTeacher('teacher_id_here'); setIsMessageModalOpen(true); }} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-all">
-                        <MessageSquare className="w-4 h-4" />
-                        تنبيه الغائبين
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3">كيمياء - ع-2</td>
-                    <td className="p-3">أ. خالد يوسف</td>
-                    <td className="p-3 text-green-600">حضور كامل</td>
-                    <td className="p-3 text-orange-600 font-medium">حضر متأخراً 10 دقائق</td>
-                    <td className="p-3">
-                      <button onClick={() => { setSelectedStudent('student_id_here'); setIsAlertModalOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg transition-all">
-                        <AlertTriangle className="w-4 h-4" />
-                        مراسلة الأستاذ
-                      </button>
-                    </td>
-                  </tr>
+                  {monitoringData?.past?.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-gray-500">لا توجد جلسات سابقة</td>
+                    </tr>
+                  )}
+                  {monitoringData?.past?.map((session: any) => (
+                    <tr key={session.id} className="border-b border-gray-50 dark:border-baaqoon-800/50">
+                      <td className="p-3">{session.courseName} - {session.cohortName}</td>
+                      <td className="p-3">{session.teacherName}</td>
+                      <td className={`p-3 font-medium ${session.isAbsent ? 'text-red-600' : 'text-green-600'}`}>{session.studentAttendanceText}</td>
+                      <td className={`p-3 font-medium ${session.teacherStatus.includes('متأخراً') ? 'text-orange-600' : session.teacherStatus.includes('موعد') ? 'text-green-600' : 'text-red-600'}`}>{session.teacherStatus}</td>
+                      <td className="p-3">
+                        {session.isAbsent ? (
+                          <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
+                            <MessageSquare className="w-4 h-4" />
+                            تنبيه الأستاذ للغياب
+                          </button>
+                        ) : session.teacherStatus.includes('متأخراً') || session.teacherStatus.includes('لم يسجل') ? (
+                          <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
+                            <AlertTriangle className="w-4 h-4" />
+                            مراسلة الأستاذ
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
