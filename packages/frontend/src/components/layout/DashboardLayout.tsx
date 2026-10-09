@@ -52,6 +52,7 @@ export default function DashboardLayout() {
           path: "/admin/dashboard",
           icon: LayoutDashboard,
         },
+        { name: "الإسناد الأكاديمي", path: "/admin/distribution", icon: Calendar },
         { name: "قاعدة البيانات", path: "/admin/database", icon: Users },
         {
           name: "لوحة التحكم",
@@ -68,6 +69,7 @@ export default function DashboardLayout() {
           path: "/admin/dashboard",
           icon: LayoutDashboard,
         },
+        { name: "الإسناد الأكاديمي", path: "/admin/distribution", icon: Calendar },
         { name: "قاعدة البيانات", path: "/admin/database", icon: Users },
       ];
     }
