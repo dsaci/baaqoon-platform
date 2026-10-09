@@ -78,7 +78,13 @@ export default function SupervisorDashboard() {
         >
           طلبة المادة
         </button>
-      </div>
+          <button 
+            onClick={() => setActiveTab('activity')}
+            className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'activity' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          >
+            سجل النشاط
+          </button>
+        </div>
 
       {activeTab === 'stats' && (
         <>

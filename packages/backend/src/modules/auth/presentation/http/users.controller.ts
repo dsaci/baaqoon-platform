@@ -58,6 +58,7 @@ export class UsersController {
         academicBranch: body.academicBranch || null,
         curriculumType: body.curriculumType || null,
         supervisedSubjectId: body.supervisedSubjectId || null,
+        nationality: body.nationality || null,
         roles: {
           create: {
             role: body.primaryRole

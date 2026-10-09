@@ -12,7 +12,7 @@ export default function HrManagementAdminView() {
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null);
   const [newPassword, setNewPassword] = useState('');
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '' });
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '', nationality: '' });
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['admin_subjects_list'],
@@ -48,7 +48,7 @@ export default function HrManagementAdminView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
       setIsAddUserOpen(false);
-      setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '' });
+      setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '', nationality: '' });
     }
   });
   
@@ -313,6 +313,34 @@ export default function HrManagementAdminView() {
                   </select>
                 </div>
               )}
+
+              {/* حقل الجنسية لجميع المستخدمين */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">الجنسية</label>
+                <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.nationality} onChange={e => setNewUser({...newUser, nationality: e.target.value})}>
+                  <option value="">-- غير محدد --</option>
+                  <option value="فلسطيني">فلسطيني</option>
+                  <option value="أردني">أردني</option>
+                  <option value="مصري">مصري</option>
+                  <option value="سعودي">سعودي</option>
+                  <option value="إماراتي">إماراتي</option>
+                  <option value="كويتي">كويتي</option>
+                  <option value="عماني">عماني</option>
+                  <option value="قطري">قطري</option>
+                  <option value="بحريني">بحريني</option>
+                  <option value="يمني">يمني</option>
+                  <option value="عراقي">عراقي</option>
+                  <option value="سوري">سوري</option>
+                  <option value="لبناني">لبناني</option>
+                  <option value="سوداني">سوداني</option>
+                  <option value="ليبي">ليبي</option>
+                  <option value="تونسي">تونسي</option>
+                  <option value="جزائري">جزائري</option>
+                  <option value="مغربي">مغربي</option>
+                  <option value="موريتاني">موريتاني</option>
+                  <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setIsAddUserOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 rounded-xl font-bold">إلغاء</button>

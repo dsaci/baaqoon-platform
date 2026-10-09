@@ -210,6 +210,11 @@ export default function AdminDashboard() {
             <CohortRequestsAdminView />
           )}
 
+          {/* Tab: Activity Logs */}
+          {activeTab === 'activity' && (
+            <ActivityLogsView />
+          )}
+
           {/* Tab: Cohorts & Assignments */}
           {activeTab === 'cohorts' && (
             <div className="space-y-6">

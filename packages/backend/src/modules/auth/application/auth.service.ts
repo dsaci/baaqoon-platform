@@ -159,6 +159,8 @@ export class AuthService {
         lastName: user.lastName,
         primaryRole: user.primaryRole,
         status: user.status,
+        phone: user.phone,
+        nationality: user.nationality,
       },
     };
   }

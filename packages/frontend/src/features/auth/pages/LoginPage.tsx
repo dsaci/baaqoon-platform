@@ -19,29 +19,7 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore();
 
   // ── Demo login (real backend) ───────────────────────────────────────
-  const handleDemoLogin = async (role: 'teacher' | 'student' | 'super_admin' | 'supervisor') => {
-    setIsLoading(true);
-    setError(null);
-    const emails: Record<string, string> = {
-      super_admin: 'admin@baaqoon.ps',
-      supervisor: 'supervisor@baaqoon.ps',
-      teacher: 'demo@baaqoon.ps',
-      student: 'student1@baaqoon.ps',
-    };
-    try {
-      const response = await api.post('/auth/login', { email: emails[role], password: 'Baaqoon2024!' });
-      const { accessToken, user } = response.data;
-      setAuth(user, accessToken);
-      if (user.primaryRole === 'student') navigate('/student/dashboard');
-      else if (user.primaryRole === 'teacher') navigate('/teacher/dashboard');
-      else if (user.primaryRole === 'subject_supervisor' || user.primaryRole === 'supervisor') navigate('/supervisor/dashboard');
-      else navigate('/admin/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل الدخول التجريبي. تأكد من تشغيل الخادم.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

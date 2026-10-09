@@ -38,6 +38,7 @@ export class SessionsController {
     });
   }
 
+  @Patch(':id/attendance')
   async saveSessionAttendance(@Req() req: any, @Param('id') sessionId: string, @Body() body: { records: { studentId: string; status: any }[] }) {
     const teacherId = req.user?.id || req.user?.userId;
     

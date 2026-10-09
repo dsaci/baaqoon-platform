@@ -159,7 +159,14 @@ export default function VirtualClassroom() {
               <Settings className="w-4 h-4" />
             </button>
             {user?.primaryRole === 'teacher' && (
-              <button
+                <>
+                <button
+                  onClick={() => setIsAttendanceModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors"
+                >
+                  رصد الغياب
+                </button>
+                <button
                 onClick={handleEndSession}
                 disabled={isEnding || isLoading}
                 className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors ml-2 disabled:opacity-50"
@@ -167,7 +174,8 @@ export default function VirtualClassroom() {
                 {isEnding ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 إنهاء الحصة
               </button>
-            )}
+                </>
+              )}
           </div>
         </div>
       </div>
