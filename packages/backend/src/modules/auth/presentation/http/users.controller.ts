@@ -54,7 +54,15 @@ export class UsersController {
         lastName: body.lastName,
         primaryRole: body.primaryRole,
         passwordHash,
-        status: 'active'
+        status: 'active',
+        academicBranch: body.academicBranch || null,
+        curriculumType: body.curriculumType || null,
+        supervisedSubjectId: body.supervisedSubjectId || null,
+        roles: {
+          create: {
+            role: body.primaryRole
+          }
+        }
       }
     });
   }
