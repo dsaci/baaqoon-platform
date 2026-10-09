@@ -114,6 +114,12 @@ export class UsersController {
         primaryRole: true,
         status: true,
         createdAt: true,
+        nationality: true,
+        academicBranch: true,
+        curriculumType: true,
+        supervisedSubjectId: true,
+        lastLoginAt: true,
+        emailVerified: true
       }
     });
   }
