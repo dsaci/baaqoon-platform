@@ -14,6 +14,13 @@ export default function SupervisorDashboard() {
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
   const [searchParams] = useSearchParams();
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
   const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'activity'>(initialTab as any);
 
@@ -45,6 +52,34 @@ export default function SupervisorDashboard() {
     setTimeout(() => {
       setRemindersSent(false);
     }, 3000);
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSending(true);
+    setTimeout(() => {
+      setIsSending(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setIsMessageModalOpen(false);
+        setMessageText('');
+      }, 2000);
+    }, 1000);
+  };
+
+  const handleSendAlert = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSending(true);
+    setTimeout(() => {
+      setIsSending(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setIsAlertModalOpen(false);
+        setMessageText('');
+      }, 2000);
+    }, 1000);
   };
 
   return (
@@ -207,7 +242,7 @@ export default function SupervisorDashboard() {
                     <td className="p-3 text-red-600 font-medium">تغيب 3 طلاب</td>
                     <td className="p-3 text-green-600">حضر بالموعد</td>
                     <td className="p-3">
-                      <button onClick={() => alert('تم إرسال إشعار للطلبة الثلاثة لتذكيرهم بأهمية الحضور وعدم الغياب.')} className="text-baaqoon-accent hover:underline flex items-center gap-1">
+                      <button onClick={() => { setSelectedTeacher('teacher_id_here'); setIsMessageModalOpen(true); }} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-all">
                         <MessageSquare className="w-4 h-4" />
                         تنبيه الغائبين
                       </button>
@@ -219,7 +254,7 @@ export default function SupervisorDashboard() {
                     <td className="p-3 text-green-600">حضور كامل</td>
                     <td className="p-3 text-orange-600 font-medium">حضر متأخراً 10 دقائق</td>
                     <td className="p-3">
-                      <button onClick={() => alert('سيتم فتح شاشة محادثة للتواصل مع الأستاذ خالد يوسف بخصوص تأخره.')} className="text-gray-500 dark:text-baaqoon-400 hover:text-gray-800 dark:text-white flex items-center gap-1">
+                      <button onClick={() => { setSelectedStudent('student_id_here'); setIsAlertModalOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg transition-all">
                         <AlertTriangle className="w-4 h-4" />
                         مراسلة الأستاذ
                       </button>
