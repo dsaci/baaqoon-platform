@@ -4,7 +4,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
-import SupervisorHrView from '../components/SupervisorHrView';
+import HrManagementAdminView from '../../admin/components/HrManagementAdminView';
 import ActivityLogsView from '../../admin/components/ActivityLogsView';
 import SupervisorCohortsView from '../components/SupervisorCohortsView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
@@ -363,8 +363,8 @@ export default function SupervisorDashboard() {
       </>
       )}
       
-      {activeTab === 'teachers' && <SupervisorHrView role="teacher" />}
-      {activeTab === 'students' && <SupervisorHrView role="student" />}
+      {activeTab === 'teachers' && <HrManagementAdminView />}
+      {activeTab === 'students' && <HrManagementAdminView />}
         {activeTab === 'activity' && <ActivityLogsView />}
         {activeTab === 'cohorts' && <SupervisorCohortsView />}
 

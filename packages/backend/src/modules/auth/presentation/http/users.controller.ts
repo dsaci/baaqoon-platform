@@ -8,7 +8,7 @@ export class UsersController {
 
   @Get('admin/password-requests')
   async listPasswordRequests(@Req() req: any) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
     return this.prisma.$queryRawUnsafe(`
       SELECT r.id, r.created_at AS "createdAt", u.id AS "userId", u."firstName", u."lastName",
              u.email, u.phone, u."primaryRole"
@@ -18,7 +18,7 @@ export class UsersController {
 
   @Post('admin/password-requests/:id/:action')
   async resolvePasswordRequest(@Req() req: any, @Param('id') id: string, @Param('action') action: string) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT user_id, new_password_hash FROM users.password_reset_requests WHERE id=$1::uuid AND status='pending'`, id);
     if (!rows.length) return { ok: false };
@@ -33,7 +33,7 @@ export class UsersController {
 
   @Patch('admin/:id/password')
   async resetPassword(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
     const bcrypt = require('bcrypt');
     const passwordHash = await bcrypt.hash(body.password, 12);
     return this.prisma.user.update({
@@ -44,7 +44,7 @@ export class UsersController {
 
   @Post('admin/create')
   async createUser(@Req() req: any, @Body() body: any) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') throw new UnauthorizedException();
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
     const bcrypt = require('bcrypt');
     const passwordHash = await bcrypt.hash(body.password || 'Baaqoon2024!', 12);
     return this.prisma.user.create({
@@ -99,7 +99,7 @@ export class UsersController {
 
   @Get('admin/list')
   async getAllUsers(@Req() req: any) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) {
       return { error: 'Unauthorized' };
     }
     
@@ -126,7 +126,7 @@ export class UsersController {
 
   @Patch('admin/:id/status')
   async updateUserStatus(@Req() req: any, @Param('id') id: string, @Body() body: { status: string }) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) {
       return { error: 'Unauthorized' };
     }
 
@@ -138,7 +138,7 @@ export class UsersController {
 
   @Delete('admin/:id')
   async deleteUser(@Req() req: any, @Param('id') id: string) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) {
       return { error: 'Unauthorized' };
     }
     // Delete related
