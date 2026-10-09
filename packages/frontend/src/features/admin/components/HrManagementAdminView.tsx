@@ -107,8 +107,7 @@ export default function HrManagementAdminView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-4">
-          <div className="flex gap-2">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
           <button onClick={() => setIsPasswordRequestsOpen(true)} className="relative px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all">
             <Key className="w-5 h-5" /> طلبات كلمات المرور
             {passwordRequests.length > 0 && (
@@ -128,7 +127,6 @@ export default function HrManagementAdminView() {
             <UserPlus className="w-5 h-5" />
             إضافة مستخدم جديد
           </button>
-          </div>
         </div>
         {/* Sub-tabs for filtering */}
       <div className="flex flex-wrap gap-3">
@@ -273,9 +271,11 @@ export default function HrManagementAdminView() {
       
       {isAddUserOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md shadow-2xl p-6">
-            <h2 className="text-xl font-black mb-4 dark:text-white">إضافة مستخدم جديد</h2>
-            <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-black mb-6 dark:text-white flex items-center gap-3">
+              <UserPlus className="w-7 h-7 text-violet-500" /> إضافة مستخدم جديد
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input type="text" placeholder="الاسم الأول" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.firstName} onChange={e => setNewUser({...newUser, firstName: e.target.value})} />
               <input type="text" placeholder="الاسم الأخير" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.lastName} onChange={e => setNewUser({...newUser, lastName: e.target.value})} />
               <input type="email" placeholder="البريد الإلكتروني" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
@@ -351,7 +351,7 @@ export default function HrManagementAdminView() {
                 </select>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
               <button onClick={() => setIsAddUserOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 rounded-xl font-bold">إلغاء</button>
               <button onClick={() => addMutation.mutate({...newUser, password: newUser.password || '123456'})} disabled={addMutation.isPending} className="flex-2 px-4 py-3 bg-violet-600 text-white rounded-xl font-bold w-2/3">إضافة وتفعيل</button>
             </div>
