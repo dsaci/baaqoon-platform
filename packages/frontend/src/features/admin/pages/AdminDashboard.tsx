@@ -140,14 +140,14 @@ export default function AdminDashboard() {
   ];
 
   const monitoringButtons = [
-    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard') },
-    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard?tab=teachers') },
-    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/dashboard?tab=students') },
+    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
+    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
+    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
   ];
 
   const classButtons = [
     { label: 'تسيير الأفواج التربوية', desc: 'إنشاء الأفواج، تفويج الطلبة، وتوزيع الأساتذة', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-fuchsia-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('cohorts') },
-    { label: 'الحصص المباشرة والنشطة', desc: 'مراقبة الدروس المباشرة ومواعيدها', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/supervisor/schedule') },
+    { label: 'الحصص المباشرة والنشطة', desc: 'مراقبة الدروس المباشرة ومواعيدها', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('cohorts') },
   ];
 
   const tabs = [
