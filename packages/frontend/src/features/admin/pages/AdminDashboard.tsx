@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3 , Edit, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useNavigate } from 'react-router-dom';
 import EditCohortModal from '../components/EditCohortModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
@@ -11,6 +12,7 @@ import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   const searchParams = new URLSearchParams(window.location.search);

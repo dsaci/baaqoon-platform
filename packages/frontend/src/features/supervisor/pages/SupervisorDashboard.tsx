@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SupervisorHrView from '../components/SupervisorHrView';
@@ -11,7 +12,9 @@ export default function SupervisorDashboard() {
   const { user } = useAuthStore();
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students'>('stats');
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students'>(initialTab);
 
   const { data: statsData, isLoading } = useQuery({
     queryKey: ['supervisorStats'],
