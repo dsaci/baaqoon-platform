@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
-import { Activity, Clock, LogIn, UserCheck, PlayCircle } from 'lucide-react';
+import { Activity, Clock, LogIn, UserCheck, PlayCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -20,6 +20,7 @@ export default function ActivityLogsView() {
 
   const getActionIcon = (action: string) => {
     switch (action) {
+      case 'failed_login': return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'login': return <LogIn className="w-4 h-4 text-emerald-500" />;
       case 'join_session': return <PlayCircle className="w-4 h-4 text-blue-500" />;
       default: return <Activity className="w-4 h-4 text-slate-400" />;
