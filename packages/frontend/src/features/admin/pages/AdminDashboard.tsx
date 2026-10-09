@@ -57,6 +57,14 @@ export default function AdminDashboard() {
     }
   });
 
+  const { data: passwordRequests = [] } = useQuery({
+    queryKey: ['admin_password_requests'],
+    queryFn: async () => {
+      const res = await api.get('/users/admin/password-requests');
+      return res.data || [];
+    }
+  });
+
   const { data: pendingRequests = [] } = useQuery({
     queryKey: ['cohort_requests_count'],
     queryFn: async () => {
@@ -152,7 +160,16 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋</h1>
+          {passwordRequests.length > 0 && (
+            <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative flex items-center gap-3 animate-pulse">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="font-bold">يوجد لديك ({passwordRequests.length}) طلبات جديدة لاستعادة كلمات المرور! اذهب إلى قسم الموارد البشرية لمعالجتها.</span>
+            </div>
+          )}
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋</h1>
         <p className="text-slate-500 dark:text-slate-400 font-bold">لوحة التحكم المركزية لإدارة جميع الموارد البشرية والأفواج التربوية.</p>
       </div>
 
