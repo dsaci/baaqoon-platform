@@ -43,6 +43,7 @@ model User {
   notifications       Notification[]
   taughtSessions      Session[]
   roles               UserRoleAssignment[]
+  activityLogs        ActivityLog[]             @relation("UserActivityLogs")
   supervisedSubject   Subject?                  @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id])
 
   @@map("users")
@@ -732,4 +733,18 @@ enum QuestionType {
   essay
 
   @@schema("assessments")
+}
+
+model ActivityLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  action    String   @db.VarChar(100)
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user      User     @relation("UserActivityLogs", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+  @@schema("users")
 }

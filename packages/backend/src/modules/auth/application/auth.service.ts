@@ -136,6 +136,19 @@ export class AuthService {
       roles: roles,
     };
 
+        // Log Activity
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: user.id,
+          action: 'login',
+          details: 'تم تسجيل الدخول بنجاح',
+        }
+      });
+    } catch(err) {
+      console.error('Failed to log activity', err);
+    }
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {

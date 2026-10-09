@@ -5,6 +5,22 @@ import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 @Controller('groups')
 @UseGuards(JwtAuthGuard)
 export class GroupsController {
+  @Get('activity-logs')
+  async getActivityLogs(@Req() req: any) {
+    const role = req.user?.primaryRole;
+    if (role !== 'admin' && role !== 'super_admin' && role !== 'supervisor' && role !== 'subject_supervisor') {
+      return [];
+    }
+    
+    return this.prisma.activityLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: { select: { firstName: true, lastName: true, primaryRole: true } }
+      }
+    });
+  }
+
 
   @Get('admin/distribution')
   async getAdminDistribution() {

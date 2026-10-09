@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
 import HrManagementAdminView from '../components/HrManagementAdminView';
+import ActivityLogsView from '../components/ActivityLogsView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
 
@@ -145,6 +146,7 @@ export default function AdminDashboard() {
     { id: 'hr' as const, label: 'إدارة الحسابات', badge: pendingUsers.length > 0 ? pendingUsers.length : undefined },
     { id: 'cohorts' as const, label: 'التفويج والإسناد', badge: undefined },
     { id: 'requests' as const, label: 'طلبات فتح أفواج', badge: pendingRequests.length > 0 ? pendingRequests.length : undefined },
+    { id: 'activity' as const, label: 'سجل النشاط المباشر', badge: undefined },
   ];
 
   return (
