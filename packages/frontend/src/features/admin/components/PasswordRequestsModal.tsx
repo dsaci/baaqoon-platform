@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { Key, CheckCircle, XCircle } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function PasswordRequestsModal({ onClose }: { onClose: () => void
     }
   });
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
       <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-3xl shadow-2xl p-6 max-h-[80vh] flex flex-col">
         <div className="flex justify-between items-center mb-6">
@@ -81,5 +82,5 @@ export default function PasswordRequestsModal({ onClose }: { onClose: () => void
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }

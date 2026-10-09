@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
@@ -269,7 +270,7 @@ export default function HrManagementAdminView() {
           </table>
         </div>
       
-      {isAddUserOpen && (
+      {isAddUserOpen && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-black mb-6 dark:text-white flex items-center gap-3">
@@ -356,11 +357,12 @@ export default function HrManagementAdminView() {
               <button onClick={() => addMutation.mutate({...newUser, password: newUser.password || '123456'})} disabled={addMutation.isPending} className="flex-2 px-4 py-3 bg-violet-600 text-white rounded-xl font-bold w-2/3">إضافة وتفعيل</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
   
       
-      {isResetPasswordOpen && selectedUserForReset && (
+      {isResetPasswordOpen && selectedUserForReset && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md shadow-2xl p-6">
             <h2 className="text-xl font-black mb-4 dark:text-white">تغيير كلمة المرور</h2>
@@ -373,9 +375,10 @@ export default function HrManagementAdminView() {
               <button onClick={() => resetPasswordMutation.mutate({ id: selectedUserForReset.id, password: newPassword })} disabled={resetPasswordMutation.isPending || !newPassword} className="flex-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold w-2/3">حفظ الكلمة الجديدة</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {isViewDetailsOpen && selectedUserForView && (
+      {isViewDetailsOpen && selectedUserForView && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
@@ -482,7 +485,8 @@ export default function HrManagementAdminView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {isPasswordRequestsOpen && (
