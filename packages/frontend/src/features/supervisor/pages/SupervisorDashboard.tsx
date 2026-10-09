@@ -5,7 +5,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import HrManagementAdminView from '../../admin/components/HrManagementAdminView';
-import ActivityLogsView from '../../admin/components/ActivityLogsView';
 import SupervisorCohortsView from '../components/SupervisorCohortsView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
@@ -23,7 +22,7 @@ export default function SupervisorDashboard() {
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
-  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'activity' | 'cohorts'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts'>(initialTab as any);
 
   const { data: statsData, isLoading } = useQuery({
     queryKey: ['supervisorStats'],
@@ -114,12 +113,7 @@ export default function SupervisorDashboard() {
         >
           طلبة المادة
         </button>
-          <button 
-            onClick={() => setActiveTab('activity')}
-            className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'activity' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-          >
-            سجل النشاط
-          </button>
+          
           <button 
             onClick={() => setActiveTab('cohorts')}
             className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'cohorts' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
@@ -365,7 +359,7 @@ export default function SupervisorDashboard() {
       
       {activeTab === 'teachers' && <HrManagementAdminView />}
       {activeTab === 'students' && <HrManagementAdminView />}
-        {activeTab === 'activity' && <ActivityLogsView />}
+        
         {activeTab === 'cohorts' && <SupervisorCohortsView />}
 
       {/* Strategic Features (Coming Soon) */}
