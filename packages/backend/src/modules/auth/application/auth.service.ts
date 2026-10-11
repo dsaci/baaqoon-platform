@@ -84,6 +84,7 @@ export class AuthService {
         academicBranch: data.branch || null,
         nationality: data.nationality || null,
         curriculumType: data.curriculumType || null,
+        gradeLevel: data.gradeLevel || 'grade_11',
         supervisedSubjectId: data.supervisedSubjectId || null,
         roles: {
           create: {
@@ -179,6 +180,7 @@ export class AuthService {
         status: user.status,
         phone: user.phone,
         nationality: user.nationality,
+        gradeLevel: user.gradeLevel,
       },
     };
   }

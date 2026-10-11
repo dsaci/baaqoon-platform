@@ -106,7 +106,7 @@ export class GroupsController {
     });
     const students = await this.prisma.user.findMany({
       where: { primaryRole: 'student' },
-      select: { id: true, firstName: true, lastName: true, email: true, academicBranch: true, curriculumType: true }
+      select: { id: true, firstName: true, lastName: true, email: true, academicBranch: true, curriculumType: true, gradeLevel: true }
     });
     const courses = await this.prisma.course.findMany({
       include: {
@@ -121,7 +121,7 @@ export class GroupsController {
   async getAdminDatabase() {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true, supervisedSubjectId: true, academicBranch: true, curriculumType: true }
+      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true, supervisedSubjectId: true, academicBranch: true, curriculumType: true, gradeLevel: true }
     });
     const subjects = await this.prisma.subject.findMany({
       include: { courses: true }
@@ -761,7 +761,8 @@ export class GroupsController {
         status: true,
         nationality: true,
         curriculumType: true,
-        academicBranch: true
+        academicBranch: true,
+        gradeLevel: true
       }
     });
 
@@ -786,6 +787,9 @@ export class GroupsController {
     const overallNationalities = calculateNationalities(allUsers);
     const studentNationalities = calculateNationalities(students);
     const teacherNationalities = calculateNationalities(teachers);
+
+    const grade11Students = students.filter(s => s.gradeLevel === 'grade_11').length;
+    const grade12Students = students.filter(s => s.gradeLevel === 'grade_12').length;
 
     const totalCohorts = cohorts.length;
     const activeCohorts = cohorts.filter(c => c.status === 'active' || (c.status as any) === 'in_progress').length;
@@ -890,6 +894,16 @@ export class GroupsController {
           cohortsCount: azhariCohortsCount,
           studentsCount: azhariStudentsCount,
           percentage: totalCohorts > 0 ? Math.round((azhariCohortsCount / totalCohorts) * 100) : 0
+        }
+      },
+      gradeLevels: {
+        grade11: {
+          count: grade11Students,
+          percentage: students.length > 0 ? Math.round((grade11Students / students.length) * 100) : 0
+        },
+        grade12: {
+          count: grade12Students,
+          percentage: students.length > 0 ? Math.round((grade12Students / students.length) * 100) : 0
         }
       },
       nationalities: {

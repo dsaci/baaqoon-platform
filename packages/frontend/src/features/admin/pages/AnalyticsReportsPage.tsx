@@ -54,6 +54,7 @@ export default function AnalyticsReportsPage() {
   const {
     scope,
     curriculum = {},
+    gradeLevels = {},
     nationalities = {},
     cohorts = {},
     users = {},
@@ -260,6 +261,32 @@ export default function AnalyticsReportsPage() {
                 <div className="bg-white dark:bg-slate-900/70 p-2 rounded-xl border border-slate-100 dark:border-slate-700/40">
                   <span className="block text-slate-400 text-[10px]">الطلاب الملتحقون</span>
                   <span className="font-bold text-slate-700 dark:text-slate-200">{curriculum.azhari?.studentsCount || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grade 11 vs Grade 12 Distribution */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              <span className="block text-xs font-bold text-slate-500">توزع المراحل الدراسية للطلبة:</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-blue-50/70 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/40">
+                  <div className="flex justify-between items-center text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">
+                    <span>الصف 11 (الحادي عشر)</span>
+                    <span>{gradeLevels.grade11?.percentage || 0}%</span>
+                  </div>
+                  <div className="text-base font-black text-slate-800 dark:text-white">
+                    {gradeLevels.grade11?.count || 0} <span className="text-xs font-medium text-slate-400">طالب</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/40">
+                  <div className="flex justify-between items-center text-xs font-bold text-indigo-700 dark:text-indigo-300 mb-1">
+                    <span>الصف 12 (التوجيهي)</span>
+                    <span>{gradeLevels.grade12?.percentage || 0}%</span>
+                  </div>
+                  <div className="text-base font-black text-slate-800 dark:text-white">
+                    {gradeLevels.grade12?.count || 0} <span className="text-xs font-medium text-slate-400">طالب</span>
+                  </div>
                 </div>
               </div>
             </div>

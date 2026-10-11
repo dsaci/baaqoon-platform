@@ -15,7 +15,8 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     lastName: user?.lastName || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    nationality: user?.nationality || ''
+    nationality: user?.nationality || '',
+    gradeLevel: user?.gradeLevel || 'grade_11'
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -41,6 +42,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         email: formData.email,
         phone: formData.phone,
         nationality: formData.nationality,
+        gradeLevel: formData.gradeLevel,
       });
 
       // Update local store with real data from server
@@ -165,6 +167,23 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
             </select>
           </div>
+
+          {user?.primaryRole === 'student' && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                <span className="text-baaqoon-500 dark:text-baaqoon-400">🎓</span> الصف الدراسي
+              </label>
+              <select 
+                name="gradeLevel" 
+                value={formData.gradeLevel} 
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent outline-none"
+              >
+                <option value="grade_11">الصف الحادي عشر (11)</option>
+                <option value="grade_12">الصف الثاني عشر (التوجيهي - 12)</option>
+              </select>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

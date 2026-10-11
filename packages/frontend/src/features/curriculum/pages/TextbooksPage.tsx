@@ -30,6 +30,8 @@ interface Textbook {
   nameAr: string;
   nameEn: string;
   branch: string;
+  gradeLevel: string;
+  curriculumType: string;
   downloadUrl: string;
   color: string;
 }
@@ -37,6 +39,8 @@ interface Textbook {
 export default function TextbooksPage() {
   const navigate = useNavigate();
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const [selectedGrade, setSelectedGrade] = useState<string>("all");
+  const [selectedCurriculum, setSelectedCurriculum] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const { user } = useAuthStore();
@@ -62,6 +66,8 @@ export default function TextbooksPage() {
               nameAr: course.title || subject.nameAr,
               nameEn: subject.nameEn || "",
               branch: course.academicBranch || "scientific",
+              gradeLevel: course.gradeLevel || "grade_12",
+              curriculumType: course.curriculumType || "governmental",
               downloadUrl: (subject.iconUrl && subject.iconUrl.startsWith('http')) ? subject.iconUrl : `${MOE_BASE}/${subject.iconUrl || ''}`,
               color: colors[idx % colors.length],
             });
@@ -75,10 +81,14 @@ export default function TextbooksPage() {
   const filteredBooks = subjects.filter((book) => {
     const matchesBranch =
       selectedBranch === "all" || book.branch === selectedBranch;
+    const matchesGrade =
+      selectedGrade === "all" || book.gradeLevel === selectedGrade;
+    const matchesCurriculum =
+      selectedCurriculum === "all" || book.curriculumType === selectedCurriculum;
     const matchesSearch =
       book.nameAr.includes(searchQuery) ||
       book.nameEn.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesBranch && matchesSearch;
+    return matchesBranch && matchesGrade && matchesCurriculum && matchesSearch;
   });
 
   // Group books by branch
@@ -127,20 +137,46 @@ export default function TextbooksPage() {
             className="w-full pr-12 pl-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 font-medium shadow-sm"
           />
         </div>
-        <div className="relative min-w-[200px]">
-          <Filter className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 appearance-none font-bold shadow-sm"
-          >
-            <option value="all">جميع الفروع</option>
-            {Object.entries(BRANCHES).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap sm:flex-nowrap gap-3">
+          <div className="relative min-w-[160px]">
+            <Filter className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 appearance-none font-bold shadow-sm text-sm"
+            >
+              <option value="all">جميع الفروع</option>
+              {Object.entries(BRANCHES).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="relative min-w-[150px]">
+            <select
+              value={selectedGrade}
+              onChange={(e) => setSelectedGrade(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 appearance-none font-bold shadow-sm text-sm"
+            >
+              <option value="all">جميع الصفوف</option>
+              <option value="grade_11">الصف الحادي عشر (11)</option>
+              <option value="grade_12">الصف الثاني عشر (توجيهي)</option>
+            </select>
+          </div>
+
+          <div className="relative min-w-[150px]">
+            <select
+              value={selectedCurriculum}
+              onChange={(e) => setSelectedCurriculum(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all bg-white dark:bg-slate-800 appearance-none font-bold shadow-sm text-sm"
+            >
+              <option value="all">جميع المناهج</option>
+              <option value="governmental">منهج حكومي</option>
+              <option value="azhari">منهج أزهري معتمد</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -177,6 +213,14 @@ export default function TextbooksPage() {
 
                   <div className="p-6 space-y-4 flex-1 flex flex-col justify-between bg-white dark:bg-slate-800">
                     <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">
+                          {book.gradeLevel === 'grade_11' ? 'الصف 11' : 'توجيهي'}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                          {book.curriculumType === 'azhari' ? 'أزهري' : 'حكومي'}
+                        </span>
+                      </div>
                       <h3 className="font-black text-slate-900 dark:text-white text-base leading-tight mb-1">
                         {book.nameAr}
                       </h3>

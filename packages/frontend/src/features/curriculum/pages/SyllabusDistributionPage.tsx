@@ -86,7 +86,7 @@ export default function SyllabusDistributionPage() {
           >
             {distributions.map((d: any) => (
               <option key={d.id} value={d.courseId}>
-                {d.course.title}
+                {d.course.title} — ({d.course?.gradeLevel === 'grade_11' ? 'صف 11' : 'توجيهي'}) [{d.course?.curriculumType === 'azhari' ? 'أزهري' : 'حكومي'}]
               </option>
             ))}
           </select>

@@ -30,6 +30,7 @@ export default function RegisterPage() {
     primaryRole: 'student',
     branch: 'scientific',
     curriculumType: 'governmental',
+    gradeLevel: 'grade_11',
     supervisedSubjectId: '',
   });
   
@@ -167,7 +168,7 @@ export default function RegisterPage() {
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
             >
-              <option value="student" className="dark:bg-baaqoon-800">طالب / طالبة (توجيهي)</option>
+              <option value="student" className="dark:bg-baaqoon-800">طالب / طالبة</option>
               <option value="teacher" className="dark:bg-baaqoon-800">أستاذ / أستاذة</option>
               <option value="subject_supervisor" className="dark:bg-baaqoon-800">مشرف / موجه تربوي</option>
             </select>
@@ -192,33 +193,48 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Branch & Curriculum selection - shown only for students */}
+          {/* Branch, Grade Level & Curriculum selection - shown only for students */}
           {isStudent && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4 animate-fade-in-up">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الفرع الدراسي</label>
+                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الصف الدراسي</label>
                 <select 
-                  name="branch"
-                  value={formData.branch}
+                  name="gradeLevel"
+                  value={formData.gradeLevel}
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
                 >
-                  {BRANCHES.map(b => (
-                    <option key={b.value} value={b.value} className="dark:bg-baaqoon-800">{b.label}</option>
-                  ))}
+                  <option value="grade_11" className="dark:bg-baaqoon-800">الصف الحادي عشر (11)</option>
+                  <option value="grade_12" className="dark:bg-baaqoon-800">الصف الثاني عشر (التوجيهي - 12)</option>
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">المنهج (نوع المدرسة)</label>
-                <select 
-                  name="curriculumType"
-                  value={formData.curriculumType}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
-                >
-                  <option value="governmental" className="dark:bg-baaqoon-800">منهج حكومي</option>
-                  <option value="azhari" className="dark:bg-baaqoon-800">منهج أزهري</option>
-                </select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الفرع الدراسي</label>
+                  <select 
+                    name="branch"
+                    value={formData.branch}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
+                  >
+                    {BRANCHES.map(b => (
+                      <option key={b.value} value={b.value} className="dark:bg-baaqoon-800">{b.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">المنهج (نوع المدرسة)</label>
+                  <select 
+                    name="curriculumType"
+                    value={formData.curriculumType}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
+                  >
+                    <option value="governmental" className="dark:bg-baaqoon-800">منهج عام (حكومي)</option>
+                    <option value="azhari" className="dark:bg-baaqoon-800">منهج أزهري معتمد</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

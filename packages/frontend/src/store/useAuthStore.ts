@@ -11,6 +11,9 @@ export interface User {
   phone?: string;
   nationality?: string;
   supervisedSubjectId?: string;
+  gradeLevel?: 'grade_11' | 'grade_12';
+  academicBranch?: string;
+  curriculumType?: string;
 }
 
 interface AuthState {

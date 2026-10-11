@@ -57,6 +57,7 @@ export class UsersController {
         status: 'active',
         academicBranch: body.academicBranch || null,
         curriculumType: body.curriculumType || null,
+        gradeLevel: body.gradeLevel || (body.primaryRole === 'student' ? 'grade_11' : null),
         supervisedSubjectId: body.supervisedSubjectId || null,
         nationality: body.nationality || null,
         roles: {
@@ -71,7 +72,7 @@ export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Patch('me/profile')
-  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string; nationality?: string }) {
+  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string; nationality?: string; gradeLevel?: string }) {
     const userId = req.user.id || req.user.userId;
     const updateData: any = {};
     if (body.firstName) updateData.firstName = body.firstName;
@@ -79,6 +80,7 @@ export class UsersController {
     if (body.email) updateData.email = body.email;
     if (body.phone !== undefined) updateData.phone = body.phone || null;
     if (body.nationality !== undefined) updateData.nationality = body.nationality || null;
+    if (body.gradeLevel !== undefined) updateData.gradeLevel = body.gradeLevel || null;
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -92,6 +94,8 @@ export class UsersController {
         primaryRole: true,
         status: true,
         avatarUrl: true,
+        nationality: true,
+        gradeLevel: true,
       }
     });
     return updated;
@@ -141,6 +145,7 @@ export class UsersController {
         nationality: true,
         academicBranch: true,
         curriculumType: true,
+        gradeLevel: true,
         supervisedSubjectId: true,
         lastLoginAt: true,
         emailVerified: true

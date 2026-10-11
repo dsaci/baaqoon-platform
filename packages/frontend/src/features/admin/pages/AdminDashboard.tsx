@@ -385,9 +385,14 @@ export default function AdminDashboard() {
                 const targetSubjectId = selectedCourse?.subjectId;
                 const targetBranch = selectedCourse?.academicBranch;
                 const targetCurriculum = selectedCourse?.curriculumType;
+                const targetGrade = selectedCourse?.gradeLevel;
                 
                 const availableTeachers = adminData?.teachers?.filter((t: any) => !targetSubjectId || t.supervisedSubjectId === targetSubjectId) || [];
-                const availableStudents = adminData?.students?.filter((s: any) => (!targetBranch || s.academicBranch === targetBranch) && (!targetCurriculum || s.curriculumType === targetCurriculum)) || [];
+                const availableStudents = adminData?.students?.filter((s: any) => 
+                  (!targetBranch || s.academicBranch === targetBranch) && 
+                  (!targetCurriculum || s.curriculumType === targetCurriculum) &&
+                  (!targetGrade || !s.gradeLevel || s.gradeLevel === targetGrade)
+                ) || [];
 
                 return (
                   <>
@@ -405,7 +410,9 @@ export default function AdminDashboard() {
                       >
                         <option value="">-- اختر المادة --</option>
                         {adminData?.courses?.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.title}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.title} — ({c.gradeLevel === 'grade_11' ? 'صف 11' : 'توجيهي'}) [{c.curriculumType === 'azhari' ? 'أزهري' : 'حكومي'}]
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -491,7 +498,13 @@ export default function AdminDashboard() {
                                   }}
                                   className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
                                 />
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{s.firstName} {s.lastName} <span className="text-slate-400 font-normal text-xs mr-1">({s.email})</span></span>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  {s.firstName} {s.lastName} 
+                                  <span className="text-slate-400 font-normal text-xs mr-1">({s.email})</span>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold mr-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                    {s.gradeLevel === 'grade_11' ? 'صف 11' : 'توجيهي'}
+                                  </span>
+                                </span>
                               </label>
                             ))}
                             {availableStudents.filter((s: any) => !studentSearchQuery || (s.firstName + ' ' + s.lastName).toLowerCase().includes(studentSearchQuery.toLowerCase()) || s.email.toLowerCase().includes(studentSearchQuery.toLowerCase())).length === 0 && (

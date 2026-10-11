@@ -50,7 +50,7 @@ export default function AdminDatabasePage() {
                   <td className="p-4 text-slate-500 dark:text-slate-400">{u.email}</td>
                   <td className="p-4">
                     <span className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg text-xs font-bold">
-                      {u.primaryRole === 'student' ? 'طالب' : u.primaryRole === 'teacher' ? 'معلم' : u.primaryRole === 'subject_supervisor' ? 'مشرف' : 'إدارة'}
+                      {u.primaryRole === 'student' ? (u.gradeLevel === 'grade_11' ? 'طالب (صف 11)' : 'طالب (توجيهي)') : u.primaryRole === 'teacher' ? 'معلم' : u.primaryRole === 'subject_supervisor' ? 'مشرف' : 'إدارة'}
                     </span>
                   </td>
                   <td className="p-4">
@@ -118,6 +118,7 @@ export default function AdminDatabasePage() {
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">الكود</th>
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">المادة الأساسية</th>
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">الصف</th>
+                <th className="p-4 font-bold text-slate-600 dark:text-slate-300">نوع المنهج</th>
               </tr>
             </thead>
             <tbody>
@@ -128,7 +129,14 @@ export default function AdminDatabasePage() {
                   <td className="p-4 text-slate-600 dark:text-slate-300">{c.subject?.nameAr}</td>
                   <td className="p-4">
                     <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold">
-                      {c.gradeLevel === 'grade_12' ? 'الثاني عشر' : 'الحادي عشر'}
+                      {c.gradeLevel === 'grade_12' ? 'الثاني عشر (توجيهي)' : 'الحادي عشر (11)'}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      c.curriculumType === 'azhari' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}>
+                      {c.curriculumType === 'azhari' ? 'أزهري معتمد' : 'حكومي عام'}
                     </span>
                   </td>
                 </tr>

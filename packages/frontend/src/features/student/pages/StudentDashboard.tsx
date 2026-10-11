@@ -83,10 +83,16 @@ export default function StudentDashboard() {
 
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
               <span className="text-emerald-100 text-sm font-medium">
                 مرحباً بعودتك!
+              </span>
+              <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/20">
+                {user?.gradeLevel === 'grade_11' ? 'الصف الحادي عشر (11)' : 'الصف الثاني عشر (توجيهي)'}
+              </span>
+              <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/20">
+                {user?.curriculumType === 'azhari' ? 'المنهج الأزهري' : 'المنهج الحكومي'}
               </span>
             </div>
             <h1 className="text-3xl md:text-4xl font-black">

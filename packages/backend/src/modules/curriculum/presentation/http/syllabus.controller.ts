@@ -50,7 +50,7 @@ export class SyllabusController {
       where: whereClause,
       include: {
         course: {
-          select: { title: true, code: true, curriculumType: true, subjectId: true }
+          select: { title: true, code: true, curriculumType: true, gradeLevel: true, subjectId: true }
         },
         months: {
           orderBy: [

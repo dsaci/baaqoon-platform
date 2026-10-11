@@ -25,7 +25,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [selectedUserForView, setSelectedUserForView] = useState<any>(null);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '', nationality: '' });
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', gradeLevel: 'grade_11', supervisedSubjectId: '', nationality: '' });
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['admin_subjects_list'],
@@ -61,7 +61,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
       setIsAddUserOpen(false);
-      setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', supervisedSubjectId: '', nationality: '' });
+      setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', gradeLevel: 'grade_11', supervisedSubjectId: '', nationality: '' });
     }
   });
   
@@ -299,22 +299,31 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
               </select>
 
               {newUser.primaryRole === 'student' && (
-                <div className="flex gap-3 animate-fade-in-up">
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">الفرع الأكاديمي</label>
-                    <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.academicBranch} onChange={e => setNewUser({...newUser, academicBranch: e.target.value})}>
-                      <option value="scientific">علمي</option>
-                      <option value="literary">أدبي</option>
-                      <option value="entrepreneurship">ريادة وأعمال</option>
-                      <option value="industrial">صناعي</option>
-                      <option value="sharia">شرعي</option>
-                    </select>
+                <div className="space-y-3 animate-fade-in-up">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الصف الدراسي</label>
+                      <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.gradeLevel} onChange={e => setNewUser({...newUser, gradeLevel: e.target.value})}>
+                        <option value="grade_11">الصف الحادي عشر (11)</option>
+                        <option value="grade_12">الصف الثاني عشر (توجيهي - 12)</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">الفرع الأكاديمي</label>
+                      <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.academicBranch} onChange={e => setNewUser({...newUser, academicBranch: e.target.value})}>
+                        <option value="scientific">علمي</option>
+                        <option value="literary">أدبي</option>
+                        <option value="entrepreneurship">ريادة وأعمال</option>
+                        <option value="industrial">صناعي</option>
+                        <option value="sharia">شرعي</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">المنهج</label>
                     <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.curriculumType} onChange={e => setNewUser({...newUser, curriculumType: e.target.value})}>
-                      <option value="governmental">حكومي</option>
-                      <option value="azhari">أزهري</option>
+                      <option value="governmental">منهج عام (حكومي)</option>
+                      <option value="azhari">منهج أزهري معتمد</option>
                     </select>
                   </div>
                 </div>
@@ -457,6 +466,13 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 {selectedUserForView.primaryRole === 'student' && (
                   <>
                     <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+                      <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap className="w-4 h-4" /> الصف والمرحلة</span>
+                      <div className="text-lg font-black text-indigo-900 dark:text-indigo-200">
+                        {selectedUserForView.gradeLevel === 'grade_11' ? 'الصف الحادي عشر (11)' :
+                         selectedUserForView.gradeLevel === 'grade_12' ? 'الصف الثاني عشر (توجيهي)' : 'الصف الحادي عشر (11)'}
+                      </div>
+                    </div>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
                       <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 flex items-center gap-1"><GraduationCap className="w-4 h-4" /> الفرع الأكاديمي</span>
                       <div className="text-lg font-black text-indigo-900 dark:text-indigo-200">
                         {selectedUserForView.academicBranch === 'scientific' ? 'علمي' :
@@ -466,11 +482,11 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                          selectedUserForView.academicBranch === 'sharia' ? 'شرعي' : selectedUserForView.academicBranch || 'غير محدد'}
                       </div>
                     </div>
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
-                      <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 flex items-center gap-1"><BookOpen className="w-4 h-4" /> المنهج</span>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 md:col-span-2">
+                      <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 flex items-center gap-1"><BookOpen className="w-4 h-4" /> المنهج المعتمد</span>
                       <div className="text-lg font-black text-indigo-900 dark:text-indigo-200">
-                        {selectedUserForView.curriculumType === 'governmental' ? 'حكومي' :
-                         selectedUserForView.curriculumType === 'azhari' ? 'أزهري' : selectedUserForView.curriculumType || 'غير محدد'}
+                        {selectedUserForView.curriculumType === 'governmental' ? 'منهج عام (حكومي)' :
+                         selectedUserForView.curriculumType === 'azhari' ? 'منهج أزهري معتمد' : selectedUserForView.curriculumType || 'غير محدد'}
                       </div>
                     </div>
                   </>

@@ -21,6 +21,7 @@ model User {
   status              UserStatus                @default(pending)
   academicBranch      AcademicBranch?
   curriculumType      CurriculumType?
+  gradeLevel          GradeLevel?               @default(grade_11)
   supervisedSubjectId String?                   @db.Uuid
   emailVerified       Boolean                   @default(false)
   timezone            String                    @default("Asia/Gaza") @db.VarChar(64)
