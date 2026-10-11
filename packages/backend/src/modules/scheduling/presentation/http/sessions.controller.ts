@@ -3,14 +3,14 @@ import { PrismaService } from '../../../../core/database/prisma.service';
 
 @Controller('sessions')
 export class SessionsController {
-  @Get('monitoring')
+    @Get('monitoring')
   async getMonitoringSessions(@Req() req: any) {
     const role = req.user?.primaryRole;
     if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(role)) {
       throw new Error('Unauthorized');
     }
 
-    let cohortIds = [];
+    let cohortIds: string[] = [];
     if (role === 'subject_supervisor') {
       const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
       if (user?.supervisedSubjectId) {
@@ -32,7 +32,7 @@ export class SessionsController {
       },
       include: {
         teacher: { select: { firstName: true, lastName: true } },
-        cohort: { include: { course: { select: { nameAr: true } } } }
+        cohort: true
       },
       orderBy: { scheduledStartTime: 'asc' }
     });
@@ -46,26 +46,37 @@ export class SessionsController {
       },
       include: {
         teacher: { select: { firstName: true, lastName: true } },
-        cohort: { include: { course: { select: { nameAr: true } }, enrollments: { select: { studentId: true } } } },
+        cohort: { include: { enrollments: { select: { studentId: true } } } },
         attendances: true
       },
       orderBy: { scheduledStartTime: 'desc' },
       take: 20
     });
 
+    const allCourseIds = Array.from(new Set([
+      ...liveSessions.map(s => s.cohort?.courseId).filter(Boolean),
+      ...pastSessions.map(s => s.cohort?.courseId).filter(Boolean)
+    ])) as string[];
+
+    const courses = await this.prisma.course.findMany({
+      where: { id: { in: allCourseIds } },
+      select: { id: true, title: true }
+    });
+    const courseMap = new Map(courses.map(c => [c.id, c.title]));
+
     return {
       live: liveSessions.map(s => ({
         id: s.id,
-        courseName: s.cohort?.course?.nameAr || 'مادة غير محددة',
+        courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || 'مادة غير محددة',
         cohortName: s.cohort?.name,
-        teacherName: `أ. ${s.teacher?.firstName} ${s.teacher?.lastName}`,
+        teacherName: `أ. ${s.teacher?.firstName || ''} ${s.teacher?.lastName || ''}`.trim(),
         status: s.status,
         startTime: s.scheduledStartTime,
         endTime: s.scheduledEndTime
       })),
       past: pastSessions.map(s => {
         const totalStudents = s.cohort?.enrollments?.length || 0;
-        const attended = s.attendances?.filter(a => ['present', 'late'].includes(a.status)).length || 0;
+        const attended = s.attendances?.filter((a: any) => ['present', 'late'].includes(a.status)).length || 0;
         const absent = totalStudents - attended;
         
         let teacherStatus = 'حضر بالموعد';
@@ -74,17 +85,17 @@ export class SessionsController {
         else if (new Date(s.actualStartTime) > new Date(s.scheduledStartTime.getTime() + 10*60000)) teacherStatus = 'حضر متأخراً';
 
         let studentAttendanceText = 'لم يسجل بعد';
-        if (s.attendances?.length > 0) {
+        if (s.attendances && s.attendances.length > 0) {
            if (absent === 0) studentAttendanceText = 'حضور كامل';
            else studentAttendanceText = `تغيب ${absent} طلاب`;
         }
 
         return {
           id: s.id,
-          courseName: s.cohort?.course?.nameAr || 'مادة غير محددة',
+          courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || 'مادة غير محددة',
           cohortName: s.cohort?.name,
           teacherId: s.teacherId,
-          teacherName: `أ. ${s.teacher?.firstName} ${s.teacher?.lastName}`,
+          teacherName: `أ. ${s.teacher?.firstName || ''} ${s.teacher?.lastName || ''}`.trim(),
           studentAttendanceText,
           teacherStatus,
           isAbsent: absent > 0

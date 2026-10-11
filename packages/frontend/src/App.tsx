@@ -35,6 +35,7 @@ import TimetablePage from "./features/scheduling/pages/TimetablePage";
 import ChatPage from "./features/chat/pages/ChatPage";
 import AssessmentsPage from "./features/assessments/pages/AssessmentsPage";
 import GradingPage from "./features/assessments/pages/GradingPage";
+import SyllabusDistributionPage from "./features/curriculum/pages/SyllabusDistributionPage";
 import PlaceholderPage from "./components/shared/PlaceholderPage";
 
 // Curriculum
@@ -130,7 +131,7 @@ function App() {
       >
         <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
+          <Route path="distribution" element={<SyllabusDistributionPage />} />
         
         <Route path="cohorts" element={<CohortsPage />} />
         <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
@@ -156,7 +157,7 @@ function App() {
       >
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
+          <Route path="distribution" element={<SyllabusDistributionPage />} />
         <Route path="schedule" element={<TimetablePage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="assessments" element={<AssessmentsPage />} />
@@ -190,7 +191,7 @@ function App() {
       >
         <Route path="dashboard" element={<SupervisorDashboard />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="coming-soon-distribution" element={<ComingSoonPage />} />
+          <Route path="distribution" element={<SyllabusDistributionPage />} />
         
         <Route
           path="teachers"

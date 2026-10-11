@@ -4,9 +4,10 @@ import { CourseService } from "./application/course.service";
 import { CurriculumFacade } from "./curriculum.facade";
 import { SubjectController } from "./presentation/http/subject.controller";
 import { CourseController } from "./presentation/http/course.controller";
+import { SyllabusController } from "./presentation/http/syllabus.controller";
 
 @Module({
-  controllers: [SubjectController, CourseController],
+  controllers: [SubjectController, CourseController, SyllabusController],
   providers: [SubjectService, CourseService, CurriculumFacade],
   exports: [CurriculumFacade], // Only export the facade
 })
