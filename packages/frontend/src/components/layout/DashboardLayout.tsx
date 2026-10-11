@@ -14,6 +14,7 @@ import {
   Activity,
   User,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import WelcomeModal from "../shared/WelcomeModal";
@@ -52,6 +53,7 @@ export default function DashboardLayout() {
           path: "/admin/dashboard",
           icon: LayoutDashboard,
         },
+        { name: "الإحصائيات والتقارير", path: "/admin/reports", icon: BarChart3 },
         { name: "الإسناد الأكاديمي", path: "/admin/distribution", icon: Calendar },
         { name: "قاعدة البيانات", path: "/admin/database", icon: Users },
         {
@@ -69,6 +71,7 @@ export default function DashboardLayout() {
           path: "/admin/dashboard",
           icon: LayoutDashboard,
         },
+        { name: "الإحصائيات والتقارير", path: "/admin/reports", icon: BarChart3 },
         { name: "الإسناد الأكاديمي", path: "/admin/distribution", icon: Calendar },
         { name: "قاعدة البيانات", path: "/admin/database", icon: Users },
       ];
@@ -81,8 +84,9 @@ export default function DashboardLayout() {
           path: "/supervisor/dashboard",
           icon: LayoutDashboard,
         },
+        { name: "الإحصائيات والتقارير", path: "/supervisor/reports", icon: BarChart3 },
         { name: "الأساتذة", path: "/supervisor/teachers", icon: Users },
-        { name: "التوزيع السنوي والأسبوعي", path: "/supervisor/distribution", icon: Calendar },
+        { name: "التوزيع السنوي والشهري", path: "/supervisor/distribution", icon: Calendar },
         {
           name: "الجدول الأسبوعي",
           path: "/supervisor/schedule",

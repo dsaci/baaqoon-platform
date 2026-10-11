@@ -696,4 +696,231 @@ export class GroupsController {
     return { success: true, cohortId: cohort.id };
   }
 
+  @Get('analytics/reports')
+  async getAnalyticsReports(@Req() req: any) {
+    const role = req.user?.primaryRole;
+    if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(role)) {
+      throw new Error('Unauthorized');
+    }
+
+    const isSupervisor = role === 'subject_supervisor' || role === 'supervisor';
+    let supervisedSubjectId: string | null = null;
+    let supervisedSubjectName: string | null = null;
+
+    if (role === 'subject_supervisor') {
+      const user = await this.prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: { supervisedSubject: true }
+      });
+      supervisedSubjectId = user?.supervisedSubjectId || null;
+      supervisedSubjectName = user?.supervisedSubject?.nameAr || null;
+    }
+
+    const courses = await this.prisma.course.findMany({
+      select: { id: true, title: true, curriculumType: true, subjectId: true }
+    });
+
+    const cohorts = await this.prisma.cohort.findMany({
+      include: {
+        enrollments: { select: { studentId: true } },
+        instructors: { select: { teacherId: true } }
+      }
+    });
+
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+
+    let governmentalCohortsCount = 0;
+    let azhariCohortsCount = 0;
+    let otherCurriculumCohortsCount = 0;
+
+    let governmentalStudentsCount = 0;
+    let azhariStudentsCount = 0;
+
+    cohorts.forEach(coh => {
+      const course = courseMap.get(coh.courseId);
+      const studentCount = coh.enrollments.length;
+      if (course?.curriculumType === 'governmental') {
+        governmentalCohortsCount++;
+        governmentalStudentsCount += studentCount;
+      } else if (course?.curriculumType === 'azhari') {
+        azhariCohortsCount++;
+        azhariStudentsCount += studentCount;
+      } else {
+        otherCurriculumCohortsCount++;
+      }
+    });
+
+    const totalCourses = courses.length;
+    const governmentalCoursesCount = courses.filter(c => c.curriculumType === 'governmental').length;
+    const azhariCoursesCount = courses.filter(c => c.curriculumType === 'azhari').length;
+
+    const allUsers = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        primaryRole: true,
+        status: true,
+        nationality: true,
+        curriculumType: true,
+        academicBranch: true
+      }
+    });
+
+    const teachers = allUsers.filter(u => u.primaryRole === 'teacher');
+    const students = allUsers.filter(u => u.primaryRole === 'student');
+    const supervisors = allUsers.filter(u => u.primaryRole === 'subject_supervisor' || (u.primaryRole as string) === 'supervisor');
+
+    const calculateNationalities = (userList: any[]) => {
+      const map: Record<string, number> = {};
+      userList.forEach(u => {
+        const nat = u.nationality?.trim() || 'غير محدد';
+        map[nat] = (map[nat] || 0) + 1;
+      });
+      const total = userList.length || 1;
+      return Object.entries(map).map(([name, count]) => ({
+        name,
+        count,
+        percentage: Math.round((count / total) * 100)
+      })).sort((a, b) => b.count - a.count);
+    };
+
+    const overallNationalities = calculateNationalities(allUsers);
+    const studentNationalities = calculateNationalities(students);
+    const teacherNationalities = calculateNationalities(teachers);
+
+    const totalCohorts = cohorts.length;
+    const activeCohorts = cohorts.filter(c => c.status === 'active' || (c.status as any) === 'in_progress').length;
+    const totalEnrolledStudents = cohorts.reduce((acc, c) => acc + c.enrollments.length, 0);
+    const totalMaxCapacity = cohorts.reduce((acc, c) => acc + (c.maxStudents || 12), 0);
+    const averageStudentsPerCohort = totalCohorts > 0 ? (totalEnrolledStudents / totalCohorts).toFixed(1) : '0';
+    const capacitySaturationRate = totalMaxCapacity > 0 ? Math.round((totalEnrolledStudents / totalMaxCapacity) * 100) : 0;
+
+    const totalSessions = await this.prisma.session.count();
+    const completedSessions = await this.prisma.session.count({ where: { status: 'completed' } });
+    const scheduledSessions = await this.prisma.session.count({ where: { status: 'scheduled' } });
+    const cancelledSessions = await this.prisma.session.count({ where: { status: 'cancelled' } });
+
+    const attendances = await this.prisma.sessionAttendance.findMany({
+      select: { status: true }
+    });
+    const presentAttendances = attendances.filter(a => a.status === 'present' || a.status === 'late').length;
+    const totalAttendanceMarks = attendances.length || 1;
+    const studentAttendanceRate = attendances.length > 0 ? Math.round((presentAttendances / totalAttendanceMarks) * 100) : 95;
+
+    const recommendations = [];
+
+    if (studentAttendanceRate < 85) {
+      recommendations.push({
+        type: 'pedagogical',
+        level: 'high',
+        title: 'انخفاض في نسبة الحضور العام للجلسات',
+        description: `نسبة الحضور الحالية بلغت ${studentAttendanceRate}%. يُوصى المشرفون بتكثيف المتابعة مع الأساتذة ومراجعة أسباب تغيب الطلاب المتكررة، وتنظيم جلسات دعم تعويضية.`
+      });
+    } else {
+      recommendations.push({
+        type: 'pedagogical',
+        level: 'info',
+        title: 'استقرار الالتزام الصفي والتربوي',
+        description: `نسبة الحضور المباشر ممتازة (${studentAttendanceRate}%). يُوصى بتعزيز التفاعل عبر الأنشطة التكوينية وتكليف الطلاب بمهام إثرائية للمحافظة على هذا المستوى.`
+      });
+    }
+
+    recommendations.push({
+      type: 'pedagogical',
+      level: 'medium',
+      title: 'التوزيع الفصلي المتوازن للمنهاج',
+      description: 'التأكد من التزام الأساتذة بالخطة الشهرية للفصلين (4 أشهر لكل فصل)، ومراجعة استيفاء الوحدات التدريسية قبل بدء فترات الامتحانات في شهري ديسمبر ومايو.'
+    });
+
+    if (capacitySaturationRate > 85) {
+      recommendations.push({
+        type: 'administrative',
+        level: 'high',
+        title: 'اقتراب الطاقة الاستيعابية للأفواج من الحد الأقصى',
+        description: `بلغت نسبة إشغال الأفواج ${capacitySaturationRate}%. يُنصح الإدارة بفتح أفواج دراسية جديدة لتجنب الاكتظاظ وضمان جودة المتابعة الفردية.`
+      });
+    } else if (capacitySaturationRate < 40 && totalCohorts > 0) {
+      recommendations.push({
+        type: 'administrative',
+        level: 'medium',
+        title: 'فرصة لضم وتوسيع التسجيل في الأفواج القائمة',
+        description: `نسبة استيعاب الأفواج الحالية ${capacitySaturationRate}% فقط. يمكن للإدارة قبول المزيد من الطلاب المسجلين دون الحاجة لفتح أفواج إضافية.`
+      });
+    }
+
+    const unassignedCohorts = cohorts.filter(c => c.instructors.length === 0).length;
+    if (unassignedCohorts > 0) {
+      recommendations.push({
+        type: 'administrative',
+        level: 'high',
+        title: `تنبيه إسناد: يوجد ${unassignedCohorts} أفواج بدون معلم رئيسي`,
+        description: 'يُرجى من إدارة المنظمة والمشرفين إتمام الإسناد الأكاديمي لهذه الأفواج لضمان بدء الحصص في مواعيدها.'
+      });
+    }
+
+    const subjectsWithoutSupervisor = await this.prisma.subject.count({
+      where: { supervisors: { none: {} } }
+    });
+    if (subjectsWithoutSupervisor > 0) {
+      recommendations.push({
+        type: 'administrative',
+        level: 'medium',
+        title: `مواد دراسية بحاجة لإسناد إشرافي (${subjectsWithoutSupervisor} مواد)`,
+        description: 'يُنصح بتعيين مشرفين متخصصين للمواد المتبقية لضمان توجيه وتقييم المعلمين وفق المعايير المعتمدة.'
+      });
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      scope: {
+        role,
+        isSupervisor,
+        supervisedSubjectId,
+        supervisedSubjectName
+      },
+      curriculum: {
+        totalCourses,
+        governmental: {
+          coursesCount: governmentalCoursesCount,
+          cohortsCount: governmentalCohortsCount,
+          studentsCount: governmentalStudentsCount,
+          percentage: totalCohorts > 0 ? Math.round((governmentalCohortsCount / totalCohorts) * 100) : 100
+        },
+        azhari: {
+          coursesCount: azhariCoursesCount,
+          cohortsCount: azhariCohortsCount,
+          studentsCount: azhariStudentsCount,
+          percentage: totalCohorts > 0 ? Math.round((azhariCohortsCount / totalCohorts) * 100) : 0
+        }
+      },
+      nationalities: {
+        overall: overallNationalities,
+        students: studentNationalities,
+        teachers: teacherNationalities
+      },
+      cohorts: {
+        total: totalCohorts,
+        active: activeCohorts,
+        totalEnrolledStudents,
+        totalMaxCapacity,
+        averageStudentsPerCohort,
+        capacitySaturationRate,
+        unassignedCohorts
+      },
+      users: {
+        totalUsers: allUsers.length,
+        totalStudents: students.length,
+        totalTeachers: teachers.length,
+        totalSupervisors: supervisors.length,
+        teacherToStudentRatio: teachers.length > 0 ? `1 : ${Math.round(students.length / teachers.length)}` : '0'
+      },
+      sessions: {
+        total: totalSessions,
+        completed: completedSessions,
+        scheduled: scheduledSessions,
+        cancelled: cancelledSessions,
+        attendanceRate: studentAttendanceRate
+      },
+      recommendations
+    };
+  }
 }

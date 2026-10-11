@@ -24,6 +24,7 @@ import TakeAssessmentPage from "./features/student/pages/TakeAssessmentPage";
 import AdminDashboard from "./features/admin/pages/AdminDashboard";
 import AdminDatabasePage from "./features/admin/pages/AdminDatabasePage";
 import DistributionAdminPage from "./features/admin/pages/DistributionAdminPage";
+import AnalyticsReportsPage from "./features/admin/pages/AnalyticsReportsPage";
 
 // Supervisor Pages
 import SupervisorDashboard from "./features/supervisor/pages/SupervisorDashboard";
@@ -175,8 +176,9 @@ function App() {
         }
       >
         <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="distribution" element={<DistributionAdminPage />} />
+        <Route path="reports" element={<AnalyticsReportsPage />} />
+        <Route path="coming-soon-articles" element={<ComingSoonPage />} />
+        <Route path="distribution" element={<DistributionAdminPage />} />
         
         <Route path="database" element={<AdminDatabasePage />} />
       </Route>
@@ -190,8 +192,9 @@ function App() {
         }
       >
         <Route path="dashboard" element={<SupervisorDashboard />} />
+        <Route path="reports" element={<AnalyticsReportsPage />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="distribution" element={<SyllabusDistributionPage />} />
+        <Route path="distribution" element={<SyllabusDistributionPage />} />
         
         <Route
           path="teachers"

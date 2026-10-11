@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen } from 'lucide-react';
+import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import HrManagementAdminView from '../../admin/components/HrManagementAdminView';
@@ -11,6 +11,7 @@ import { Eye, Mic, Star } from 'lucide-react';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
   const [searchParams] = useSearchParams();
@@ -93,14 +94,23 @@ export default function SupervisorDashboard() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 p-6 font-sans">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
-          <Activity className="w-8 h-8 text-baaqoon-accent" />
-          مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (statsData?.supervisedSubject?.nameAr || 'غير محدد')}
-        </h1>
-        <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2 font-bold">
-          إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
-        </p>
+      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
+            <Activity className="w-8 h-8 text-baaqoon-accent" />
+            مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (statsData?.supervisedSubject?.nameAr || 'غير محدد')}
+          </h1>
+          <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2 font-bold">
+            إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/supervisor/reports')}
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/20 transition-all flex-shrink-0"
+        >
+          <BarChart3 className="w-4 h-4" />
+          الإحصائيات والتقارير والنسب
+        </button>
       </header>
 
       <div className="flex border-b border-baaqoon-200 dark:border-baaqoon-800 mb-6 gap-4">

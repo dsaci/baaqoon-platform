@@ -135,6 +135,7 @@ export default function AdminDashboard() {
   };
 
   const platformButtons = [
+    { label: 'الإحصائيات والتقارير الشاملة', desc: 'مؤشرات الأداء، نسب المناهج، التوزع الديموغرافي والنصائح', icon: BarChart3, color: 'text-purple-600', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/reports') },
     { label: 'إدارة النظام وقاعدة البيانات', desc: 'تسيير المنصة الرئيسية، الأقسام، والمواد', icon: Database, color: 'text-slate-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/database') },
     { label: 'الإسناد الأكاديمي', desc: 'توزيع المهام والمشرفين على المواد الدراسية', icon: Users2, color: 'text-indigo-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/distribution') },
   ];
