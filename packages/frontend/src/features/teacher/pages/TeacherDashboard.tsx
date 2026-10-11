@@ -159,6 +159,20 @@ export default function TeacherDashboard() {
 
           <div className="mt-4 pt-4 border-t border-baaqoon-100 dark:border-baaqoon-800 space-y-2">
             <Link 
+              to="/teacher/distribution" 
+              className="flex items-center justify-between w-full text-right px-4 py-3 bg-white dark:bg-baaqoon-900 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 text-baaqoon-800 dark:text-baaqoon-200 rounded-xl transition-colors text-sm font-bold border border-baaqoon-200 dark:border-baaqoon-700 shadow-sm"
+            >
+              <span>📅 التوزيع السنوي والشهري للمنهاج</span>
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-bold">عرض الخطة ←</span>
+            </Link>
+            <Link 
+              to="/teacher/textbooks" 
+              className="flex items-center justify-between w-full text-right px-4 py-3 bg-white dark:bg-baaqoon-900 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 text-baaqoon-800 dark:text-baaqoon-200 rounded-xl transition-colors text-sm font-bold border border-baaqoon-200 dark:border-baaqoon-700 shadow-sm"
+            >
+              <span>📚 المكتبة والكتب المدرسية</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">المقررات ←</span>
+            </Link>
+            <Link 
               to="/teacher/assessments" 
               className="block w-full text-right px-4 py-3 bg-white dark:bg-baaqoon-900 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 text-baaqoon-700 dark:text-baaqoon-300 rounded-lg transition-colors text-sm font-medium border border-baaqoon-200 dark:border-baaqoon-700"
             >

@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
   const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests' | 'activity'>(tabParam as any || 'hr');
+  const [hrRoleFilter, setHrRoleFilter] = useState<string>('all');
 
   React.useEffect(() => {
     const handleLocationChange = () => {
@@ -141,9 +142,9 @@ export default function AdminDashboard() {
   ];
 
   const monitoringButtons = [
-    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
-    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
-    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('hr') },
+    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('subject_supervisor'); setActiveTab('hr'); } },
+    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('teacher'); setActiveTab('hr'); } },
+    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('student'); setActiveTab('hr'); } },
   ];
 
   const classButtons = [
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
           
           {/* Tab: HR - Account Management */}
           {activeTab === 'hr' && (
-            <HrManagementAdminView />
+            <HrManagementAdminView initialRoleFilter={hrRoleFilter} />
           )}
 
           {/* Tab: Cohort Requests */}

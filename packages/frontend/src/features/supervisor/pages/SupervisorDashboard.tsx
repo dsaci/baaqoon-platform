@@ -50,11 +50,22 @@ export default function SupervisorDashboard() {
     }
   });
 
-  const handleNudge = (id: string) => {
-    setNudgeStatus(prev => ({ ...prev, [id]: 'جاري الإرسال...' }));
-    setTimeout(() => {
-      setNudgeStatus(prev => ({ ...prev, [id]: 'تم التنبيه' }));
-    }, 1500);
+  const handleNudge = async (teacherId: string, sessionId?: string) => {
+    setNudgeStatus(prev => ({ ...prev, [teacherId]: 'جاري الإرسال...' }));
+    try {
+      await api.post('/sessions/nudge-teacher', {
+        teacherId,
+        sessionId,
+        message: 'تنبيه إشرافي مباشر: موعد الحصة الافتراضية الآن، يُرجى الالتحاق بالقاعة والبدء.',
+        type: 'live_nudge'
+      });
+      setNudgeStatus(prev => ({ ...prev, [teacherId]: 'تم التنبيه بنجاح ✓' }));
+      setTimeout(() => {
+        setNudgeStatus(prev => ({ ...prev, [teacherId]: '' }));
+      }, 3000);
+    } catch (err) {
+      setNudgeStatus(prev => ({ ...prev, [teacherId]: 'فشل الإرسال' }));
+    }
   };
 
   const handleSendReminders = () => {
@@ -64,18 +75,27 @@ export default function SupervisorDashboard() {
     }, 3000);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedTeacher || !messageText.trim()) return;
     setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
+    try {
+      await api.post('/sessions/nudge-teacher', {
+        teacherId: selectedTeacher,
+        message: messageText,
+        type: 'attendance_alert'
+      });
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
         setIsMessageModalOpen(false);
         setMessageText('');
-      }, 2000);
-    }, 1000);
+      }, 1500);
+    } catch (err) {
+      alert('حدث خطأ أثناء إرسال التنبيه للأستاذ');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleSendAlert = (e: React.FormEvent) => {
@@ -378,10 +398,10 @@ export default function SupervisorDashboard() {
       </>
       )}
       
-      {activeTab === 'teachers' && <HrManagementAdminView />}
-      {activeTab === 'students' && <HrManagementAdminView />}
+      {activeTab === 'teachers' && <HrManagementAdminView initialRoleFilter="teacher" />}
+      {activeTab === 'students' && <HrManagementAdminView initialRoleFilter="student" />}
         
-        {activeTab === 'cohorts' && <SupervisorCohortsView />}
+      {activeTab === 'cohorts' && <SupervisorCohortsView />}
 
       {/* Strategic Features (Coming Soon) */}
       <ComingSoonSection 
@@ -406,6 +426,68 @@ export default function SupervisorDashboard() {
           }
         ]} 
       />
+
+      {/* Real Automated Modal for Messaging & Nudging Teacher */}
+      {isMessageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-indigo-500" />
+                توجيه تنبيه / رسالة رسمية للأستاذ
+              </h3>
+              <button 
+                onClick={() => setIsMessageModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {showSuccess ? (
+              <div className="p-6 text-center space-y-2">
+                <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
+                <p className="font-bold text-slate-800 dark:text-white">تم إرسال التنبيه الرسمي للأستاذ بنجاح</p>
+                <p className="text-xs text-slate-400">سيظهر للأستاذ في شريط الإشعارات فور دخوله</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendMessage} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                    نص التنبيه أو التوجيه التربوي:
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    placeholder="اكتب التوجيه هنا (مثال: نلفت عنايتكم إلى تسجيل غياب عدد من الطلبة في الجلسة لمتابعتهم والتحقق من التزامهم)..."
+                    className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 font-medium"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsMessageModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSending || !messageText.trim()}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" />
+                    {isSending ? 'جاري الإرسال...' : 'إرسال التنبيه الآن'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

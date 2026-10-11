@@ -5,9 +5,19 @@ import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
 import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin } from 'lucide-react';
 
-export default function HrManagementAdminView() {
+interface HrManagementAdminViewProps {
+  initialRoleFilter?: string;
+}
+
+export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrManagementAdminViewProps) {
   const queryClient = useQueryClient();
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
+
+  React.useEffect(() => {
+    if (initialRoleFilter) {
+      setRoleFilter(initialRoleFilter);
+    }
+  }, [initialRoleFilter]);
   const [isPasswordRequestsOpen, setIsPasswordRequestsOpen] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);

@@ -334,4 +334,36 @@ export class SessionsController {
       data
     });
   }
+
+  @Post('nudge-teacher')
+  async nudgeTeacher(@Req() req: any, @Body() body: { teacherId: string; sessionId?: string; message: string; type?: string }) {
+    const senderId = req.user?.id || req.user?.userId;
+    const { teacherId, sessionId, message, type = 'attendance_alert' } = body;
+    if (!teacherId || !message) {
+      throw new Error('Teacher ID and message are required');
+    }
+
+    const notification = await this.prisma.notification.create({
+      data: {
+        userId: teacherId,
+        title: type === 'attendance_alert' ? 'تنبيه إشرافي حول حضور الجلسة' : 'رسالة من المشرف الأكاديمي',
+        body: message,
+        actionUrl: sessionId ? '/teacher/schedule' : '/teacher/chat',
+        type: 'system'
+      }
+    });
+
+    if (senderId) {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: senderId,
+          action: 'SUPERVISOR_NUDGE_TEACHER',
+          details: JSON.stringify({ teacherId, sessionId, message, type })
+        }
+      }).catch(() => {});
+    }
+
+    return { success: true, notificationId: notification.id };
+  }
+
 }
