@@ -67,7 +67,7 @@ export default function DashboardLayout() {
         { name: "الإسناد الأكاديمي", path: "/admin/distribution", icon: Calendar },
         { name: "قاعدة البيانات", path: "/admin/database", icon: Users },
         {
-          name: "لوحة التحكم",
+          name: "لوحة الإشراف التربوي",
           path: "/supervisor/dashboard",
           icon: Activity,
         },
@@ -110,72 +110,91 @@ export default function DashboardLayout() {
       ];
     }
 
-    const baseLinks = [
-      {
-        name: t("nav.dashboard"),
-        path: `/${user?.primaryRole}/dashboard`,
-        icon: LayoutDashboard,
-      },
-      {
-        name: t("nav.schedule"),
-        path: `/${user?.primaryRole}/schedule`,
-        icon: Calendar,
-      },
-      {
-        name: t("nav.chat"),
-        path: `/${user?.primaryRole}/chat`,
-        icon: MessageSquare,
-      },
-    ];
-
     if (user?.primaryRole === "teacher") {
-      baseLinks.splice(1, 0, {
-        name: t("nav.cohorts"),
-        path: "/teacher/cohorts",
-        icon: Users,
-      });
-      baseLinks.splice(3, 0, {
-        name: t("nav.assessments"),
-        path: "/teacher/assessments",
-        icon: FileText,
-      });
-      baseLinks.splice(3, 0, {
-        name: "بناء الحصص (المناهج)",
+      return [
+        {
+          name: t("nav.dashboard"),
+          path: "/teacher/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          name: t("nav.cohorts"),
+          path: "/teacher/cohorts",
+          icon: Users,
+        },
+        {
+          name: "بناء الحصص (المناهج)",
           path: "/teacher/curriculum",
-        icon: BookOpen,
-      });
-      baseLinks.push({
-        name: t("nav.textbooks"),
-        path: "/teacher/textbooks",
-        icon: BookOpen,
-      });
-      baseLinks.push({
-        name: "التوزيع السنوي والأسبوعي",
-        path: "/teacher/distribution",
-        icon: Calendar,
-      });
-    } else if (user?.primaryRole === "student") {
-      baseLinks.splice(2, 0, {
-        name: t("nav.my_assessments"),
-        path: "/student/assessments",
-        icon: FileText,
-      });
-      baseLinks.push({
-        name: t("nav.textbooks"),
-        path: "/student/textbooks",
-        icon: BookOpen,
-      });
+          icon: BookOpen,
+        },
+        {
+          name: t("nav.assessments"),
+          path: "/teacher/assessments",
+          icon: FileText,
+        },
+        {
+          name: t("nav.schedule"),
+          path: "/teacher/schedule",
+          icon: Calendar,
+        },
+        {
+          name: t("nav.textbooks"),
+          path: "/teacher/textbooks",
+          icon: BookOpen,
+        },
+        {
+          name: "التوزيع السنوي والأسبوعي",
+          path: "/teacher/distribution",
+          icon: Calendar,
+        },
+        {
+          name: t("nav.chat"),
+          path: "/teacher/chat",
+          icon: MessageSquare,
+        },
+      ];
     }
 
-    return baseLinks;
+    if (user?.primaryRole === "student") {
+      return [
+        {
+          name: t("nav.dashboard"),
+          path: "/student/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          name: t("nav.schedule"),
+          path: "/student/schedule",
+          icon: Calendar,
+        },
+        {
+          name: t("nav.my_assessments"),
+          path: "/student/assessments",
+          icon: FileText,
+        },
+        {
+          name: t("nav.textbooks"),
+          path: "/student/textbooks",
+          icon: BookOpen,
+        },
+        {
+          name: t("nav.chat"),
+          path: "/student/chat",
+          icon: MessageSquare,
+        },
+      ];
+    }
+
+    return [
+      {
+        name: t("nav.dashboard"),
+        path: `/${user?.primaryRole || "student"}/dashboard`,
+        icon: LayoutDashboard,
+      },
+    ];
   };
 
-    const basePath = user?.primaryRole?.includes('admin') ? 'admin' : user?.primaryRole?.includes('supervisor') ? 'supervisor' : user?.primaryRole || 'student';
-  const navLinks = [
-    ...getNavLinks(),
-    { name: "مقالات وتدريبات وامتحانات (قيد التطوير)", path: `/${basePath}/coming-soon-articles`, icon: BookOpen },
-    { name: "الإسناد الأكاديمي", path: `/${basePath}/distribution`, icon: Calendar },
-  ];
+  const navLinks = getNavLinks();
 
   return (
     <div className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 flex pt-1">
