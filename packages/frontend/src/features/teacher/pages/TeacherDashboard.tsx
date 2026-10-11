@@ -6,6 +6,7 @@ import { Users, Calendar, Clock, CheckCircle, PlayCircle, FileText, Video } from
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAccountabilityWidget';
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore();
@@ -62,6 +63,9 @@ export default function TeacherDashboard() {
         <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً أستاذ {user?.firstName} {user?.lastName} 👋</h1>
         <p className="text-slate-500 dark:text-slate-400 font-bold">إليك نظرة عامة على نشاطك اليوم في منصة باقون.</p>
       </div>
+
+      {/* Smart Syllabus Accountability & Progress Tracker */}
+      <SyllabusAccountabilityWidget />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

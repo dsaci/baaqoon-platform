@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Calendar as CalendarIcon,
+  BookOpen,
   Clock,
   Users,
   Plus,
@@ -28,6 +29,15 @@ export default function TimetablePage() {
   const [selectedCohort, setSelectedCohort] = useState("all");
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
+
+  const { data: accountabilityData } = useQuery({
+    queryKey: ['timetable_accountability_pacing'],
+    queryFn: async () => {
+      const res = await api.get('/syllabus/accountability/teacher');
+      return res.data;
+    },
+    enabled: isTeacherOrSupervisor
+  });
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['timetable_sessions'],
@@ -142,6 +152,55 @@ export default function TimetablePage() {
           </div>
         )}
       </div>
+
+      {/* Smart Syllabus Pacing & Weekly Accountability Banner */}
+      {isTeacherOrSupervisor && accountabilityData?.reports?.[0] && (
+        <div className="bg-gradient-to-l from-indigo-900 via-indigo-950 to-slate-900 rounded-2xl p-6 mb-8 text-white shadow-xl border border-indigo-800/50 space-y-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-base text-white">
+                    المنسق الآلي للجدول: المطلوب تقديمه في حصص شهر {accountabilityData?.pacingInfo?.monthNameAr}
+                  </h3>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    accountabilityData.reports[0].currentPacing.status === 'delayed'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  }`}>
+                    {accountabilityData.reports[0].currentPacing.statusText}
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/80 mt-0.5">
+                  وفق التوزيع السنوي والشهري المعتمد لمادة {accountabilityData.reports[0].courseTitle}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/teacher/distribution')}
+              className="text-xs font-bold text-indigo-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg border border-white/10 transition-all flex items-center gap-1.5 whitespace-nowrap self-stretch sm:self-auto justify-center"
+            >
+              <span>مراجعة الخطة الشهرية كاملة</span>
+              <span>←</span>
+            </button>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-slate-200 leading-relaxed font-mono">
+            {accountabilityData.reports[0].currentPacing.currentMonthTopics}
+          </div>
+
+          {accountabilityData.reports[0].currentPacing.delaySessions > 0 && (
+            <p className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
+              <span>⚠️ تنبيه المحاسبة:</span>
+              <span>لديك تأخر بمقدار {accountabilityData.reports[0].currentPacing.delaySessions} حصص. يُرجى استدراكها وجدولتها في هذا الأسبوع لتفادي تراكم المقرر.</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Gaza Context Banner */}
       <div className="bg-gradient-to-l from-amber-500 to-orange-500 rounded-2xl p-6 mb-8 flex items-start gap-4 shadow-lg shadow-amber-500/20 text-white">

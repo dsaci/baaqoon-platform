@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import HrManagementAdminView from '../../admin/components/HrManagementAdminView';
 import SupervisorCohortsView from '../components/SupervisorCohortsView';
+import SupervisorAccountabilityView from '../components/SupervisorAccountabilityView';
+import { ShieldAlert } from 'lucide-react';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
 
@@ -23,7 +25,7 @@ export default function SupervisorDashboard() {
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
-  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(initialTab as any);
 
   
   const { data: monitoringData } = useQuery({
@@ -158,6 +160,13 @@ export default function SupervisorDashboard() {
             className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'cohorts' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
           >
             الأفواج والإسناد
+          </button>
+          <button 
+            onClick={() => setActiveTab('accountability')}
+            className={`pb-3 font-bold transition-all border-b-2 flex items-center gap-1.5 ${activeTab === 'accountability' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            المحاسبة ومتابعة المنهاج
           </button>
         </div>
 
@@ -402,6 +411,7 @@ export default function SupervisorDashboard() {
       {activeTab === 'students' && <HrManagementAdminView initialRoleFilter="student" />}
         
       {activeTab === 'cohorts' && <SupervisorCohortsView />}
+      {activeTab === 'accountability' && <SupervisorAccountabilityView />}
 
       {/* Strategic Features (Coming Soon) */}
       <ComingSoonSection 
