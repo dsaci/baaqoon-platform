@@ -10,6 +10,7 @@ import HrManagementAdminView from '../components/HrManagementAdminView';
 import ActivityLogsView from '../components/ActivityLogsView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
+import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
@@ -197,6 +198,9 @@ export default function AdminDashboard() {
       )}
 
       
+
+      {/* Automated Exam Prep Camps & Reminders (Synchronized with Annual/Monthly Syllabus) */}
+      <ExamPrepWidget role="admin" />
 
       {/* Main Admin Panel */}
       <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-2xl shadow-lg overflow-hidden">

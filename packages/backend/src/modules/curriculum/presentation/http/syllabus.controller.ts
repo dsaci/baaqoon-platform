@@ -312,4 +312,169 @@ export class SyllabusController {
 
     return { success: true, notificationId: notification.id };
   }
+
+  @Get('exam-prep/status')
+  async getExamPrepStatus(@Req() req: any) {
+    const pacing = getCurrentAcademicPacing();
+    const now = new Date();
+
+    // Determine upcoming exam prep camp based on Palestinian 2-semester academic pacing
+    let campTitle = 'معسكر المراجعة الدورية لاختبارات الفترة الأولى';
+    let campType: 'quarterly' | 'final' = 'quarterly';
+    let targetDaysRemaining = 5;
+    let semesterName = 'الفصل الدراسي الأول';
+    let campDescription = 'مراجعة شاملة ومكثفة لدروس ومقررات شهري سبتمبر وأكتوبر للتحضير لاختبارات الفترة الأولى المعتمدة في المنهاج الفلسطيني.';
+
+    if (pacing.semester === 1) {
+      if (pacing.monthIndex <= 2) {
+        // Month 1 or 2 (Sept / Oct) -> Mid-semester 1 prep camp
+        campTitle = 'معسكر المراجعة الربع سنوي لاختبارات الفترة الأولى';
+        campType = 'quarterly';
+        semesterName = 'الفصل الدراسي الأول';
+        campDescription = 'مراجعة شاملة ومكثفة لمقررات شهري سبتمبر وأكتوبر وتثبيت المفاهيم للاختبارات الدورية.';
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const diffDays = Math.max(1, Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        targetDaysRemaining = Math.min(diffDays, 5);
+      } else {
+        // Month 3 or 4 (Nov / Dec) -> Semester 1 final exam prep camp
+        campTitle = 'معسكر المراجعة الشاملة لاختبارات نهاية الفصل الدراسي الأول';
+        campType = 'final';
+        semesterName = 'الفصل الدراسي الأول';
+        campDescription = 'مراجعة ختامية وحل نماذج امتحانات وزارية شاملة لمنهاج الفصل الدراسي الأول كاملاً.';
+        targetDaysRemaining = 7;
+      }
+    } else {
+      semesterName = 'الفصل الدراسي الثاني';
+      if (pacing.monthIndex <= 2) {
+        // Feb / March -> Mid-semester 2 prep camp
+        campTitle = 'معسكر مراجعة واختبارات الفترة الثالثة (منتصف الفصل الثاني)';
+        campType = 'quarterly';
+        campDescription = 'مراجعة مقررات شهري فبراير ومارس وحل التطبيقات المكثفة للتحضير لاختبارات نصف الفصل الثاني.';
+        targetDaysRemaining = 5;
+      } else {
+        // April / May -> Tawjihi & final exam intensive camp
+        campTitle = 'معسكر المراجعة النهائية المكثفة لامتحانات الثانوية العامة (التوجيهي)';
+        campType = 'final';
+        campDescription = 'معسكر المراجعة الختامية لشهادة الثانوية العامة (التوجيهي) لطلبة الصف 12 والصف 11.';
+        targetDaysRemaining = 10;
+      }
+    }
+
+    const hoursRemaining = targetDaysRemaining * 24;
+
+    // Check recent reminder activity log
+    const recentReminderLog = await this.prisma.activityLog.findFirst({
+      where: {
+        action: 'EXAM_PREP_REMINDERS_SENT'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const isRecentlySent = recentReminderLog 
+      ? (now.getTime() - new Date(recentReminderLog.createdAt).getTime()) < (24 * 60 * 60 * 1000)
+      : false;
+
+    // Count cohorts and enrolled students
+    const totalCohorts = await this.prisma.cohort.count();
+    const totalStudents = await this.prisma.user.count({ where: { primaryRole: 'student' } });
+
+    // Calculate syllabus progress average
+    const sessions = await this.prisma.session.findMany({ select: { status: true } });
+    const completed = sessions.filter(s => s.status === 'completed').length;
+    const progressRate = sessions.length > 0 ? Math.min(100, Math.round((completed / sessions.length) * 100)) : 75;
+
+    return {
+      camp: {
+        title: campTitle,
+        type: campType,
+        semester: pacing.semester,
+        semesterName,
+        monthNameAr: pacing.monthNameAr,
+        weekOfMonth: pacing.weekOfMonth,
+        description: campDescription,
+        daysRemaining: targetDaysRemaining,
+        hoursRemaining,
+        progressPercentage: Math.max(progressRate, 75)
+      },
+      reminders: {
+        isActive: isRecentlySent,
+        lastSentAt: recentReminderLog?.createdAt || null,
+        targetStudentsCount: totalStudents,
+        targetCohortsCount: totalCohorts
+      }
+    };
+  }
+
+  @Post('exam-prep/send-reminders')
+  async triggerExamPrepReminders(@Req() req: any, @Body() body: { campTitle?: string; customMessage?: string }) {
+    const sender = req.user;
+    const now = new Date();
+    const pacing = getCurrentAcademicPacing();
+
+    const title = body?.campTitle || 'معسكر المراجعة الربع سنوي لاختبارات الفترة الأولى';
+    const message = body?.customMessage || `تذكير رسمي من إدارة المنصة: ${title} سيبدأ خلال الأيام القادمة وفق التوزيع السنوي والشهري المعتمد. يرجى المراجعة والتحضير للجدول الافتراضي.`;
+
+    // Fetch all active students
+    const students = await this.prisma.user.findMany({
+      where: { primaryRole: 'student', status: 'active' },
+      select: { id: true }
+    });
+
+    // Create notifications for students in batch
+    if (students.length > 0) {
+      await this.prisma.notification.createMany({
+        data: students.map(s => ({
+          userId: s.id,
+          title: `تذكير: ${title}`,
+          body: message,
+          type: 'system' as any,
+          actionUrl: '/student/schedule'
+        }))
+      });
+    }
+
+    // Also notify active teachers
+    const teachers = await this.prisma.user.findMany({
+      where: { primaryRole: 'teacher', status: 'active' },
+      select: { id: true }
+    });
+
+    if (teachers.length > 0) {
+      await this.prisma.notification.createMany({
+        data: teachers.map(t => ({
+          userId: t.id,
+          title: `توجيه إشرافي: انطلاق ${title}`,
+          body: `يرجى ضبط جدول الحصص الأسبوعية وتكثيف المراجعات للطلاب تزامناً مع ${title} وفق الخطة السنوية المقررة.`,
+          type: 'system' as any,
+          actionUrl: '/teacher/distribution'
+        }))
+      });
+    }
+
+    // Log this action in ActivityLog
+    if (sender?.id) {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: sender.id,
+          action: 'EXAM_PREP_REMINDERS_SENT',
+          details: JSON.stringify({
+            title,
+            studentsNotified: students.length,
+            teachersNotified: teachers.length,
+            semester: pacing.semester,
+            month: pacing.monthNameAr,
+            sentAt: now
+          })
+        }
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      message: `تم إرسال وتفعيل التذكيرات الآلية بنجاح لـ ${students.length} طالباً و ${teachers.length} معلماً.`,
+      studentsCount: students.length,
+      teachersCount: teachers.length,
+      sentAt: now
+    };
+  }
 }

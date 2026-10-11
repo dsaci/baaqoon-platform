@@ -10,6 +10,7 @@ import SupervisorAccountabilityView from '../components/SupervisorAccountability
 import { ShieldAlert } from 'lucide-react';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
+import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
@@ -361,47 +362,9 @@ export default function SupervisorDashboard() {
           </section>
         </div>
 
-        {/* Side Panel: Exam Prep & Reminders */}
+        {/* Side Panel: Exam Prep & Automated Reminders (Synchronized with Annual/Monthly Syllabus) */}
         <div className="space-y-6">
-          <section className="glass-panel p-6 rounded-xl shadow-sm border border-gray-100 dark:border-baaqoon-800">
-            <h2 className="text-xl font-semibold text-baaqoon-900 dark:text-white mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-baaqoon-700 dark:text-baaqoon-300" />
-              التحضير للاختبارات والتذكيرات
-            </h2>
-            
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
-              <h3 className="font-bold text-blue-900 mb-1">معسكر المراجعة الربع سنوي</h3>
-              <p className="text-sm text-blue-700 mb-3">يبدأ بعد 5 أيام (متبقي 120 ساعة)</p>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '75%' }}></div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm text-gray-600 dark:text-baaqoon-300">إرسال تذكيرات آلية للطلبة حول المعسكر القادم للتسجيل والتحضير.</p>
-              <button 
-                onClick={handleSendReminders}
-                disabled={remindersSent}
-                className={`w-full flex justify-center items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  remindersSent 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-baaqoon-900 text-white hover:bg-opacity-90'
-                }`}
-              >
-                {remindersSent ? (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    تم إرسال التذكيرات (SMS/App)
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    تفعيل التذكير الآلي للجميع
-                  </>
-                )}
-              </button>
-            </div>
-          </section>
+          <ExamPrepWidget role="supervisor" />
         </div>
       </div>
       </>

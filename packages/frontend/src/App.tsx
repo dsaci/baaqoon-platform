@@ -28,6 +28,7 @@ import AnalyticsReportsPage from "./features/admin/pages/AnalyticsReportsPage";
 
 // Supervisor Pages
 import SupervisorDashboard from "./features/supervisor/pages/SupervisorDashboard";
+import ExamPrepPage from "./features/supervisor/pages/ExamPrepPage";
 
 // Shared Pages
 import VirtualClassroom from "./features/scheduling/pages/VirtualClassroom";
@@ -201,10 +202,7 @@ function App() {
           element={<PlaceholderPage title="قريباً" />}
         />
         <Route path="schedule" element={<TimetablePage />} />
-        <Route
-          path="exam-prep"
-          element={<PlaceholderPage title="قريباً" />}
-        />
+        <Route path="exam-prep" element={<ExamPrepPage />} />
       </Route>
     </Routes>
   );
