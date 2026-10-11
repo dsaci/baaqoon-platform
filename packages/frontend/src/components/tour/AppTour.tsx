@@ -3,7 +3,7 @@ import { Joyride, STATUS } from 'react-joyride';
 import type { Step, TooltipRenderProps } from 'react-joyride';
 import { useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
-import { HelpCircle, X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { HelpCircle, X, ChevronRight, ChevronLeft, Play, BookOpen } from 'lucide-react';
 
 export default function AppTour() {
   const { user } = useAuthStore();
@@ -51,12 +51,12 @@ export default function AppTour() {
           {
             target: 'body',
             placement: 'center',
-            content: 'أهلاً بك أستاذنا الفاضل في لوحة التحكم! هنا يمكنك إدارة أفواجك، حصصك الذكية، واختباراتك بسهولة واحترافية عالية.',
+            content: 'أهلاً بك أستاذنا الفاضل في لوحة التحكم! هنا يمكنك إدارة أفواجك، حصصك الذكية، واختباراتك بسهولة واحترافية عالية مع الالتزام التام بالخطة السنوية.',
             title: 'مرحباً بك في منصة باقون 🚀',
           },
           {
             target: 'a[href="/teacher/curriculum"]',
-            content: 'من هنا يمكنك الدخول إلى "توليد حصة ذكية". اختر المادة، حدد الوحدة والدرس، وستقوم المنصة باستخدام الذكاء الاصطناعي بتوليد محتوى تفاعلي، شرائح، وتمارين جاهزة لطلابك في ثوانٍ!',
+            content: 'من هنا يمكنك الدخول إلى "بناء الحصص الذكية". اختر المادة، حدد الوحدة والدرس، وستقوم المنصة باستخدام الذكاء الاصطناعي بتوليد محتوى تفاعلي، شرائح، وتمارين جاهزة لطلابك في ثوانٍ!',
             title: 'بناء الحصص الذكية 🧠',
           },
           {
@@ -68,6 +68,16 @@ export default function AppTour() {
             target: 'a[href="/teacher/cohorts"]',
             content: 'في قسم "إدارة الأفواج"، يمكنك متابعة مجموعاتك الدراسية، أداء الطلاب، ونسبة تقدمهم في المنهاج، وتوليد تقارير شاملة عن كل طالب.',
             title: 'إدارة الطلاب والأفواج 👥',
+          },
+          {
+            target: 'a[href="/teacher/distribution"]',
+            content: 'التوزيع السنوي والشهري ونظام المساءلة الذكية: استعرض جدول تقدمك الأسبوعي وحصصك المنجزة مقارنة بالخطة الفلسطينية المعتمدة.',
+            title: 'التوزيع الدراسي والمساءلة ⏱️',
+          },
+          {
+            target: 'a[href="/teacher/textbooks"]',
+            content: 'المكتبة والكتب المدرسية: وصول فوري لكافة كتب الوزارة والمقررات المعتمدة للفصلين الدراسيين بصيغة PDF.',
+            title: 'المكتبة الرقمية 📚',
           }
         ];
       } else if (user.primaryRole === 'student') {
@@ -75,18 +85,28 @@ export default function AppTour() {
           {
             target: 'body',
             placement: 'center',
-            content: 'أهلاً بك يا بطل في منصتك التعليمية! نحن هنا لدعمك في رحلتك نحو التفوق والنجاح.',
+            content: 'أهلاً بك يا بطل في منصتك التعليمية! نحن هنا لدعمك في رحلتك نحو التفوق والنجاح خطوة بخطوة.',
             title: 'مرحباً بك في باقون 🎓',
           },
           {
+            target: 'a[href="/student/schedule"]',
+            content: 'هنا جدولك الأسبوعي وحصص البث المباشر. يمكنك معرفة مواعيد الدروس القادمة والانضمام مباشرة لحصتك الافتراضية مع الأستاذ بنقرة زر واحدة!',
+            title: 'الجدول الأسبوعي والبث المباشر 🎥',
+          },
+          {
             target: 'a[href="/student/assessments"]',
-            content: 'هنا ستجد الواجبات والاختبارات التي يرسلها أستاذك. عند الدخول، اقرأ الأسئلة بعناية، أجب عليها، ثم اضغط "تسليم". ستتلقى تصحيحاً وملاحظات من أستاذك لتطوير مستواك!',
+            content: 'هنا ستجد الواجبات والاختبارات التي يرسلها أستاذك. عند الدخول، اقرأ الأسئلة بعناية، أجب عليها، ثم اضغط "تسليم". ستتلقى تصحيحاً وملاحظات فورية من أستاذك لتطوير مستواك!',
             title: 'الواجبات والاختبارات 📚',
           },
           {
-            target: 'a[href="/student/virtual-classroom"]',
-            content: 'عندما تبدأ الحصة المباشرة، ادخل من هنا! ستتمكن من التفاعل مع الأستاذ، طرح الأسئلة، مشاهدة السبورة التفاعلية، والتواصل مع زملائك.',
-            title: 'الفصول الافتراضية 🎥',
+            target: 'a[href="/student/textbooks"]',
+            content: 'المكتبة المدرسية: تصفح وحمل جميع كتب المنهاج الفلسطيني المعتمدة للفصلين الأول والثاني وقراءتها في أي وقت.',
+            title: 'الكتب والمقررات الدراسية 📖',
+          },
+          {
+            target: 'a[href="/student/chat"]',
+            content: 'غرفة المحادثة والتواصل: تواصل المباشر مع أساتذتك وزملائك في الفوج لمناقشة الدروس وطرح الأسئلة.',
+            title: 'المحادثة والتواصل الفوري 💬',
           }
         ];
       } else if (user.primaryRole === 'admin' || user.primaryRole === 'super_admin') {
@@ -94,8 +114,28 @@ export default function AppTour() {
           {
             target: 'body',
             placement: 'center',
-            content: 'أهلاً بك في غرفة القيادة والتحكم! من هنا يمكنك مراقبة كل شاردة وواردة في المنصة.',
-            title: 'لوحة إدارة المنصة 👑'
+            content: 'أهلاً بك في غرفة القيادة والتحكم للمدير العام! من هنا تدير المنظومة التعليمية، الكوادر البشرية، والاعتمادات الرسمية بدقة متناهية.',
+            title: 'لوحة إدارة المنصة والتحكم المركزي 👑'
+          },
+          {
+            target: 'a[href="/admin/dashboard"]',
+            content: 'إدارة الكوادر والمستخدمين: اعتماد حسابات الأساتذة والطلاب الجدد، مراجعة طلبات استعادة كلمة المرور المضيئة، وإنشاء الأفواج الدراسية.',
+            title: 'إدارة الكوادر والمستخدمين 👥'
+          },
+          {
+            target: 'a[href="/admin/reports"]',
+            content: 'شاشة الإحصائيات والتقارير: بيانات محينة كل ساعة تضم نسب المسارات (حكومي/أزهري) والجنسيات مع نصائح توجيهية وإدارية فورية.',
+            title: 'الإحصائيات والتقارير المحينة 📊'
+          },
+          {
+            target: 'a[href="/admin/distribution"]',
+            content: 'الإسناد الأكاديمي الموحد: توزيع المواد والأفواج للأساتذة والمشرفين ككتلة واحدة شاملة دون أي تجزئة للمقررات.',
+            title: 'الإسناد الأكاديمي الشامل 📅'
+          },
+          {
+            target: 'a[href="/admin/database"]',
+            content: 'السجل الأكاديمي الرقمي: قاعدة بيانات تفاعلية كاملة لجميع المنتسبين مع إمكانيات البحث والتصفية والتصدير.',
+            title: 'السجل الرقمي المركزي 🗄️'
           }
         ];
       } else if (user.primaryRole === 'supervisor' || user.primaryRole === 'subject_supervisor') {
@@ -103,8 +143,28 @@ export default function AppTour() {
           {
             target: 'body',
             placement: 'center',
-            content: 'أهلاً بك مشرفنا الكريم! هنا يمكنك متابعة أداء الأساتذة، جودة المحتوى، ونتائج الطلاب.',
-            title: 'لوحة الإشراف التربوي 🛡️'
+            content: 'أهلاً بك مشرفنا وموجهنا التربوي الكريم! المنصة تضع بين يديك أدوات فائقة لمتابعة جودة التدريس ونظام المساءلة التلقائي.',
+            title: 'لوحة الإشراف والتوجيه التربوي 🛡️'
+          },
+          {
+            target: 'a[href="/supervisor/dashboard"]',
+            content: 'مراقبة الفصول الافتراضية الحية: انضم لأي حصة تجري الآن للمراقبة البيداغوجية، مع إمكانية إرسال تنبيه مباشر للأستاذ (Nudge).',
+            title: 'المراقبة الميدانية للحصص 🎥'
+          },
+          {
+            target: 'a[href="/supervisor/reports"]',
+            content: 'تقارير المؤشرات والنسب: نسب حضور الطلاب، التزام الكوادر بالجدول، والتقارير المحينة دورياً كل ساعة مع توصيات بيداغوجية.',
+            title: 'التقارير والمؤشرات البيداغوجية 📈'
+          },
+          {
+            target: 'a[href="/supervisor/distribution"]',
+            content: 'نظام المساءلة ومحاسبة التأخر: مقارنة فورية بين المنجز الفعلي والتوزيع السنوي والشهري المعتمد، وتنبيه الأستاذ عند أي تأخر.',
+            title: 'متابعة الخطة السنوية والمساءلة ⏱️'
+          },
+          {
+            target: 'a[href="/supervisor/schedule"]',
+            content: 'الجدول الأسبوعي الموحد: معاينة مواعيد جميع الحصص المباشرة للأساتذة تحت إشرافك والمتابعة الفورية.',
+            title: 'الجدول الأسبوعي العام 🗓️'
           }
         ];
       }
@@ -185,6 +245,15 @@ export default function AppTour() {
     setRun(true);
   };
 
+  // Listen for custom event to trigger tour programmatically
+  useEffect(() => {
+    const handleStartTour = () => {
+      restartTour();
+    };
+    window.addEventListener('baaqoon:start_tour', handleStartTour);
+    return () => window.removeEventListener('baaqoon:start_tour', handleStartTour);
+  }, [user, pathKey]);
+
   // Custom Tooltip Component for better styling and adding the "Don't show again" checkbox
   const CustomTooltip = ({
     index,
@@ -256,17 +325,27 @@ export default function AppTour() {
         onEvent={handleJoyrideCallback}
       />
       
-      {/* Floating help button to restart tour for current page */}
-      <button 
-        onClick={restartTour}
-        className="fixed bottom-6 left-6 z-50 bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 p-3.5 rounded-full shadow-lg shadow-violet-500/10 hover:shadow-violet-500/30 hover:-translate-y-1 transition-all border border-violet-100 dark:border-slate-700 group flex items-center gap-2"
-        title="دليل استخدام هذه الصفحة"
-      >
-        <HelpCircle className="w-6 h-6" />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-black text-slate-700 dark:text-slate-300">
-          كيف أستخدم هذه الصفحة؟
-        </span>
-      </button>
+      {/* Floating help buttons: Comprehensive Guide + Interactive Page Tour */}
+      <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2">
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('baaqoon:open_guide'))}
+          className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-4 py-3 rounded-full shadow-xl shadow-indigo-500/25 hover:-translate-y-0.5 transition-all flex items-center gap-2 font-black text-xs sm:text-sm border border-indigo-400/30 group"
+          title="دليل استخدام المنصة وشرح الأزرار خطوة بخطوة"
+        >
+          <HelpCircle className="w-5 h-5 text-indigo-100 group-hover:rotate-12 transition-transform shrink-0" />
+          <span className="hidden sm:inline">دليل الاستخدام والأزرار</span>
+          <span className="sm:hidden">الدليل</span>
+        </button>
+
+        <button 
+          onClick={restartTour}
+          className="bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-700 p-3 rounded-full shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all border border-slate-200 dark:border-slate-700 font-bold flex items-center gap-1.5 text-xs"
+          title="تشغيل الجولة الإرشادية التفاعلية للشاشة الحالية"
+        >
+          <Play className="w-4 h-4 fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" />
+          <span className="hidden md:inline font-bold">جولة الشاشة</span>
+        </button>
+      </div>
     </>
   );
 }

@@ -15,6 +15,7 @@ import {
   User,
   Settings,
   BarChart3,
+  HelpCircle,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import WelcomeModal from "../shared/WelcomeModal";
@@ -24,6 +25,7 @@ import { useTranslation } from "react-i18next";
 
 import ProfileModal from "../shared/ProfileModal";
 import AppTour from "../tour/AppTour";
+import PlatformGuideModal from "../guide/PlatformGuideModal";
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
@@ -32,7 +34,15 @@ export default function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const { t } = useTranslation();
+
+  // Listen to open guide custom event
+  useEffect(() => {
+    const handleOpenGuide = () => setIsGuideOpen(true);
+    window.addEventListener("baaqoon:open_guide", handleOpenGuide);
+    return () => window.removeEventListener("baaqoon:open_guide", handleOpenGuide);
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -227,6 +237,15 @@ export default function DashboardLayout() {
 
           
           <div className="pt-4 mt-4 border-t border-baaqoon-100 dark:border-baaqoon-800">
+            {/* دليل الاستخدام في القائمة الجانبية */}
+            <button
+              onClick={() => setIsGuideOpen(true)}
+              className="flex items-center gap-3 w-full px-4 py-2.5 mb-3 text-indigo-700 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-xl transition-all border border-indigo-200/60 dark:border-indigo-800/60 text-xs sm:text-sm font-bold shadow-xs group"
+            >
+              <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span>دليل الاستخدام والأزرار</span>
+            </button>
+
             <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
               <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-400 font-bold shrink-0">
                 {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
@@ -290,13 +309,23 @@ export default function DashboardLayout() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               to="/"
-              className="hidden sm:flex items-center gap-2 text-sm font-medium text-baaqoon-600 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white transition-colors"
+              className="hidden lg:flex items-center gap-2 text-sm font-medium text-baaqoon-600 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white transition-colors"
             >
               العودة للرئيسية
             </Link>
+
+            {/* زر دليل الاستخدام والأزرار الشامل */}
+            <button
+              onClick={() => setIsGuideOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-black text-xs sm:text-sm border border-indigo-200 dark:border-indigo-800/80 transition-all shadow-xs"
+              title="دليل استخدام المنصة وشرح الأزرار بالتفصيل"
+            >
+              <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span className="hidden sm:inline">دليل الاستخدام والأزرار</span>
+            </button>
 
             <LangToggle />
             <ThemeToggle />
@@ -350,6 +379,16 @@ export default function DashboardLayout() {
                     <button
                       onClick={() => {
                         setIsProfileMenuOpen(false);
+                        setIsGuideOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors font-bold"
+                    >
+                      <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      دليل استخدام المنصة والأزرار
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
                         setIsProfileModalOpen(true);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-sm text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 rounded-lg transition-colors"
@@ -396,6 +435,16 @@ export default function DashboardLayout() {
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Platform Step-by-Step Guide Modal */}
+      <PlatformGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onStartLiveTour={() => {
+          setIsGuideOpen(false);
+          window.dispatchEvent(new CustomEvent('baaqoon:start_tour'));
+        }}
       />
 
       {/* Global Bottom Flag Strip */}
