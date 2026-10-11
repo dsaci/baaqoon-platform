@@ -21,7 +21,7 @@ export class AssessmentsController {
   @Post()
   async createManualAssessment(
     @Req() req: any,
-    @Body() body: { title: string; cohortId?: string; description?: string; subject?: string }
+    @Body() body: { title: string; cohortId?: string; description?: string; subject?: string; dueDate?: string; maxScore?: number; type?: string }
   ) {
     const teacherId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
     
@@ -33,13 +33,15 @@ export class AssessmentsController {
     }
     if (!cohortId) cohortId = '22222222-2222-2222-2222-222222222222'; // fallback mock
 
+    const dueDate = body.dueDate ? new Date(body.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     return this.prisma.assessment.create({
       data: {
         title: body.title,
-          description: body.subject ? "الموضوع: " + body.subject + "\n\n" + (body.description || "") : body.description,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        maxScore: 100,
-        type: 'assignment',
+        description: body.subject ? "الموضوع: " + body.subject + "\n\n" + (body.description || "") : body.description,
+        dueDate: dueDate,
+        maxScore: body.maxScore ? Number(body.maxScore) : 100,
+        type: (body.type as any) || 'assignment',
         cohortId,
         createdById: teacherId
       }
@@ -145,7 +147,12 @@ export class AssessmentsController {
 
     let whereClause: any = {};
     if (role === 'teacher') {
-      whereClause = { createdById: userId };
+      whereClause = {
+        OR: [
+          { createdById: userId },
+          { cohort: { instructors: { some: { teacherId: userId } } } }
+        ]
+      };
     } else if (role === 'supervisor' || role === 'subject_supervisor') {
       whereClause = {
         cohort: {

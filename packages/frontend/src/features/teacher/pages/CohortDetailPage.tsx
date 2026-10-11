@@ -10,9 +10,14 @@ import {
   TrendingUp,
   Clock,
   Eye,
-  Award
+  Award,
+  Plus,
+  FileText
 } from 'lucide-react';
 import RapidGeneratorModal from '../../assessments/components/RapidGeneratorModal';
+import CreateAssignmentModal from '../../assessments/components/CreateAssignmentModal';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../../lib/axios';
 
 // Mock Data
 const mockStudents = [
@@ -42,6 +47,16 @@ export const CohortDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'students' | 'schedule' | 'assignments'>('students');
   const [searchQuery, setSearchQuery] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+
+  const { data: cohortAssessments = [], isLoading: isLoadingAssessments } = useQuery({
+    queryKey: ['cohort_assessments', cohortId],
+    queryFn: async () => {
+      const res = await api.get('/assessments');
+      return (res.data || []).filter((a: any) => a.cohortId === cohortId);
+    },
+    enabled: !!cohortId
+  });
 
   // Stats calculation
   const activeStudents = mockStudents.filter(s => s.status === 'active');
@@ -57,68 +72,61 @@ export const CohortDetailPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col p-6 font-sans text-baaqoon-900 dark:text-white" dir="rtl">
-      
-      {/* 1. Header Section */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col p-6 font-sans text-baaqoon-900 dark:text-white" dir="rtl">
+      {/* 1. Header & Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-full hover:bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-700 dark:text-baaqoon-300 transition-colors"
-            title="عودة"
+            onClick={() => navigate('/teacher/dashboard')}
+            className="p-2 hover:bg-gray-200 dark:hover:bg-baaqoon-800 rounded-lg text-baaqoon-700 dark:text-baaqoon-300 transition-colors"
           >
-            <ArrowRight size={24} />
+            <ArrowRight size={20} />
           </button>
-          
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white">فوج غزة (علمي) — فيزياء</h1>
-              <span className="bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-accentDark text-xs px-2 py-1 rounded-full border border-baaqoon-200 dark:border-baaqoon-700">
-                نشط
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white">تفاصيل الفوج المدرسي</h1>
+              <span className="bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-accentDark text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                {activeStudents.length} طالب نشط
               </span>
             </div>
-            <div className="flex items-center gap-4 text-sm text-baaqoon-500 dark:text-baaqoon-400">
-              <div className="flex items-center gap-1.5">
-                <Users size={16} />
-                <span>12/15 طالب</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock size={16} />
-                <span>حصة قادمة: اليوم 4م</span>
-              </div>
-            </div>
+            <p className="text-sm text-baaqoon-500 dark:text-baaqoon-400 mt-1">
+              متابعة حضور الطلاب، التكليفات المدرسية، وجدول الحصص.
+            </p>
           </div>
         </div>
 
         <div className="flex gap-2">
           <button 
             onClick={() => setIsGeneratorOpen(true)}
-            className="flex items-center justify-center gap-2 bg-white hover:bg-baaqoon-50 text-baaqoon-accentDark border border-baaqoon-200 px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 bg-white hover:bg-baaqoon-50 dark:bg-baaqoon-900 dark:hover:bg-baaqoon-800 text-baaqoon-accentDark border border-baaqoon-200 dark:border-baaqoon-700 px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
           >
             <span>توليد اختبار / حصة</span>
           </button>
-          <button className="flex items-center justify-center gap-2 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm">
-            <Calendar size={18} />
-            <span>بدء الحصة</span>
+          <button 
+            onClick={() => setIsAssignmentModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
+          >
+            <Plus size={18} />
+            <span>إنشاء واجب للفوج</span>
           </button>
         </div>
       </div>
 
       {/* 2. Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 dark:border-baaqoon-800 mb-6">
         <nav className="flex gap-6">
           {[
             { id: 'students', label: 'الطلاب' },
             { id: 'schedule', label: 'الحصص والجدول' },
-            { id: 'assignments', label: 'الواجبات' }
+            { id: 'assignments', label: 'الواجبات والتكليفات' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
                 activeTab === tab.id
-                  ? 'border-baaqoon-accent text-baaqoon-accent'
-                  : 'border-transparent text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-700 dark:text-baaqoon-300 hover:border-gray-300'
+                  ? 'border-baaqoon-accent text-baaqoon-accent font-black'
+                  : 'border-transparent text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-700 dark:hover:text-baaqoon-300 hover:border-gray-300'
               }`}
             >
               {tab.label}
@@ -133,7 +141,7 @@ export const CohortDetailPage: React.FC = () => {
           
           {/* Aggregate Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="glass-panel p-4 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm flex items-center gap-4">
+            <div className="glass-panel p-4 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm flex items-center gap-4 bg-white dark:bg-baaqoon-900">
               <div className="bg-baaqoon-50 dark:bg-baaqoon-950 p-3 rounded-lg text-baaqoon-700 dark:text-baaqoon-300">
                 <TrendingUp size={24} />
               </div>
@@ -145,8 +153,8 @@ export const CohortDetailPage: React.FC = () => {
               </div>
             </div>
             
-            <div className="glass-panel p-4 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm flex items-center gap-4">
-              <div className="bg-red-50 p-3 rounded-lg text-red-600">
+            <div className="glass-panel p-4 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm flex items-center gap-4 bg-white dark:bg-baaqoon-900">
+              <div className="bg-red-50 dark:bg-red-950/40 p-3 rounded-lg text-red-600">
                 <AlertCircle size={24} />
               </div>
               <div>
@@ -160,7 +168,7 @@ export const CohortDetailPage: React.FC = () => {
 
           {/* Table Section */}
           <div className="bg-white dark:bg-baaqoon-900 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm overflow-hidden flex-1 flex flex-col">
-            <div className="p-4 border-b border-baaqoon-50 flex justify-between items-center bg-gray-50/50">
+            <div className="p-4 border-b border-baaqoon-50 dark:border-baaqoon-800 flex justify-between items-center bg-gray-50/50 dark:bg-baaqoon-850">
               <div className="relative w-full max-w-md">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-baaqoon-500 dark:text-baaqoon-400">
                   <Search size={18} />
@@ -170,7 +178,7 @@ export const CohortDetailPage: React.FC = () => {
                   placeholder="ابحث عن طالب..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2 border border-baaqoon-200 dark:border-baaqoon-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-baaqoon-accent/50 bg-white dark:bg-baaqoon-900"
+                  className="w-full pl-4 pr-10 py-2 border border-baaqoon-200 dark:border-baaqoon-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-baaqoon-accent/50 bg-white dark:bg-baaqoon-900 text-baaqoon-900 dark:text-white"
                 />
               </div>
             </div>
@@ -186,9 +194,9 @@ export const CohortDetailPage: React.FC = () => {
                     <th className="px-6 py-3 font-semibold text-center">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-baaqoon-50">
+                <tbody className="divide-y divide-baaqoon-50 dark:divide-baaqoon-800">
                   {filteredStudents.map((student) => (
-                    <tr key={student.id} className="hover:bg-baaqoon-50 dark:bg-baaqoon-950/50 transition-colors">
+                    <tr key={student.id} className="hover:bg-baaqoon-50 dark:hover:bg-baaqoon-850 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-700 dark:text-baaqoon-300 flex items-center justify-center font-bold text-xs shrink-0">
@@ -214,11 +222,11 @@ export const CohortDetailPage: React.FC = () => {
                         {student.status === 'active' ? (
                           <div className="flex items-center gap-3">
                             <span className="w-8 font-medium">{student.attendance}%</span>
-                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="flex-1 h-2 bg-gray-100 dark:bg-baaqoon-800 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full rounded-full ${
-                                  student.attendance >= 80 ? 'bg-baaqoon-100 dark:bg-baaqoon-900/500' : 
-                                  student.attendance >= 60 ? 'bg-baaqoon-red' : 'bg-red-500'
+                                  student.attendance >= 80 ? 'bg-emerald-500' : 
+                                  student.attendance >= 60 ? 'bg-amber-500' : 'bg-red-500'
                                 }`}
                                 style={{ width: `${student.attendance}%` }}
                               />
@@ -232,7 +240,7 @@ export const CohortDetailPage: React.FC = () => {
                         {student.lastActivity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button className="inline-flex items-center gap-1.5 text-baaqoon-accent hover:text-baaqoon-accentDark font-medium text-xs bg-baaqoon-50 dark:bg-baaqoon-950 hover:bg-baaqoon-100 dark:bg-baaqoon-900/50 px-3 py-1.5 rounded transition-colors">
+                        <button className="inline-flex items-center gap-1.5 text-baaqoon-accent hover:text-baaqoon-accentDark font-medium text-xs bg-baaqoon-50 dark:bg-baaqoon-950 hover:bg-baaqoon-100 dark:hover:bg-baaqoon-900 px-3 py-1.5 rounded transition-colors">
                           <Eye size={14} />
                           عرض التقدم
                         </button>
@@ -251,16 +259,16 @@ export const CohortDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 4. Bottom Summary Card */}
-          <div className="bg-gradient-to-r from-baaqoon-50 to-white p-5 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm mt-2">
+          {/* Bottom Summary Card */}
+          <div className="bg-gradient-to-r from-baaqoon-50 to-white dark:from-baaqoon-900 dark:to-baaqoon-850 p-5 rounded-xl border border-baaqoon-100 dark:border-baaqoon-800 shadow-sm mt-2">
             <h3 className="flex items-center gap-2 font-bold text-baaqoon-900 dark:text-white mb-4">
-              <Award className="text-baaqoon-red" size={20} />
+              <Award className="text-amber-500" size={20} />
               متميزون هذا الشهر
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {topStudents.map((student, idx) => (
-                <div key={student.id} className="flex items-center gap-3 bg-white dark:bg-baaqoon-900 p-3 rounded-lg border border-baaqoon-50">
-                  <div className="w-8 h-8 rounded-full bg-red-100 text-baaqoon-red flex items-center justify-center font-bold text-xs shrink-0">
+                <div key={student.id} className="flex items-center gap-3 bg-white dark:bg-baaqoon-900 p-3 rounded-lg border border-baaqoon-50 dark:border-baaqoon-800">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0">
                     #{idx + 1}
                   </div>
                   <div className="overflow-hidden">
@@ -275,22 +283,92 @@ export const CohortDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Placeholders for other tabs */}
+      {/* Schedule Tab Content */}
       {activeTab === 'schedule' && (
-        <div className="flex-1 flex items-center justify-center text-baaqoon-500 dark:text-baaqoon-400 border-2 border-dashed border-baaqoon-100 dark:border-baaqoon-800 rounded-xl">
-          محتوى الحصص والجدول قيد التطوير...
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-baaqoon-900 border-2 border-dashed border-baaqoon-200 dark:border-baaqoon-800 rounded-2xl">
+          <Calendar className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
+          <h3 className="font-black text-baaqoon-900 dark:text-white text-lg">جدول وحصص هذا الفوج</h3>
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-1 mb-4">
+            يمكنك جدولة الحصص المباشرة واللقاءات الافتراضية للفوج من خلال جدول الحصص الأسبوعي.
+          </p>
+          <button 
+            onClick={() => navigate('/teacher/schedule')}
+            className="px-5 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-bold rounded-xl text-sm transition-colors"
+          >
+            الانتقال لجدول الحصص
+          </button>
         </div>
       )}
       
+      {/* Assignments Tab Content */}
       {activeTab === 'assignments' && (
-        <div className="flex-1 flex items-center justify-center text-baaqoon-500 dark:text-baaqoon-400 border-2 border-dashed border-baaqoon-100 dark:border-baaqoon-800 rounded-xl">
-          محتوى الواجبات قيد التطوير...
+        <div className="space-y-4 flex-1">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-gray-200 dark:border-baaqoon-800">
+            <div>
+              <h3 className="font-black text-lg text-baaqoon-900 dark:text-white">واجبات وتكليفات الفوج</h3>
+              <p className="text-xs font-bold text-baaqoon-500">إدارة الواجبات والأنشطة ومتابعة تصحيح وتسليمات طلبة هذا الفوج</p>
+            </div>
+            <button
+              onClick={() => setIsAssignmentModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black rounded-xl text-sm transition-all shadow-md shadow-violet-500/20 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              إنشاء واجب جديد لهذا الفوج
+            </button>
+          </div>
+
+          {isLoadingAssessments ? (
+            <div className="text-center py-12 text-slate-400 font-bold">جاري تحميل واجبات الفوج...</div>
+          ) : cohortAssessments.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-baaqoon-900 rounded-2xl border-2 border-dashed border-baaqoon-200 dark:border-baaqoon-800 space-y-3">
+              <FileText className="w-12 h-12 mx-auto text-baaqoon-300 dark:text-baaqoon-700" />
+              <p className="font-black text-baaqoon-700 dark:text-baaqoon-300 text-sm">لم يتم تكليف أي واجبات لهذا الفوج حتى الآن.</p>
+              <p className="text-xs text-slate-400 font-bold">انقر على الزر أدناه لإرسال أول تكليف أو واجب منزلي للطلاب.</p>
+              <button
+                onClick={() => setIsAssignmentModalOpen(true)}
+                className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl text-xs hover:opacity-95 transition-all inline-flex items-center gap-1.5 shadow-md shadow-violet-500/20 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                إنشاء وتعيين أول واجب الآن
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {cohortAssessments.map((item: any) => (
+                <div key={item.id} className="p-5 bg-white dark:bg-baaqoon-900 rounded-2xl border border-baaqoon-200 dark:border-baaqoon-800 shadow-xs flex justify-between items-center hover:shadow-md transition-shadow">
+                  <div>
+                    <h4 className="font-black text-baaqoon-900 dark:text-white text-base">{item.title}</h4>
+                    <p className="text-xs font-bold text-baaqoon-500 mt-1 flex items-center gap-2">
+                      <span>الدرجة: {item.maxScore}</span>
+                      <span>•</span>
+                      <span>آخر موعد: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('ar-EG') : '-'}</span>
+                    </p>
+                  </div>
+                  <Link
+                    to={`/teacher/assessments/${item.id}/grade`}
+                    className="px-4 py-2 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-black rounded-xl text-xs border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  >
+                    عرض وتصحيح
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Rapid Generator Modal */}
       <RapidGeneratorModal 
         isOpen={isGeneratorOpen} 
         onClose={() => setIsGeneratorOpen(false)} 
         cohortId={cohortId || ''} 
+      />
+
+      {/* Create Assignment Modal for this Cohort */}
+      <CreateAssignmentModal
+        isOpen={isAssignmentModalOpen}
+        onClose={() => setIsAssignmentModalOpen(false)}
+        defaultCohortId={cohortId}
       />
     </div>
   );
