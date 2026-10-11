@@ -1,5 +1,28 @@
 import React, { useState } from 'react';
-import { Users, BookOpen, CheckCircle, Clock, UserCheck, Plus, X, Eye, Settings, BarChart3, Edit, Trash2, Database, Users2 } from 'lucide-react';
+import { 
+  Users, 
+  BookOpen, 
+  CheckCircle, 
+  Clock, 
+  UserCheck, 
+  Plus, 
+  X, 
+  Eye, 
+  Settings, 
+  BarChart3, 
+  Edit, 
+  Trash2, 
+  Database, 
+  Users2, 
+  GraduationCap, 
+  ShieldAlert, 
+  FileSpreadsheet, 
+  Megaphone, 
+  Archive,
+  ArrowRight,
+  Layers,
+  Activity
+} from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import EditCohortModal from '../components/EditCohortModal';
@@ -8,8 +31,8 @@ import { api } from '../../../lib/axios';
 import CohortRequestsAdminView from '../components/CohortRequestsAdminView';
 import HrManagementAdminView from '../components/HrManagementAdminView';
 import ActivityLogsView from '../components/ActivityLogsView';
+import SupervisorAccountabilityView from '../../supervisor/components/SupervisorAccountabilityView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
-import { FileSpreadsheet, Megaphone, Archive } from 'lucide-react';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 
 export default function AdminDashboard() {
@@ -18,22 +41,31 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   
   const searchParams = new URLSearchParams(window.location.search);
-  const tabParam = searchParams.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
-  const [activeTab, setActiveTab] = useState<'cohorts' | 'hr' | 'requests' | 'activity'>(tabParam as any || 'hr');
-  const [hrRoleFilter, setHrRoleFilter] = useState<string>('all');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(() => {
+    if (tabParam === 'cohorts') return 'cohorts';
+    if (tabParam === 'hr' || tabParam === 'teachers') return 'teachers';
+    if (tabParam === 'students') return 'students';
+    if (tabParam === 'accountability') return 'accountability';
+    if (tabParam === 'stats' || tabParam === 'activity') return 'stats';
+    return 'stats';
+  });
+  const [cohortSubTab, setCohortSubTab] = useState<'list' | 'requests'>('list');
 
   React.useEffect(() => {
     const handleLocationChange = () => {
       const search = new URLSearchParams(window.location.search);
-      const tab = search.get('tab') as 'cohorts' | 'hr' | 'requests' | null;
-      if (tab) setActiveTab(tab);
+      const tab = search.get('tab');
+      if (tab === 'cohorts') setActiveTab('cohorts');
+      else if (tab === 'hr' || tab === 'teachers') setActiveTab('teachers');
+      else if (tab === 'students') setActiveTab('students');
+      else if (tab === 'accountability') setActiveTab('accountability');
+      else if (tab === 'stats' || tab === 'activity') setActiveTab('stats');
     };
 
-    // Keep activeTab in sync with URL
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
-
 
   const { data: adminStats, isLoading } = useQuery({
     queryKey: ['adminStats'],
@@ -75,6 +107,9 @@ export default function AdminDashboard() {
     }
   });
 
+  const pendingTeachersCount = pendingUsers.filter((u: any) => u.primaryRole === 'teacher').length;
+  const pendingStudentsCount = pendingUsers.filter((u: any) => u.primaryRole === 'student').length;
+
   const createCohortMutation = useMutation({
     mutationFn: async (newCohort: any) => {
       const res = await api.post('/groups/cohorts', newCohort);
@@ -100,7 +135,6 @@ export default function AdminDashboard() {
   const [editingCohort, setEditingCohort] = useState<any>(null);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
-  
   const handleDeleteCohort = async (id: string, name: string) => {
     if (confirm(`هل أنت متأكد من حذف الفوج "${name}"؟ هذه العملية لا يمكن التراجع عنها.`)) {
       try {
@@ -136,50 +170,43 @@ export default function AdminDashboard() {
     });
   };
 
-  const platformButtons = [
-    { label: 'الإحصائيات والتقارير الشاملة', desc: 'مؤشرات الأداء، نسب المناهج، التوزع الديموغرافي والنصائح', icon: BarChart3, color: 'text-purple-600', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/reports') },
-    { label: 'إدارة النظام وقاعدة البيانات', desc: 'تسيير المنصة الرئيسية، الأقسام، والمواد', icon: Database, color: 'text-slate-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/database') },
-    { label: 'الإسناد الأكاديمي', desc: 'توزيع المهام والمشرفين على المواد الدراسية', icon: Users2, color: 'text-indigo-500', bg: 'bg-white dark:bg-slate-900', action: () => navigate('/admin/distribution') },
-  ];
-
-  const monitoringButtons = [
-    { label: 'متابعة المشرفين المنسقين', desc: 'مراقبة أداء وعمل المشرفين (رؤية متطابقة لما يرونه)', value: isLoading ? '...' : adminStats?.stats?.supervisors?.toString() || '0', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('subject_supervisor'); setActiveTab('hr'); } },
-    { label: 'متابعة الأساتذة', desc: 'مراقبة أداء الأساتذة ومدى تقدم الدروس', value: isLoading ? '...' : adminStats?.stats?.teachers?.toString() || '0', icon: UserCheck, color: 'text-emerald-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('teacher'); setActiveTab('hr'); } },
-    { label: 'متابعة الطلبة وتمدرسهم', desc: 'سجلات الطلبة ومستوى تفاعلهم وانضباطهم', value: isLoading ? '...' : adminStats?.stats?.students?.toString() || '0', icon: BookOpen, color: 'text-violet-500', bg: 'bg-white dark:bg-slate-900', action: () => { setHrRoleFilter('student'); setActiveTab('hr'); } },
-  ];
-
-  const classButtons = [
-    { label: 'تسيير الأفواج التربوية', desc: 'إنشاء الأفواج، تفويج الطلبة، وتوزيع الأساتذة', value: isLoading ? '...' : adminStats?.stats?.cohorts?.toString() || '0', icon: Users, color: 'text-fuchsia-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('cohorts') },
-    { label: 'الحصص المباشرة والنشطة', desc: 'مراقبة الدروس المباشرة ومواعيدها', value: isLoading ? '...' : adminStats?.stats?.activeSessions?.toString() || '0', icon: Clock, color: 'text-amber-500', bg: 'bg-white dark:bg-slate-900', action: () => setActiveTab('cohorts') },
-  ];
-
-  const tabs = [
-    { id: 'hr' as const, label: 'إدارة الحسابات', badge: pendingUsers.length > 0 ? pendingUsers.length : undefined },
-    { id: 'cohorts' as const, label: 'التفويج والإسناد', badge: undefined },
-    { id: 'requests' as const, label: 'طلبات فتح أفواج', badge: pendingRequests.length > 0 ? pendingRequests.length : undefined },
-    { id: 'activity' as const, label: 'سجل النشاط المباشر', badge: undefined },
-  ];
-
   return (
     <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
-      <div>
+      {/* Header */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
           {passwordRequests.length > 0 && (
             <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative flex items-center gap-3 animate-pulse">
               <span className="flex h-3 w-3 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
-              <span className="font-bold">يوجد لديك ({passwordRequests.length}) طلبات جديدة لاستعادة كلمات المرور! اذهب إلى قسم الموارد البشرية لمعالجتها.</span>
+              <span className="font-bold">يوجد لديك ({passwordRequests.length}) طلبات جديدة لاستعادة كلمات المرور! تفقد قسم إدارة الحسابات لمعالجتها.</span>
             </div>
           )}
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋</h1>
-        <p className="text-slate-500 dark:text-slate-400 font-bold">لوحة التحكم المركزية لإدارة جميع الموارد البشرية والأفواج التربوية.</p>
-      </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 flex items-center gap-3">
+            <span className="w-2.5 h-8 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-full"></span>
+            مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold">
+            لوحة التحكم المركزية لإدارة الموارد البشرية، الأفواج التربوية، والإشراف على متابعة المنهاج.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/admin/reports')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/20 transition-all flex-shrink-0"
+          >
+            <BarChart3 className="w-4 h-4" />
+            الإحصائيات والتقارير والنسب
+          </button>
+        </div>
+      </header>
 
       {/* Alert: Pending Registrations */}
       {pendingUsers.length > 0 && (
         <div 
-          onClick={() => setActiveTab('hr')}
+          onClick={() => setActiveTab('teachers')}
           className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-md transition-all"
         >
           <div className="w-12 h-12 bg-amber-100 dark:bg-amber-800/50 rounded-full flex items-center justify-center shrink-0">
@@ -197,72 +224,358 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      
-
-      {/* Automated Exam Prep Camps & Reminders (Synchronized with Annual/Monthly Syllabus) */}
+      {/* Automated Exam Prep Camps & Reminders */}
       <ExamPrepWidget role="admin" />
 
-      {/* Main Admin Panel */}
-      <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/50 rounded-2xl shadow-lg overflow-hidden">
-        <div className="flex border-b border-slate-200 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-800/20">
-          {tabs.map(tab => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 text-sm font-black transition-all relative flex items-center gap-2 ${activeTab === tab.id ? 'text-violet-600 border-b-2 border-violet-600 bg-white dark:bg-slate-900/50' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
-            >
-              {tab.label}
-              {tab.badge && (
-                <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
-                  {tab.badge}
+      {/* 5 Prominent Framed Action & Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
+        {/* 1. الإحصائيات والمتابعة */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('stats')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'stats' 
+              ? 'bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-white dark:from-indigo-950/60 dark:via-purple-950/30 dark:to-slate-900 border-indigo-600 dark:border-indigo-500 shadow-md shadow-indigo-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold group-hover:scale-110 transition-transform">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            {activeTab === 'stats' ? (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-600 text-white flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                النشط الآن
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-slate-400">مباشر</span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              الإحصائيات والمتابعة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              مؤشرات الأداء والرصد الحي
+            </p>
+          </div>
+        </button>
+
+        {/* 2. أساتذة المادة */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('teachers')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'teachers' 
+              ? 'bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white dark:from-emerald-950/60 dark:via-teal-950/30 dark:to-slate-900 border-emerald-600 dark:border-emerald-500 shadow-md shadow-emerald-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold group-hover:scale-110 transition-transform">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div className="flex items-center gap-1">
+              {pendingTeachersCount > 0 && (
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-500 text-white animate-pulse">
+                  {pendingTeachersCount} معلق
                 </span>
               )}
+              <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/70 px-2 py-0.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/60">
+                {isLoading ? '...' : adminStats?.stats?.teachers || 0} أستاذ
+              </span>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              أساتذة المادة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              الكادر التعليمي والنشاط
+            </p>
+          </div>
+        </button>
+
+        {/* 3. طلبة المادة */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('students')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'students' 
+              ? 'bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-white dark:from-blue-950/60 dark:via-sky-950/30 dark:to-slate-900 border-blue-600 dark:border-blue-500 shadow-md shadow-blue-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold group-hover:scale-110 transition-transform">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div className="flex items-center gap-1">
+              {pendingStudentsCount > 0 && (
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-500 text-white animate-pulse">
+                  {pendingStudentsCount} معلق
+                </span>
+              )}
+              <span className="text-xs font-black text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-950/70 px-2 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/60">
+                {isLoading ? '...' : adminStats?.stats?.students || 0} طالب
+              </span>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              طلبة المادة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              سجلات وحضور الطلاب
+            </p>
+          </div>
+        </button>
+
+        {/* 4. الأفواج والإسناد */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('cohorts')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'cohorts' 
+              ? 'bg-gradient-to-br from-fuchsia-50/90 via-pink-50/40 to-white dark:from-fuchsia-950/60 dark:via-pink-950/30 dark:to-slate-900 border-fuchsia-600 dark:border-fuchsia-500 shadow-md shadow-fuchsia-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-fuchsia-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-900/50 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400 font-bold group-hover:scale-110 transition-transform">
+              <Users className="w-5 h-5" />
+            </div>
+            <div className="flex items-center gap-1">
+              {pendingRequests.length > 0 && (
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500 text-white animate-pulse">
+                  {pendingRequests.length} طلب
+                </span>
+              )}
+              <span className="text-xs font-black text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-100/70 dark:bg-fuchsia-950/70 px-2 py-0.5 rounded-lg border border-fuchsia-200/60 dark:border-fuchsia-800/60">
+                {isLoading ? '...' : adminStats?.stats?.cohorts || 0} فوج
+              </span>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              الأفواج والإسناد
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              إدارة الأفواج والمجموعات
+            </p>
+          </div>
+        </button>
+
+        {/* 5. المحاسبة ومتابعة المنهاج */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('accountability')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'accountability' 
+              ? 'bg-gradient-to-br from-rose-50/90 via-amber-50/40 to-white dark:from-rose-950/60 dark:via-amber-950/30 dark:to-slate-900 border-rose-600 dark:border-rose-500 shadow-md shadow-rose-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-rose-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold group-hover:scale-110 transition-transform">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+              مساءلة فورية
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              المحاسبة ومتابعة المنهاج
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              الخطة السنوية والالتزام
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* Main Tab Content Display */}
+
+      {/* 1. TAB: الإحصائيات والمتابعة */}
+      {activeTab === 'stats' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Quick Metrics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400">الأفواج التربوية</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                  {isLoading ? '...' : adminStats?.stats?.cohorts || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400">إجمالي الطلبة</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                  {isLoading ? '...' : adminStats?.stats?.students || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400">كادر الأساتذة</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                  {isLoading ? '...' : adminStats?.stats?.teachers || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400">الحصص المجدولة</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                  {isLoading ? '...' : adminStats?.stats?.activeSessions || 0}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Platform Shortcuts */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              onClick={() => navigate('/admin/reports')}
+              className="p-5 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإحصائيات والتقارير الشاملة</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">مؤشرات الأداء، نسب المناهج، والتوزع الديموغرافي</p>
             </button>
-          ))}
+
+            <button
+              onClick={() => navigate('/admin/database')}
+              className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50/50 to-white dark:from-slate-800/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Database className="w-5 h-5" />
+              </div>
+              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">إدارة النظام وقاعدة البيانات</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">تسيير المنصة الرئيسية، الأقسام، والمواد التعليمية</p>
+            </button>
+
+            <button
+              onClick={() => navigate('/admin/distribution')}
+              className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Users2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإسناد وتوزيع المشرفين</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">توزيع المهام والمشرفين على المواد والمراحل الدراسية</p>
+            </button>
+          </div>
+
+          {/* Activity Logs Section */}
+          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-500" />
+              سجل النشاط المباشر والعمليات على المنصة
+            </h3>
+            <ActivityLogsView />
+          </div>
         </div>
+      )}
 
-        <div className="p-6 min-h-[400px]">
-          
-          {/* Tab: HR - Account Management */}
-          {activeTab === 'hr' && (
-            <HrManagementAdminView initialRoleFilter={hrRoleFilter} />
-          )}
+      {/* 2. TAB: أساتذة المادة */}
+      {activeTab === 'teachers' && (
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-fade-in">
+          <HrManagementAdminView initialRoleFilter="teacher" />
+        </div>
+      )}
 
-          {/* Tab: Cohort Requests */}
-          {activeTab === 'requests' && (
+      {/* 3. TAB: طلبة المادة */}
+      {activeTab === 'students' && (
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-fade-in">
+          <HrManagementAdminView initialRoleFilter="student" />
+        </div>
+      )}
+
+      {/* 4. TAB: الأفواج والإسناد */}
+      {activeTab === 'cohorts' && (
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-fade-in space-y-6">
+          {/* Sub Header / Tab Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCohortSubTab('list')}
+                className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${
+                  cohortSubTab === 'list'
+                    ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                الأفواج التربوية ({adminStats?.recentCohorts?.length || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCohortSubTab('requests')}
+                className={`px-4 py-2 rounded-xl text-sm font-black transition-all relative flex items-center gap-2 ${
+                  cohortSubTab === 'requests'
+                    ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                طلبات فتح الأفواج
+                {pendingRequests.length > 0 && (
+                  <span className="w-5 h-5 bg-amber-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white rounded-xl text-sm font-black transition-all shadow-lg shadow-fuchsia-500/25 hover:-translate-y-0.5 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> إنشاء فوج وإسناد
+            </button>
+          </div>
+
+          {/* Sub Tab: Requests */}
+          {cohortSubTab === 'requests' && (
             <CohortRequestsAdminView />
           )}
 
-          {/* Tab: Activity Logs */}
-          {activeTab === 'activity' && (
-            <ActivityLogsView />
-          )}
-
-          {/* Tab: Cohorts & Assignments */}
-          {activeTab === 'cohorts' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                  <span className="w-2 h-6 bg-gradient-to-b from-violet-500 to-fuchsia-600 rounded-full"></span>
-                  الأفواج التربوية ({adminStats?.recentCohorts?.length || 0})
-                </h3>
-                <button 
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white rounded-xl text-sm font-black transition-all shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 hover:-translate-y-0.5 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> إنشاء فوج وإسناد
-                </button>
-              </div>
-
+          {/* Sub Tab: List */}
+          {cohortSubTab === 'list' && (
+            <div>
               {isLoading ? (
-                <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
               ) : adminStats?.recentCohorts?.length === 0 ? (
                 <div className="text-center py-16 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
                   <Users className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
-                  <p className="font-bold text-slate-500 dark:text-slate-400 mb-4">لا يوجد أفواج تربوية بعد.</p>
+                  <p className="font-bold text-slate-500 dark:text-slate-400 mb-4">لا توجد أفواج تربوية بعد.</p>
                   <button 
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold transition-colors"
+                    className="px-6 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 text-white rounded-xl font-bold transition-colors"
                   >
                     أنشئ أول فوج الآن
                   </button>
@@ -277,14 +590,14 @@ export default function AdminDashboard() {
                     
                     return (
                       <div key={cohort.id} className="p-5 border border-slate-100 dark:border-slate-800/50 rounded-2xl bg-white dark:bg-slate-800/50 relative overflow-hidden shadow-sm hover:shadow-md transition-all group">
-                        <div className="absolute top-0 right-0 w-1 h-full bg-gradient-to-b from-violet-400 to-fuchsia-500"></div>
+                        <div className="absolute top-0 right-0 w-1 h-full bg-gradient-to-b from-fuchsia-500 to-indigo-500"></div>
                         
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-black text-slate-900 dark:text-white text-base">{cohort.name}</h4>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => setEditingCohort(cohort)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 hover:text-violet-600 transition-colors" title="تعديل الفوج">
+                                <button onClick={() => setEditingCohort(cohort)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 hover:text-fuchsia-600 transition-colors" title="تعديل الفوج">
                                   <Edit className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleDeleteCohort(cohort.id, cohort.name)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded text-slate-400 hover:text-rose-600 transition-colors" title="حذف الفوج">
@@ -304,7 +617,7 @@ export default function AdminDashboard() {
                         </div>
 
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/50">
-                          <UserCheck className="w-4 h-4 text-violet-500 shrink-0" />
+                          <UserCheck className="w-4 h-4 text-fuchsia-500 shrink-0" />
                           <span className="truncate">الأستاذ: {teacherName}</span>
                         </div>
                       </div>
@@ -314,9 +627,15 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
-
         </div>
-      </div>
+      )}
+
+      {/* 5. TAB: المحاسبة ومتابعة المنهاج */}
+      {activeTab === 'accountability' && (
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-fade-in">
+          <SupervisorAccountabilityView />
+        </div>
+      )}
 
       {/* Strategic Features (Coming Soon) */}
       <ComingSoonSection 
@@ -348,10 +667,10 @@ export default function AdminDashboard() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-8 max-w-md w-full border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-6">
                <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                 <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
-                    <Plus className="w-5 h-5 text-violet-600" />
+                 <div className="w-10 h-10 bg-fuchsia-100 dark:bg-fuchsia-900/30 rounded-xl flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-fuchsia-600" />
                  </div>
-                 إنشاء فوج جديد
+                 إنشاء فوج جديد وإسناد
                </h2>
                <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors bg-slate-100 dark:bg-slate-800 p-2 rounded-full">
                  <X className="w-5 h-5" />
@@ -366,7 +685,7 @@ export default function AdminDashboard() {
                   value={newCohortName}
                   onChange={e => setNewCohortName(e.target.value)}
                   placeholder="مثال: فوج غزة - الفيزياء" 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-500/20 font-bold transition-all"
                   required
                 />
               </div>
@@ -378,13 +697,13 @@ export default function AdminDashboard() {
                   value={newCohortCode}
                   onChange={e => setNewCohortCode(e.target.value)}
                   placeholder="مثال: GAZA-PHY-01" 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold font-mono transition-all"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-500/20 font-bold font-mono transition-all"
                   dir="ltr"
                   required
                 />
               </div>
 
-                            {(() => {
+              {(() => {
                 const selectedCourse = adminData?.courses?.find((c: any) => c.id === selectedCourseId);
                 const targetSubjectId = selectedCourse?.subjectId;
                 const targetBranch = selectedCourse?.academicBranch;
@@ -409,7 +728,7 @@ export default function AdminDashboard() {
                           setSelectedTeacherId('');
                           setSelectedStudentIds([]);
                         }}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-500/20 font-bold transition-all"
                         required
                       >
                         <option value="">-- اختر المادة --</option>
@@ -426,7 +745,7 @@ export default function AdminDashboard() {
                       <select 
                         value={selectedTeacherId}
                         onChange={e => setSelectedTeacherId(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-500/20 font-bold transition-all"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-500/20 font-bold transition-all"
                         required
                         disabled={!selectedCourseId}
                       >
@@ -448,7 +767,7 @@ export default function AdminDashboard() {
                             <button 
                               type="button" 
                               onClick={() => setSelectedStudentIds(availableStudents.map((s: any) => s.id))}
-                              className="text-xs text-violet-600 hover:text-violet-700 font-bold bg-violet-50 hover:bg-violet-100 px-2 py-1 rounded"
+                              className="text-xs text-fuchsia-600 hover:text-fuchsia-700 font-bold bg-fuchsia-50 hover:bg-fuchsia-100 px-2 py-1 rounded"
                             >
                               تحديد الكل
                             </button>
@@ -470,7 +789,7 @@ export default function AdminDashboard() {
                             placeholder="ابحث عن طالب بالاسم أو الإيميل..." 
                             value={studentSearchQuery}
                             onChange={(e) => setStudentSearchQuery(e.target.value)}
-                            className="w-full px-3 py-2 text-sm rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:border-violet-500 transition-all"
+                            className="w-full px-3 py-2 text-sm rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:border-fuchsia-500 transition-all"
                           />
                         </div>
                       )}
@@ -500,7 +819,7 @@ export default function AdminDashboard() {
                                       setSelectedStudentIds(prev => prev.filter(id => id !== s.id));
                                     }
                                   }}
-                                  className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
+                                  className="w-4 h-4 text-fuchsia-600 rounded border-slate-300 focus:ring-fuchsia-500 cursor-pointer"
                                 />
                                 <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                   {s.firstName} {s.lastName} 
@@ -520,7 +839,7 @@ export default function AdminDashboard() {
                       
                       {selectedCourseId && (
                          <div className="mt-2 text-xs font-bold text-slate-500">
-                           تم تحديد <span className="text-violet-600">{selectedStudentIds.length}</span> من أصل {availableStudents.length} طلاب مؤهلين
+                           تم تحديد <span className="text-fuchsia-600">{selectedStudentIds.length}</span> من أصل {availableStudents.length} طلاب مؤهلين
                          </div>
                       )}
                     </div>
@@ -532,7 +851,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={createCohortMutation.isPending}
-                  className="flex-1 px-5 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black rounded-xl transition-all shadow-lg shadow-violet-500/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+                  className="flex-1 px-5 py-3 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white font-black rounded-xl transition-all shadow-lg shadow-fuchsia-500/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
                 >
                   {createCohortMutation.isPending ? 'جاري الإنشاء...' : '✅ إنشاء الفوج وإسناد الأستاذ'}
                 </button>

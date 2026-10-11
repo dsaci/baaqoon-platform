@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3 } from 'lucide-react';
+import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3, GraduationCap, UserCheck, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -136,40 +136,154 @@ export default function SupervisorDashboard() {
         </button>
       </header>
 
-      <div className="flex border-b border-baaqoon-200 dark:border-baaqoon-800 mb-6 gap-4">
+      {/* 5 Prominent Framed Action & Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
+        {/* 1. الإحصائيات والمتابعة */}
         <button 
+          type="button"
           onClick={() => setActiveTab('stats')}
-          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'stats' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'stats' 
+              ? 'bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-white dark:from-indigo-950/60 dark:via-purple-950/30 dark:to-slate-900 border-indigo-600 dark:border-indigo-500 shadow-md shadow-indigo-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
         >
-          الإحصائيات والمتابعة
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold group-hover:scale-110 transition-transform">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            {activeTab === 'stats' ? (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-600 text-white flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                النشط الآن
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-slate-400">مباشر</span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              الإحصائيات والمتابعة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              مؤشرات الأداء والرصد الحي
+            </p>
+          </div>
         </button>
+
+        {/* 2. أساتذة المادة */}
         <button 
+          type="button"
           onClick={() => setActiveTab('teachers')}
-          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'teachers' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'teachers' 
+              ? 'bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white dark:from-emerald-950/60 dark:via-teal-950/30 dark:to-slate-900 border-emerald-600 dark:border-emerald-500 shadow-md shadow-emerald-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
         >
-          أساتذة المادة
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold group-hover:scale-110 transition-transform">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/70 px-2 py-0.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/60">
+              {statsData?.totalTeachers || 0} أستاذ
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              أساتذة المادة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              الكادر التعليمي والنشاط
+            </p>
+          </div>
         </button>
+
+        {/* 3. طلبة المادة */}
         <button 
+          type="button"
           onClick={() => setActiveTab('students')}
-          className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'students' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'students' 
+              ? 'bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-white dark:from-blue-950/60 dark:via-sky-950/30 dark:to-slate-900 border-blue-600 dark:border-blue-500 shadow-md shadow-blue-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
         >
-          طلبة المادة
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold group-hover:scale-110 transition-transform">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-black text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-950/70 px-2 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/60">
+              {statsData?.totalStudents || 0} طالب
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              طلبة المادة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              سجلات وحضور الطلاب
+            </p>
+          </div>
         </button>
-          
-          <button 
-            onClick={() => setActiveTab('cohorts')}
-            className={`pb-3 font-bold transition-all border-b-2 ${activeTab === 'cohorts' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-          >
-            الأفواج والإسناد
-          </button>
-          <button 
-            onClick={() => setActiveTab('accountability')}
-            className={`pb-3 font-bold transition-all border-b-2 flex items-center gap-1.5 ${activeTab === 'accountability' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-          >
-            <ShieldAlert className="w-4 h-4 text-rose-500" />
-            المحاسبة ومتابعة المنهاج
-          </button>
-        </div>
+
+        {/* 4. الأفواج والإسناد */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('cohorts')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'cohorts' 
+              ? 'bg-gradient-to-br from-fuchsia-50/90 via-pink-50/40 to-white dark:from-fuchsia-950/60 dark:via-pink-950/30 dark:to-slate-900 border-fuchsia-600 dark:border-fuchsia-500 shadow-md shadow-fuchsia-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-fuchsia-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-900/50 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400 font-bold group-hover:scale-110 transition-transform">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-black text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-100/70 dark:bg-fuchsia-950/70 px-2 py-0.5 rounded-lg border border-fuchsia-200/60 dark:border-fuchsia-800/60">
+              {statsData?.totalCohorts || 0} فوج
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              الأفواج والإسناد
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              إدارة الأفواج والمجموعات
+            </p>
+          </div>
+        </button>
+
+        {/* 5. المحاسبة ومتابعة المنهاج */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('accountability')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'accountability' 
+              ? 'bg-gradient-to-br from-rose-50/90 via-amber-50/40 to-white dark:from-rose-950/60 dark:via-amber-950/30 dark:to-slate-900 border-rose-600 dark:border-rose-500 shadow-md shadow-rose-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-rose-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold group-hover:scale-110 transition-transform">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+              مساءلة فورية
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              المحاسبة ومتابعة المنهاج
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              الخطة السنوية والالتزام
+            </p>
+          </div>
+        </button>
+      </div>
 
       {activeTab === 'stats' && (
         <>
