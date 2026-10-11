@@ -16,9 +16,13 @@ export default function SyllabusDistributionPage() {
     },
   });
 
-  const selectedDist = distributions?.find((d: any) => 
-    selectedCourseId ? d.courseId === selectedCourseId : true
-  ) || distributions?.[0];
+  const userSupervisedDist = user?.supervisedSubjectId
+    ? distributions?.find((d: any) => d.course?.subjectId === user.supervisedSubjectId)
+    : null;
+
+  const activeCourseId = selectedCourseId || userSupervisedDist?.courseId || distributions?.[0]?.courseId;
+
+  const selectedDist = distributions?.find((d: any) => d.courseId === activeCourseId) || distributions?.[0];
 
   if (isLoading) {
     return (
@@ -42,20 +46,43 @@ export default function SyllabusDistributionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-baaqoon-800 p-5 rounded-2xl border border-gray-100 dark:border-baaqoon-700 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-6 h-6 text-baaqoon-accent" />
             التوزيع السنوي والشهري للمنهج
           </h1>
-          <p className="text-gray-500 mt-1">توزيع الخطة الدراسية للعام {selectedDist?.academicYear}</p>
+          <p className="text-gray-500 mt-1">توزيع الخطة الدراسية الشاملة للعام {selectedDist?.academicYear}</p>
+          
+          {selectedDist?.course?.title === "اللغة العربية وآدابها" && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              <span className="text-xs text-baaqoon-600 dark:text-baaqoon-400 font-bold ml-1">فروع المادة المعتمدة:</span>
+              {["النحو", "الصرف", "البلاغة", "الأدب والنصوص", "الإنشاء", "المطالعة"].map(branch => (
+                <span key={branch} className="px-2 py-0.5 rounded-md text-[11px] bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800">
+                  {branch}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {selectedDist?.course?.title === "التربية الإسلامية" && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              <span className="text-xs text-baaqoon-600 dark:text-baaqoon-400 font-bold ml-1">فروع المادة المعتمدة:</span>
+              {["القرآن الكريم", "الحديث الشريف", "التفسير", "الفقه الشافعي", "التوحيد والعقيدة"].map(branch => (
+                <span key={branch} className="px-2 py-0.5 rounded-md text-[11px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                  {branch}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="w-full sm:w-auto">
+          <label className="block text-xs font-bold text-gray-500 mb-1.5">اختر المادة الدراسية:</label>
           <select 
             value={selectedDist?.courseId}
             onChange={(e) => setSelectedCourseId(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-baaqoon-accent focus:border-transparent dark:bg-baaqoon-800 dark:border-baaqoon-700 dark:text-white font-medium shadow-sm"
+            className="w-full sm:w-auto min-w-[220px] px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-baaqoon-accent focus:border-transparent dark:bg-baaqoon-900 dark:border-baaqoon-700 dark:text-white font-bold shadow-sm"
           >
             {distributions.map((d: any) => (
               <option key={d.id} value={d.courseId}>

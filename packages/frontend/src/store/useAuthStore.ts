@@ -10,6 +10,7 @@ export interface User {
   status?: string;
   phone?: string;
   nationality?: string;
+  supervisedSubjectId?: string;
 }
 
 interface AuthState {
