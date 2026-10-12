@@ -69,7 +69,11 @@ export default function RegisterPage() {
         return;
       }
 
-      const formattedPhone = formData.phone ? `${formData.countryCode}${formData.phone}` : '';
+      const cleanPhone = (formData.phone || '').trim().replace(/^0+/, '');
+      const dialCode = (formData.countryCode || '+970').split('-')[0];
+      const formattedPhone = cleanPhone
+        ? (cleanPhone.startsWith('+') ? cleanPhone : `${dialCode}${cleanPhone}`)
+        : '';
       
       const payload = { 
         ...formData, 
@@ -252,27 +256,71 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">رقم الهاتف (اختياري إذا أدخلت البريد)</label>
-            <div className="flex flex-row-reverse gap-2">
+            <div className="flex gap-2" dir="ltr">
+              <select
+                name="countryCode"
+                value={formData.countryCode}
+                onChange={handleChange}
+                className="px-2.5 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-xs font-bold w-48 shrink-0"
+              >
+                <optgroup label="🇵🇸 فلسطين">
+                  <option value="+970" className="dark:bg-baaqoon-800">🇵🇸 فلسطين (+970)</option>
+                  <option value="+972" className="dark:bg-baaqoon-800">🇵🇸 فلسطين - الداخل (+972)</option>
+                </optgroup>
+                <optgroup label="🌍 دول الاغتراب والدول الشائعة">
+                  <option value="+44" className="dark:bg-baaqoon-800">🇬🇧 بريطانيا (+44)</option>
+                  <option value="+1-CA" className="dark:bg-baaqoon-800">🇨🇦 كندا (+1)</option>
+                  <option value="+1-US" className="dark:bg-baaqoon-800">🇺🇸 الولايات المتحدة (+1)</option>
+                  <option value="+49" className="dark:bg-baaqoon-800">🇩🇪 ألمانيا (+49)</option>
+                  <option value="+33" className="dark:bg-baaqoon-800">🇫🇷 فرنسا (+33)</option>
+                  <option value="+90" className="dark:bg-baaqoon-800">🇹🇷 تركيا (+90)</option>
+                  <option value="+46" className="dark:bg-baaqoon-800">🇸🇪 السويد (+46)</option>
+                  <option value="+31" className="dark:bg-baaqoon-800">🇳🇱 هولندا (+31)</option>
+                  <option value="+32" className="dark:bg-baaqoon-800">🇧🇪 بلجيكا (+32)</option>
+                  <option value="+41" className="dark:bg-baaqoon-800">🇨🇭 سويسرا (+41)</option>
+                  <option value="+43" className="dark:bg-baaqoon-800">🇦🇹 النمسا (+43)</option>
+                  <option value="+34" className="dark:bg-baaqoon-800">🇪🇸 إسبانيا (+34)</option>
+                  <option value="+39" className="dark:bg-baaqoon-800">🇮🇹 إيطاليا (+39)</option>
+                  <option value="+47" className="dark:bg-baaqoon-800">🇳🇴 النرويج (+47)</option>
+                  <option value="+45" className="dark:bg-baaqoon-800">🇩🇰 الدنمارك (+45)</option>
+                  <option value="+60" className="dark:bg-baaqoon-800">🇲🇾 ماليزيا (+60)</option>
+                  <option value="+61" className="dark:bg-baaqoon-800">🇦🇺 أستراليا (+61)</option>
+                  <option value="+7" className="dark:bg-baaqoon-800">🇷🇺 روسيا (+7)</option>
+                </optgroup>
+                <optgroup label="🏛️ الدول العربية">
+                  <option value="+962" className="dark:bg-baaqoon-800">🇯🇴 الأردن (+962)</option>
+                  <option value="+20" className="dark:bg-baaqoon-800">🇪🇬 مصر (+20)</option>
+                  <option value="+213" className="dark:bg-baaqoon-800">🇩🇿 الجزائر (+213)</option>
+                  <option value="+966" className="dark:bg-baaqoon-800">🇸🇦 السعودية (+966)</option>
+                  <option value="+971" className="dark:bg-baaqoon-800">🇦🇪 الإمارات (+971)</option>
+                  <option value="+974" className="dark:bg-baaqoon-800">🇶🇦 قطر (+974)</option>
+                  <option value="+965" className="dark:bg-baaqoon-800">🇰🇼 الكويت (+965)</option>
+                  <option value="+968" className="dark:bg-baaqoon-800">🇴🇲 سلطنة عُمان (+968)</option>
+                  <option value="+973" className="dark:bg-baaqoon-800">🇧🇭 البحرين (+973)</option>
+                  <option value="+961" className="dark:bg-baaqoon-800">🇱🇧 لبنان (+961)</option>
+                  <option value="+963" className="dark:bg-baaqoon-800">🇸🇾 سوريا (+963)</option>
+                  <option value="+964" className="dark:bg-baaqoon-800">🇮🇶 العراق (+964)</option>
+                  <option value="+967" className="dark:bg-baaqoon-800">🇾🇪 اليمن (+967)</option>
+                  <option value="+216" className="dark:bg-baaqoon-800">🇹🇳 تونس (+216)</option>
+                  <option value="+212" className="dark:bg-baaqoon-800">🇲🇦 المغرب (+212)</option>
+                  <option value="+249" className="dark:bg-baaqoon-800">🇸🇩 السودان (+249)</option>
+                  <option value="+218" className="dark:bg-baaqoon-800">🇱🇾 ليبيا (+218)</option>
+                  <option value="+222" className="dark:bg-baaqoon-800">🇲🇷 موريتانيا (+222)</option>
+                </optgroup>
+              </select>
               <input 
                 type="tel" 
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="591234567"
-                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
+                placeholder={
+                  formData.countryCode === '+44' ? '7123456789' :
+                  formData.countryCode.startsWith('+1') ? '4161234567' :
+                  formData.countryCode === '+20' ? '1012345678' :
+                  '591234567'
+                }
+                className="flex-1 px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left font-mono"
               />
-              <select
-                name="countryCode"
-                value={formData.countryCode}
-                onChange={handleChange}
-                className="px-2 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr w-24 shrink-0"
-              >
-                <option value="+970" className="dark:bg-baaqoon-800">🇵🇸 +970</option>
-                <option value="+972" className="dark:bg-baaqoon-800">🇵🇸 +972</option>
-                <option value="+213" className="dark:bg-baaqoon-800">🇩🇿 +213</option>
-                <option value="+20" className="dark:bg-baaqoon-800">🇪🇬 +20</option>
-                <option value="+962" className="dark:bg-baaqoon-800">🇯🇴 +962</option>
-              </select>
             </div>
           </div>
 
@@ -304,6 +352,14 @@ export default function RegisterPage() {
                 <option value="جزائري">جزائري</option>
                 <option value="مغربي">مغربي</option>
                 <option value="موريتاني">موريتاني</option>
+                <option value="بريطاني">بريطاني</option>
+                <option value="كندي">كندي</option>
+                <option value="أمريكي">أمريكي</option>
+                <option value="تركي">تركي</option>
+                <option value="ألماني">ألماني</option>
+                <option value="فرنسي">فرنسي</option>
+                <option value="سويدي">سويدي</option>
+                <option value="هولندي">هولندي</option>
                 <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
               </select>
             </div>

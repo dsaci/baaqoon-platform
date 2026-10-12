@@ -300,7 +300,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 value={formData.phone} 
                 onChange={handleChange} 
                 dir="ltr" 
-                placeholder="+970 59..."
+                placeholder="+970..., +44..., +1..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-violet-500 outline-none text-left transition-all"
               />
             </div>
@@ -337,6 +337,14 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 <option value="جزائري">جزائري</option>
                 <option value="مغربي">مغربي</option>
                 <option value="موريتاني">موريتاني</option>
+                <option value="بريطاني">بريطاني</option>
+                <option value="كندي">كندي</option>
+                <option value="أمريكي">أمريكي</option>
+                <option value="تركي">تركي</option>
+                <option value="ألماني">ألماني</option>
+                <option value="فرنسي">فرنسي</option>
+                <option value="سويدي">سويدي</option>
+                <option value="هولندي">هولندي</option>
                 <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
               </select>
             </div>
