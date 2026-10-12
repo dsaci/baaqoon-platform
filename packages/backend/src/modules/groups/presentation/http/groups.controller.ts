@@ -83,34 +83,31 @@ export class GroupsController {
   }
 
   @Patch('admin/distribution/:subjectId/supervisor/:userId')
+  @Post('admin/distribution/:subjectId/supervisor/:userId')
   async assignSupervisor(@Req() req: any, @Param('subjectId') subjectId: string, @Param('userId') userId: string) {
     const role = req.user?.primaryRole;
     if (role !== 'super_admin' && role !== 'admin') {
       return { error: 'Unauthorized' };
     }
     
-    // Clear previous supervisors assigned to this subject
-    await this.prisma.user.updateMany({
-      where: {
-        supervisedSubjectId: subjectId,
-        primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
-      },
-      data: { supervisedSubjectId: null }
-    });
-
     if (userId === 'none' || !userId) {
+      await this.prisma.user.updateMany({
+        where: {
+          supervisedSubjectId: subjectId,
+          primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
+        },
+        data: { supervisedSubjectId: null }
+      });
       try {
         await this.prisma.activityLog.create({
           data: {
             userId: req.user.id,
-            action: 'UNASSIGN_SUPERVISOR',
-            details: `إلغاء تعيين مشرف المادة ${subjectId}`
+            action: 'UNASSIGN_ALL_SUPERVISORS',
+            details: `إلغاء تعيين كافة المشرفين للمادة ${subjectId}`
           }
         });
-      } catch (e) {
-        // ignore logging error
-      }
-      return { success: true, message: 'تم إزالة المشرف بنجاح' };
+      } catch (e) {}
+      return { success: true, message: 'تم إخلاء مشرفي المادة بنجاح' };
     }
 
     const targetUser = await this.prisma.user.findUnique({
@@ -140,14 +137,50 @@ export class GroupsController {
         data: {
           userId: req.user.id,
           action: 'ASSIGN_SUPERVISOR',
-          details: `تعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً للمادة`
+          details: `تعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً منسقاً للمادة`
         }
       });
-    } catch (e) {
-      // ignore logging error
+    } catch (e) {}
+
+    return { success: true, message: `تم إضافة وتعيين المشرف ${targetUser.firstName} ${targetUser.lastName} بنجاح` };
+  }
+
+  @Delete('admin/distribution/:subjectId/supervisor/:userId')
+  async removeSupervisor(@Req() req: any, @Param('subjectId') subjectId: string, @Param('userId') userId: string) {
+    const role = req.user?.primaryRole;
+    if (role !== 'super_admin' && role !== 'admin') {
+      return { error: 'Unauthorized' };
     }
 
-    return { success: true, message: 'تم تعيين المشرف بنجاح' };
+    if (userId === 'all') {
+      await this.prisma.user.updateMany({
+        where: {
+          supervisedSubjectId: subjectId,
+          primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
+        },
+        data: { supervisedSubjectId: null }
+      });
+      return { success: true, message: 'تم إزالة جميع المشرفين من المادة' };
+    }
+
+    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { supervisedSubjectId: null }
+    });
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'REMOVE_SUPERVISOR',
+          details: `إزالة المشرف ${targetUser ? targetUser.firstName + ' ' + targetUser.lastName : userId} من المادة`
+        }
+      });
+    } catch (e) {}
+
+    return { success: true, message: 'تم إزالة المشرف من المادة بنجاح' };
   }
 
   constructor(private readonly prisma: PrismaService) {}
