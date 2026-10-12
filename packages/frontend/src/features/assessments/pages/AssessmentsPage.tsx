@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import CreateAssessmentModal from '../components/CreateAssessmentModal';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
@@ -8,6 +9,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 
 export default function AssessmentsPage() {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const { user } = useAuthStore();
   const isTeacher = user?.primaryRole === 'teacher';
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -60,7 +63,7 @@ export default function AssessmentsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in-up" dir="rtl">
+    <div className="space-y-6 animate-fade-in-up" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 rounded-[2rem] shadow-xl border border-white/60 dark:border-slate-700/50 mb-8">
         <div className="flex items-center gap-4">
@@ -68,9 +71,13 @@ export default function AssessmentsPage() {
             <FileText className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">الواجبات والتقييمات</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">
+              {t('assessments.title', 'الواجبات والتقييمات')}
+            </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
-              {isTeacher ? 'إدارة التكليفات والواجبات المنزلية، وتصحيح تسليمات الطلاب بفعالية.' : 'عرض وتسليم الواجبات المطلوبة منك بدقة واحترافية.'}
+              {isTeacher 
+                ? (isRtl ? 'إدارة التكليفات والواجبات المنزلية، وتصحيح تسليمات الطلاب بفعالية.' : 'Manage assignments, homework, and efficiently grade student submissions.')
+                : (isRtl ? 'عرض وتسليم الواجبات المطلوبة منك بدقة واحترافية.' : 'View and submit assigned homework and assessments with ease.')}
             </p>
           </div>
         </div>
@@ -79,13 +86,13 @@ export default function AssessmentsPage() {
           {isTeacher && (
             <>
               {/* Secondary Actions */}
-              <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-3">
+              <div className={`flex items-center gap-2 ${isRtl ? 'border-l pl-3' : 'border-r pr-3'} border-slate-200 dark:border-slate-700`}>
                 <button 
                   onClick={handleReset}
                   className="px-4 py-3 text-sm bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl transition-colors flex items-center gap-2"
-                  title="حذف جميع التكليفات التجريبية"
+                  title={isRtl ? "حذف جميع التكليفات التجريبية" : "Reset generated assessments"}
                 >
-                  تصفير التوليدات
+                  {isRtl ? 'تصفير التوليدات' : 'Reset'}
                 </button>
                 
                 <button 
@@ -93,7 +100,7 @@ export default function AssessmentsPage() {
                   className="px-4 py-3 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:-translate-y-0.5"
                 >
                   <Bot className="w-4 h-4" />
-                  توليد ذكي
+                  {t('assessments.generate_smart_quiz', 'توليد ذكي')}
                 </button>
               </div>
 
@@ -101,10 +108,10 @@ export default function AssessmentsPage() {
               <button 
                 type="button"
                 onClick={() => setIsAssignmentModalOpen(true)}
-                className="px-6 py-3 bg-gradient-to-l from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-black rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-violet-500/30 w-full md:w-auto justify-center hover:-translate-y-0.5 cursor-pointer"
+                className={`px-6 py-3 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-black rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-violet-500/30 w-full md:w-auto justify-center hover:-translate-y-0.5 cursor-pointer`}
               >
                 <Plus className="w-5 h-5" />
-                إنشاء واجب جديد
+                {t('assessments.create_new', 'إنشاء واجب جديد')}
               </button>
             </>
           )}
@@ -138,17 +145,19 @@ export default function AssessmentsPage() {
           {assessments.map(assessment => (
             <div key={assessment.id} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/50 p-0 overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow">
               {/* Assessment Info */}
-              <div className="p-6 md:w-2/5 border-b md:border-b-0 md:border-l border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/30">
+              <div className={`p-6 md:w-2/5 border-b md:border-b-0 ${isRtl ? 'md:border-l' : 'md:border-r'} border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/30`}>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="px-3 py-1 text-xs font-bold bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg">
                     {assessment.cohort}
                   </span>
                   <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                    <Clock className="w-3 h-3" /> آخر موعد: {assessment.dueDate}
+                    <Clock className="w-3 h-3" /> {t('assessments.due_date', 'آخر موعد')}: {assessment.dueDate}
                   </span>
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{assessment.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">الدرجة القصوى: {assessment.maxScore}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
+                  {t('assessments.max_score', 'الدرجة القصوى')}: {assessment.maxScore}
+                </p>
               </div>
 
               {/* Assessment Stats & Actions */}
@@ -157,14 +166,16 @@ export default function AssessmentsPage() {
                   <>
                     <div className="flex-1 text-center">
                       <p className="text-3xl font-black text-slate-900 dark:text-white">{assessment.stats.submitted}</p>
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">تم التسليم</p>
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">
+                        {t('assessments.submissions_count', 'تم التسليم')}
+                      </p>
                     </div>
                     <div className="w-px h-12 bg-slate-200 dark:bg-slate-700"></div>
                     
                     <div className="flex-1 text-center">
                       <p className="text-3xl font-black text-emerald-500">{assessment.stats.graded}</p>
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> تم التصحيح
+                        <CheckCircle className="w-3 h-3" /> {t('assessments.graded', 'تم التصحيح')}
                       </p>
                     </div>
                     <div className="w-px h-12 bg-slate-200 dark:bg-slate-700"></div>
@@ -175,16 +186,16 @@ export default function AssessmentsPage() {
                       </p>
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-center gap-1">
                         {assessment.stats.pending > 0 && <AlertCircle className="w-3 h-3 text-rose-500" />}
-                        بانتظار التقييم
+                        {t('assessments.pending_grade', 'بانتظار التقييم')}
                       </p>
                     </div>
 
-                    <div className="mr-auto flex flex-col gap-2">
+                    <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex flex-col gap-2`}>
                       <button 
                         onClick={() => {
                           const printWindow = window.open('', '', 'width=800,height=600');
                           printWindow?.document.write(`
-                            <html dir="rtl">
+                            <html dir="${isRtl ? 'rtl' : 'ltr'}">
                               <head>
                                 <title>${assessment.title}</title>
                                 <style>
@@ -192,19 +203,19 @@ export default function AssessmentsPage() {
                                   h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
                                   .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
                                   .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-                                  .score { font-weight: bold; color: #e11d48; float: left; }
+                                  .score { font-weight: bold; color: #e11d48; float: ${isRtl ? 'left' : 'right'}; }
                                 </style>
                               </head>
                               <body>
                                 <h1>${assessment.title}</h1>
-                                <div class="meta">المبحث: ${assessment.courseTitle} | نوع الواجب: ${assessment.type === 'homework' ? 'واجب منزلي' : 'اختبار قصير'}</div>
+                                <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
                                 <div class="questions">
                                   ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
                                     <div class="question">
-                                      <span class="score">${q.scoreWeight} درجات</span>
-                                      <strong>س${i + 1}:</strong> ${q.questionTemplate.content}
+                                      <span class="score">${q.scoreWeight} ${isRtl ? 'درجات' : 'pts'}</span>
+                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate.content}
                                     </div>
-                                  `).join('') : '<p>لا توجد أسئلة مضافة حتى الآن.</p>'}
+                                  `).join('') : '<p>No questions added yet.</p>'}
                                 </div>
                                 <script>window.print(); setTimeout(() => window.close(), 500);</script>
                               </body>
@@ -214,47 +225,47 @@ export default function AssessmentsPage() {
                         }}
                         className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block text-center border border-slate-200 dark:border-slate-700"
                       >
-                        تصدير (PDF)
+                        {isRtl ? 'تصدير (PDF)' : 'Export (PDF)'}
                       </button>
                       <Link
                         to={`/teacher/assessments/${assessment.id}/grade`}
-                        className="px-4 py-2.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5"
+                        className={`px-4 py-2.5 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5`}
                       >
-                        عرض وتصحيح
+                        {t('assessments.grading', isRtl ? 'عرض وتصحيح' : 'Grade Submissions')}
                       </Link>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="flex-1 text-center md:text-right">
+                    <div className={`flex-1 text-center ${isRtl ? 'md:text-right' : 'md:text-left'}`}>
                       {assessment.studentStatus === 'pending' && (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-sm font-bold">
-                          <AlertCircle className="w-4 h-4" /> بانتظار التسليم
+                          <AlertCircle className="w-4 h-4" /> {isRtl ? 'بانتظار التسليم' : 'Pending Submission'}
                         </span>
                       )}
                       {assessment.studentStatus === 'submitted' && (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-sm font-bold">
-                          <CheckCircle className="w-4 h-4" /> قيد التصحيح
+                          <CheckCircle className="w-4 h-4" /> {isRtl ? 'قيد التصحيح' : 'Grading in progress'}
                         </span>
                       )}
                       {assessment.studentStatus === 'graded' && (
                         <div className="space-y-1">
                           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-sm font-bold">
-                            <CheckCircle className="w-4 h-4" /> تم التصحيح
+                            <CheckCircle className="w-4 h-4" /> {t('assessments.graded', 'تم التصحيح')}
                           </span>
                           <p className="text-xl font-bold text-slate-900 dark:text-white mt-2">
-                            الدرجة: <span className="text-emerald-600">{assessment.studentScore}</span> / {assessment.maxScore}
+                            {t('assessments.score', 'الدرجة')}: <span className="text-emerald-600">{assessment.studentScore}</span> / {assessment.maxScore}
                           </p>
                         </div>
                       )}
                     </div>
                     
-                    <div className="mr-auto flex flex-col sm:flex-row gap-2">
+                    <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex flex-col sm:flex-row gap-2`}>
                       <button 
                         onClick={() => {
                           const printWindow = window.open('', '', 'width=800,height=600');
                           printWindow?.document.write(`
-                            <html dir="rtl">
+                            <html dir="${isRtl ? 'rtl' : 'ltr'}">
                               <head>
                                 <title>${assessment.title}</title>
                                 <style>
@@ -262,19 +273,19 @@ export default function AssessmentsPage() {
                                   h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
                                   .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
                                   .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-                                  .score { font-weight: bold; color: #e11d48; float: left; }
+                                  .score { font-weight: bold; color: #e11d48; float: ${isRtl ? 'left' : 'right'}; }
                                 </style>
                               </head>
                               <body>
                                 <h1>${assessment.title}</h1>
-                                <div class="meta">المبحث: ${assessment.courseTitle} | نوع الواجب: ${assessment.type === 'homework' ? 'واجب منزلي' : 'اختبار قصير'}</div>
+                                <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
                                 <div class="questions">
                                   ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
                                     <div class="question">
-                                      <span class="score">${q.scoreWeight} درجات</span>
-                                      <strong>س${i + 1}:</strong> ${q.questionTemplate.content}
+                                      <span class="score">${q.scoreWeight} ${isRtl ? 'درجات' : 'pts'}</span>
+                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate.content}
                                     </div>
-                                  `).join('') : '<p>لا توجد أسئلة مضافة حتى الآن.</p>'}
+                                  `).join('') : '<p>No questions added yet.</p>'}
                                 </div>
                                 <script>window.print(); setTimeout(() => window.close(), 500);</script>
                               </body>
@@ -284,15 +295,15 @@ export default function AssessmentsPage() {
                         }}
                         className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block text-center border border-slate-200 dark:border-slate-700"
                       >
-                        تصدير (PDF)
+                        {isRtl ? 'تصدير (PDF)' : 'Export (PDF)'}
                       </button>
                       {assessment.studentStatus === 'pending' ? (
-                        <Link to={`/student/assessments/${assessment.id}/take`} className="px-6 py-2.5 bg-gradient-to-l from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5">
-                          بدء الحل والتسليم
+                        <Link to={`/student/assessments/${assessment.id}/take`} className={`px-6 py-2.5 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5`}>
+                          {isRtl ? 'بدء الحل والتسليم' : 'Start Assessment'}
                         </Link>
                       ) : (
                         <button className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block border border-slate-200 dark:border-slate-700">
-                          عرض الإجابة
+                          {isRtl ? 'عرض الإجابة' : 'View Submission'}
                         </button>
                       )}
                     </div>

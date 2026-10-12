@@ -35,9 +35,12 @@ import SupervisorAccountabilityView from '../../supervisor/components/Supervisor
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -172,7 +175,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
+    <div className="space-y-6 animate-fade-in-up font-sans" dir={isRtl ? "rtl" : "ltr"}>
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

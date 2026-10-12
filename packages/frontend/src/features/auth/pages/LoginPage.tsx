@@ -40,24 +40,23 @@ export default function LoginPage() {
     }
   };
 
-  const { t } = useTranslation();
-
-  // ... inside component handleDemoLogin and handleLogin ...
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
       {/* Abstract Background */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
       
-      {/* Top Flag {/* Bottom Flag Strip */}
+      {/* Top Flag Strip */}
       <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50 shadow-md" />
       
       {/* Theme and Lang controls at the top */}
       <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
         <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-emerald-100 dark:border-emerald-800/30 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
           <Home className="w-4 h-4 text-emerald-500" />
-          العودة للرئيسية
+          {t("common.back_to_home", "العودة للرئيسية")}
         </Link>
         <div className="flex items-center gap-2 pointer-events-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-1.5 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
           <LangToggle />
@@ -72,8 +71,12 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-emerald-400 blur-lg opacity-20 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white">تسجيل الدخول</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">مرحباً بعودتك إلى منصة باقون 👋</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white">
+            {t("auth.sign_in_title", "تسجيل الدخول")}
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            {t("auth.sign_in_subtitle", "مرحباً بعودتك إلى منصة باقون 👋")}
+          </p>
         </div>
 
         {error && (
@@ -85,19 +88,23 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">البريد الإلكتروني أو رقم الهاتف</label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+              {t("auth.email_or_phone", "البريد الإلكتروني أو رقم الهاتف")}
+            </label>
             <input 
               type="text" 
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-left dir-ltr shadow-sm"
-              placeholder="user@example.com أو 059..."
+              placeholder={t("auth.email_or_phone_placeholder", "user@example.com أو 059...")}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">{t('common.password')}</label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+              {t("common.password", "كلمة المرور")}
+            </label>
             <input 
               type="password" 
               required
@@ -111,28 +118,30 @@ export default function LoginPage() {
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5"
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
+              isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
+            } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}
           >
             {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
-            {isLoading ? t('common.loading') : t('common.login')}
+            {isLoading ? t("common.loading", "جاري التحميل...") : t("common.login", "تسجيل الدخول")}
           </button>
         
-            <div className="text-right mt-2 mb-4">
-              <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-emerald-600 hover:text-emerald-700 font-bold transition-colors">
-                نسيت كلمة المرور؟
-              </button>
-            </div>
-  
-          </form>
-          {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
+          <div className={`mt-2 mb-4 ${isRtl ? 'text-right' : 'text-left'}`}>
+            <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-emerald-600 hover:text-emerald-700 font-bold transition-colors">
+              {t("auth.forgot_password", "نسيت كلمة المرور؟")}
+            </button>
+          </div>
+
+        </form>
+        {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
 
         <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
-          {t('auth.no_account')}{' '}
+          {t("auth.no_account", "ليس لديك حساب؟")}{' '}
           <Link to="/register" className="text-baaqoon-accent hover:text-baaqoon-accentDark font-medium">
-            {t('common.register')}
+            {t("common.register", "إنشاء حساب")}
           </Link>
         </p>
-        </div>
+      </div>
 
          {/* Bottom Flag Strip */}
       <div className="flag-strip w-full fixed bottom-0 left-0 right-0 z-50" />

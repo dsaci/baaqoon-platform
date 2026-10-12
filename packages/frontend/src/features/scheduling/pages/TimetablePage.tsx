@@ -16,6 +16,7 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "السبت"];
 const TIMES = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
@@ -24,6 +25,8 @@ export default function TimetablePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const isTeacherOrSupervisor = user?.primaryRole === "teacher" || user?.primaryRole === "supervisor";
 
   const [selectedCohort, setSelectedCohort] = useState("all");
@@ -116,7 +119,7 @@ export default function TimetablePage() {
   return (
     <div
       className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-6 animate-fade-in font-sans"
-      dir="rtl"
+      dir={isRtl ? "rtl" : "ltr"}
     >
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 rounded-[2rem] shadow-xl border border-white/60 dark:border-slate-700/50 mb-8">
@@ -263,7 +266,7 @@ export default function TimetablePage() {
                 key={day}
                 className="p-4 text-center border-l last:border-l-0 border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200"
               >
-                {day}
+                {isRtl ? day : ({ "الأحد": "Sunday", "الإثنين": "Monday", "الثلاثاء": "Tuesday", "الأربعاء": "Wednesday", "الخميس": "Thursday", "السبت": "Saturday" }[day] || day)}
               </div>
             ))}
           </div>

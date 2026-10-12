@@ -21,6 +21,7 @@ import {
 import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { DownloadCloud, Trophy, LifeBuoy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const motivationalQuotes = [
   "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
@@ -32,6 +33,8 @@ const motivationalQuotes = [
 
 export default function StudentDashboard() {
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
   const studentName = user
     ? `${user.firstName} ${user.lastName}`
@@ -71,7 +74,7 @@ export default function StudentDashboard() {
 
   return (
     <div
-      dir="rtl"
+      dir={isRtl ? "rtl" : "ltr"}
       className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 min-h-screen"
     >
       {/* ══════════════════════ Hero Welcome Card ══════════════════════ */}
@@ -86,17 +89,17 @@ export default function StudentDashboard() {
             <div className="flex flex-wrap items-center gap-2">
               <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
               <span className="text-emerald-100 text-sm font-medium">
-                مرحباً بعودتك!
+                {isRtl ? "مرحباً بعودتك!" : "Welcome back!"}
               </span>
               <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/20">
-                {user?.gradeLevel === 'grade_11' ? 'الصف الحادي عشر (11)' : 'الصف الثاني عشر (توجيهي)'}
+                {user?.gradeLevel === 'grade_11' ? (isRtl ? 'الصف الحادي عشر (11)' : '11th Grade') : (isRtl ? 'الصف الثاني عشر (توجيهي)' : '12th Grade (Tawjihi)')}
               </span>
               <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/20">
-                {user?.curriculumType === 'azhari' ? 'المنهج الأزهري' : 'المنهج الحكومي'}
+                {user?.curriculumType === 'azhari' ? (isRtl ? 'المنهج الأزهري' : 'Azhari Curriculum') : (isRtl ? 'المنهج الحكومي' : 'Government Curriculum')}
               </span>
             </div>
             <h1 className="text-3xl md:text-4xl font-black">
-              أهلاً {studentName} 👋
+              {isRtl ? `أهلاً ${studentName} 👋` : `Hello ${studentName} 👋`}
             </h1>
             <p className="text-emerald-50/90 text-lg max-w-md leading-relaxed">
               {quote}

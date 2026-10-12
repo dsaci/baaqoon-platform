@@ -25,6 +25,7 @@ import RapidGeneratorModal from '../../assessments/components/RapidGeneratorModa
 import CreateAssignmentModal from '../../assessments/components/CreateAssignmentModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
+import { useTranslation } from 'react-i18next';
 
 const getInitials = (name: string) => {
   if (!name) return 'ط';
@@ -36,6 +37,8 @@ const getInitials = (name: string) => {
 export const CohortDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { cohortId } = useParams();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const [activeTab, setActiveTab] = useState<'students' | 'schedule' | 'assignments'>('students');
   const [searchQuery, setSearchQuery] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -66,31 +69,37 @@ export const CohortDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col items-center justify-center p-6" dir="rtl">
+      <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col items-center justify-center p-6" dir={isRtl ? "rtl" : "ltr"}>
         <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 font-bold text-sm">جاري تحميل سجل وبيانات الفوج...</p>
+        <p className="text-slate-500 font-bold text-sm">
+          {isRtl ? "جاري تحميل سجل وبيانات الفوج..." : "Loading cohort details & roster..."}
+        </p>
       </div>
     );
   }
 
   if (error || !cohort) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+      <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col items-center justify-center p-6 text-center" dir={isRtl ? "rtl" : "ltr"}>
         <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">تعذر العثور على الفوج المدرسي</h2>
-        <p className="text-slate-500 text-sm mt-1 mb-6">يرجى التأكد من الرابط أو العودة للوحة التحكم.</p>
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">
+          {isRtl ? "تعذر العثور على الفوج المدرسي" : "Cohort not found"}
+        </h2>
+        <p className="text-slate-500 text-sm mt-1 mb-6">
+          {isRtl ? "يرجى التأكد من الرابط أو العودة للوحة التحكم." : "Please check the URL or return to dashboard."}
+        </p>
         <button
           onClick={() => navigate('/teacher/dashboard')}
           className="px-5 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-bold rounded-xl text-sm"
         >
-          العودة للوحة المعلم
+          {isRtl ? "العودة للوحة المعلم" : "Back to Teacher Dashboard"}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col p-6 font-sans text-baaqoon-900 dark:text-white pb-16" dir="rtl">
+    <div className="min-h-screen bg-gray-50 dark:bg-baaqoon-950 flex flex-col p-6 font-sans text-baaqoon-900 dark:text-white pb-16" dir={isRtl ? "rtl" : "ltr"}>
       {/* 1. Header & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
@@ -116,11 +125,11 @@ export const CohortDetailPage: React.FC = () => {
                 </span>
               )}
               <span className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">
-                {activeStudentsCount} طالب نشط
+                {activeStudentsCount} {t("cohorts.active_students", "طالب نشط")}
               </span>
             </div>
             <p className="text-sm font-bold text-baaqoon-500 dark:text-baaqoon-400 mt-1">
-              متابعة حضور الطلاب الفعلي، التكليفات المدرسية، وجدول الحصص الافتراضية.
+              {t("cohorts.cohort_desc", "متابعة حضور الطلاب الفعلي، التكليفات المدرسية، وجدول الحصص الافتراضية.")}
             </p>
           </div>
         </div>
@@ -131,14 +140,16 @@ export const CohortDetailPage: React.FC = () => {
             className="flex items-center justify-center gap-2 bg-white hover:bg-baaqoon-50 dark:bg-baaqoon-900 dark:hover:bg-baaqoon-800 text-baaqoon-accentDark border border-baaqoon-200 dark:border-baaqoon-700 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-violet-500" />
-            <span>توليد اختبار / حصة</span>
+            <span>{t("cohorts.generate_quiz", "توليد اختبار / حصة")}</span>
           </button>
           <button 
             onClick={() => setIsAssignmentModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all shadow-md shadow-violet-500/20 cursor-pointer"
+            className={`flex items-center justify-center gap-2 ${
+              isRtl ? 'bg-gradient-to-r' : 'bg-gradient-to-l'
+            } from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all shadow-md shadow-violet-500/20 cursor-pointer`}
           >
             <Plus size={18} />
-            <span>إنشاء واجب للفوج</span>
+            <span>{t("cohorts.create_assignment", "إنشاء واجب للفوج")}</span>
           </button>
         </div>
       </div>
@@ -147,9 +158,9 @@ export const CohortDetailPage: React.FC = () => {
       <div className="border-b border-gray-200 dark:border-baaqoon-800 mb-6">
         <nav className="flex gap-8">
           {[
-            { id: 'students', label: 'الطلاب والمنتسبون', count: students.length },
-            { id: 'schedule', label: 'الحصص والجدول', count: sessions.length },
-            { id: 'assignments', label: 'الواجبات والتكليفات', count: assessments.length }
+            { id: 'students', label: t("cohorts.students_tab", "الطلاب"), count: students.length },
+            { id: 'schedule', label: t("cohorts.sessions_tab", "الحصص والجدول"), count: sessions.length },
+            { id: 'assignments', label: t("cohorts.assignments_tab", "الواجبات والتكليفات"), count: assessments.length }
           ].map(tab => (
             <button
               key={tab.id}
@@ -222,31 +233,31 @@ export const CohortDetailPage: React.FC = () => {
           <div className="bg-white dark:bg-baaqoon-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden flex-1 flex flex-col">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gray-50/50 dark:bg-baaqoon-850">
               <div className="relative w-full max-w-md">
-                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className={`absolute inset-y-0 ${isRtl ? 'right-0 pr-3.5' : 'left-0 pl-3.5'} flex items-center pointer-events-none text-slate-400`}>
                   <Search size={18} />
                 </div>
                 <input
                   type="text"
-                  placeholder="ابحث عن طالب بالاسم أو الهاتف أو البريد..."
+                  placeholder={t("cohorts.search_student", "ابحث عن طالب بالاسم أو الهاتف أو البريد...")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-4 pr-11 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-baaqoon-900 text-slate-900 dark:text-white"
+                  className={`w-full ${isRtl ? 'pl-4 pr-11' : 'pr-4 pl-11'} py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-baaqoon-900 text-slate-900 dark:text-white`}
                 />
               </div>
               <span className="text-xs font-bold text-slate-500">
-                إجمالي الطلاب: {students.length}
+                {t("common.total_students", "إجمالي الطلاب")}: {students.length}
               </span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-right">
+              <table className={`w-full text-sm ${isRtl ? 'text-right' : 'text-left'}`}>
                 <thead className="bg-slate-50 dark:bg-baaqoon-950 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">الطالب</th>
-                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">حالة التسجيل</th>
-                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">نسبة الحضور الفعلي</th>
-                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">آخر نشاط</th>
-                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider text-center">التواصل والمتابعة</th>
+                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">{t("cohorts.student_col", "الطالب")}</th>
+                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">{t("cohorts.enrollment_status", "حالة التسجيل")}</th>
+                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">{t("cohorts.attendance_col", "نسبة الحضور الفعلي")}</th>
+                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider">{t("cohorts.last_activity", "آخر نشاط")}</th>
+                    <th className="px-6 py-3.5 font-black text-xs uppercase tracking-wider text-center">{t("cohorts.actions_col", "التواصل والمتابعة")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-baaqoon-800">

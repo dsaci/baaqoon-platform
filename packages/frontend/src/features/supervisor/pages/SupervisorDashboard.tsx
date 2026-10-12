@@ -13,9 +13,12 @@ import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
+import { useTranslation } from 'react-i18next';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
@@ -118,7 +121,7 @@ export default function SupervisorDashboard() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 p-6 font-sans">
+    <div dir={isRtl ? "rtl" : "ltr"} className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 p-6 font-sans">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">

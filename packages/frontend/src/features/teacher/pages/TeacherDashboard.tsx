@@ -7,9 +7,12 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAccountabilityWidget';
+import { useTranslation } from 'react-i18next';
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['teacher_sessions_dashboard'],
@@ -42,7 +45,7 @@ export default function TeacherDashboard() {
   const upcomingSession = sessions.find((s: any) => new Date(s.scheduledStartTime) >= new Date() || s.status === 'in_progress') || sessions[0];
 
   const getFormattedTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    return new Date(dateString).toLocaleTimeString(isRtl ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const totalCohorts = myCohorts?.length || 0;
@@ -51,17 +54,21 @@ export default function TeacherDashboard() {
   const totalStudents = myCohorts?.reduce((acc: number, c: any) => acc + (c.enrollments?.length || 0), 0) || 0;
 
   const stats = [
-    { label: 'الأفواج النشطة', value: totalCohorts.toString(), icon: Users, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
-    { label: 'حصص اليوم', value: todaySessionsCount.toString(), icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
-    { label: 'الحصص المنجزة', value: completedSessionsCount.toString(), icon: Clock, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/50' },
-    { label: 'إجمالي الطلاب', value: totalStudents.toString(), icon: CheckCircle, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: t('dashboard.active_cohorts', 'الأفواج النشطة'), value: totalCohorts.toString(), icon: Users, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: t('dashboard.today_sessions', 'حصص اليوم'), value: todaySessionsCount.toString(), icon: Calendar, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
+    { label: t('dashboard.completed_sessions', 'الحصص المنجزة'), value: completedSessionsCount.toString(), icon: Clock, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/50' },
+    { label: t('dashboard.total_students', 'إجمالي الطلاب'), value: totalStudents.toString(), icon: CheckCircle, color: 'text-baaqoon-accent', bg: 'bg-baaqoon-100 dark:bg-baaqoon-900/50' },
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
+    <div className="space-y-6 animate-fade-in-up font-sans" dir={isRtl ? "rtl" : "ltr"}>
       <div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مرحباً أستاذ {user?.firstName} {user?.lastName} 👋</h1>
-        <p className="text-slate-500 dark:text-slate-400 font-bold">إليك نظرة عامة على نشاطك اليوم في منصة باقون.</p>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
+          {t('dashboard.welcome_teacher', 'مرحباً أستاذ')} {user?.firstName} {user?.lastName} 👋
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400 font-bold">
+          {t('dashboard.teacher_overview', 'إليك نظرة عامة على نشاطك اليوم في منصة باقون.')}
+        </p>
       </div>
 
       {/* Smart Syllabus Accountability & Progress Tracker */}

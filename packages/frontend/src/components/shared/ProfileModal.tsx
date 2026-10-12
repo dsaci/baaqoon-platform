@@ -3,6 +3,7 @@ import { X, Save, Camera, User, Phone, Mail, CheckCircle, Loader2, Upload, Spark
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../lib/axios';
 import UserAvatar, { PRESET_AVATARS } from './UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { user, initialize } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -119,7 +122,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-up font-sans" dir="rtl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-up font-sans" dir={isRtl ? "rtl" : "ltr"}>
       <div className="bg-white dark:bg-baaqoon-900 rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-baaqoon-100 dark:border-baaqoon-800">
         
         {/* Header */}
@@ -129,8 +132,12 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <User className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-baaqoon-900 dark:text-white">تعديل بيانات الحساب والصورة</h2>
-              <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 font-bold">تخصيص الهوية الرمزية، الرسوم الكرتونية، والمعلومات الشخصية</p>
+              <h2 className="text-lg font-black text-baaqoon-900 dark:text-white">
+                {t("profile.edit_modal_title", "تعديل بيانات الحساب والصورة")}
+              </h2>
+              <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 font-bold">
+                {t("profile.edit_modal_desc", "تخصيص الهوية الرمزية، الرسوم الكرتونية، والمعلومات الشخصية")}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="text-baaqoon-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -378,7 +385,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           {saved && (
             <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-2xl text-xs font-black border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600" /> 
-              <span>تم حفظ التعديلات والصورة بنجاح في قاعدة البيانات ✅</span>
+              <span>{t("profile.saved", "تم حفظ التعديلات والصورة بنجاح في قاعدة البيانات ✅")}</span>
             </div>
           )}
 
@@ -389,7 +396,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               onClick={onClose} 
               className="px-5 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors font-bold text-xs"
             >
-              إلغاء
+              {t("common.cancel", "إلغاء")}
             </button>
             <button 
               type="submit" 
@@ -397,9 +404,9 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all shadow-md shadow-violet-600/20 font-black text-xs disabled:opacity-50 active:scale-95"
             >
               {saving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> جاري الحفظ...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t("profile.saving", "جاري الحفظ...")}</>
               ) : (
-                <><Save className="w-4 h-4" /> حفظ التعديلات والصورة</>
+                <><Save className="w-4 h-4" /> {t("profile.save_changes", "حفظ التعديلات والصورة")}</>
               )}
             </button>
           </div>

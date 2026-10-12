@@ -97,10 +97,11 @@ export default function RegisterPage() {
 
   const isStudent = formData.primaryRole === 'student';
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 py-12 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 py-12 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
       {/* Abstract Background */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
@@ -112,7 +113,7 @@ export default function RegisterPage() {
       <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
         <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-emerald-100 dark:border-emerald-800/30 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
           <Home className="w-4 h-4 text-emerald-500" />
-          العودة للرئيسية
+          {t("common.back_to_home", "العودة للرئيسية")}
         </Link>
         <div className="flex items-center gap-2 pointer-events-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-1.5 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
           <LangToggle />
@@ -127,8 +128,12 @@ export default function RegisterPage() {
             <div className="absolute inset-0 bg-emerald-400 blur-lg opacity-20 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-16 h-16 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">حساب جديد</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">انضم إلى مجتمع منصة باقون</p>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+            {t("auth.new_account", "حساب جديد")}
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            {t("auth.new_account_subtitle", "انضم إلى مجتمع منصة باقون")}
+          </p>
         </div>
 
         {error && (
@@ -141,7 +146,9 @@ export default function RegisterPage() {
         <form onSubmit={handleRegister} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">{t('auth.first_name')}</label>
+              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                {t('auth.first_name', 'الاسم الأول')}
+              </label>
               <input 
                 type="text" 
                 name="firstName"
@@ -152,7 +159,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">{t('auth.last_name')}</label>
+              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                {t('auth.last_name', 'اسم العائلة')}
+              </label>
               <input 
                 type="text" 
                 name="lastName"
@@ -165,23 +174,27 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">نوع الحساب</label>
+            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+              {t("auth.account_type", "نوع الحساب")}
+            </label>
             <select 
               name="primaryRole"
               value={formData.primaryRole}
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
             >
-              <option value="student" className="dark:bg-baaqoon-800">طالب / طالبة</option>
-              <option value="teacher" className="dark:bg-baaqoon-800">أستاذ / أستاذة</option>
-              <option value="subject_supervisor" className="dark:bg-baaqoon-800">مشرف / موجه تربوي</option>
+              <option value="student" className="dark:bg-baaqoon-800">{t("roles.student", "طالب / طالبة")}</option>
+              <option value="teacher" className="dark:bg-baaqoon-800">{t("roles.teacher", "أستاذ / أستاذة")}</option>
+              <option value="subject_supervisor" className="dark:bg-baaqoon-800">{t("roles.supervisor", "مشرف / موجه تربوي")}</option>
             </select>
           </div>
 
           {/* Supervised Subject - shown only for subject_supervisor */}
           {(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher') && (
             <div className="space-y-1.5 animate-fade-in-up">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">مادة التنسيق (اختر مادة واحدة فقط)</label>
+              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                {t("auth.coordination_subject", "مادة التنسيق (اختر مادة واحدة فقط)")}
+              </label>
               <select 
                 name="supervisedSubjectId"
                 value={formData.supervisedSubjectId}
@@ -189,7 +202,7 @@ export default function RegisterPage() {
                 className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
                 required={(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher')}
               >
-                <option value="" className="dark:bg-baaqoon-800">-- اختر مادة التنسيق --</option>
+                <option value="" className="dark:bg-baaqoon-800">{t("auth.choose_coordination_subject", "-- اختر مادة التنسيق --")}</option>
                 {subjects.map((s: any) => (
                   <option key={s.id} value={s.id} className="dark:bg-baaqoon-800">{s.nameAr}</option>
                 ))}
@@ -201,21 +214,25 @@ export default function RegisterPage() {
           {isStudent && (
             <div className="space-y-4 animate-fade-in-up">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الصف الدراسي</label>
+                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                  {t("auth.grade_level", "الصف الدراسي")}
+                </label>
                 <select 
                   name="gradeLevel"
                   value={formData.gradeLevel}
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
                 >
-                  <option value="grade_11" className="dark:bg-baaqoon-800">الصف الحادي عشر (11)</option>
-                  <option value="grade_12" className="dark:bg-baaqoon-800">الصف الثاني عشر (التوجيهي - 12)</option>
+                  <option value="grade_11" className="dark:bg-baaqoon-800">{t("auth.grade_11", "الصف الحادي عشر (11)")}</option>
+                  <option value="grade_12" className="dark:bg-baaqoon-800">{t("auth.grade_12", "الصف الثاني عشر (التوجيهي - 12)")}</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الفرع الدراسي</label>
+                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                    {t("auth.branch", "الفرع الدراسي")}
+                  </label>
                   <select 
                     name="branch"
                     value={formData.branch}
@@ -223,20 +240,24 @@ export default function RegisterPage() {
                     className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
                   >
                     {BRANCHES.map(b => (
-                      <option key={b.value} value={b.value} className="dark:bg-baaqoon-800">{b.label}</option>
+                      <option key={b.value} value={b.value} className="dark:bg-baaqoon-800">
+                        {t(`auth.branches.${b.value}`, b.label)}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">المنهج (نوع المدرسة)</label>
+                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+                    {t("auth.curriculum_type", "المنهج (نوع المدرسة)")}
+                  </label>
                   <select 
                     name="curriculumType"
                     value={formData.curriculumType}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
                   >
-                    <option value="governmental" className="dark:bg-baaqoon-800">منهج عام (حكومي)</option>
-                    <option value="azhari" className="dark:bg-baaqoon-800">منهج أزهري معتمد</option>
+                    <option value="governmental" className="dark:bg-baaqoon-800">{t("auth.gov_curriculum", "منهج عام (حكومي)")}</option>
+                    <option value="azhari" className="dark:bg-baaqoon-800">{t("auth.azhari_curriculum", "منهج أزهري معتمد")}</option>
                   </select>
                 </div>
               </div>
@@ -244,7 +265,9 @@ export default function RegisterPage() {
           )}
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">{t('common.email')} (اختياري إذا أدخلت الهاتف)</label>
+            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+              {t('auth.email_optional', 'البريد الإلكتروني (اختياري إذا أدخلت الهاتف)')}
+            </label>
             <input 
               type="email" 
               name="email"
@@ -255,7 +278,9 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">رقم الهاتف (اختياري إذا أدخلت البريد)</label>
+            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+              {t('auth.phone_optional', 'رقم الهاتف (اختياري إذا أدخلت البريد)')}
+            </label>
             <div className="flex gap-2" dir="ltr">
               <select
                 name="countryCode"
@@ -325,46 +350,51 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">الجنسية</label>
-              <select 
-                name="nationality" 
-                value={formData.nationality} 
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
-              >
-                <option value="">-- غير محدد --</option>
-                <option value="فلسطيني">فلسطيني</option>
-                <option value="أردني">أردني</option>
-                <option value="مصري">مصري</option>
-                <option value="سعودي">سعودي</option>
-                <option value="إماراتي">إماراتي</option>
-                <option value="كويتي">كويتي</option>
-                <option value="عماني">عماني</option>
-                <option value="قطري">قطري</option>
-                <option value="بحريني">بحريني</option>
-                <option value="يمني">يمني</option>
-                <option value="عراقي">عراقي</option>
-                <option value="سوري">سوري</option>
-                <option value="لبناني">لبناني</option>
-                <option value="سوداني">سوداني</option>
-                <option value="ليبي">ليبي</option>
-                <option value="تونسي">تونسي</option>
-                <option value="جزائري">جزائري</option>
-                <option value="مغربي">مغربي</option>
-                <option value="موريتاني">موريتاني</option>
-                <option value="بريطاني">بريطاني</option>
-                <option value="كندي">كندي</option>
-                <option value="أمريكي">أمريكي</option>
-                <option value="تركي">تركي</option>
-                <option value="ألماني">ألماني</option>
-                <option value="فرنسي">فرنسي</option>
-                <option value="سويدي">سويدي</option>
-                <option value="هولندي">هولندي</option>
-                <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
-              </select>
-            </div>
-<div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">{t('common.password')}</label>
+            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+              {t('auth.nationality', 'الجنسية')}
+            </label>
+            <select 
+              name="nationality" 
+              value={formData.nationality} 
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
+            >
+              <option value="">{t('auth.unspecified', '-- غير محدد --')}</option>
+              <option value="فلسطيني">فلسطيني</option>
+              <option value="أردني">أردني</option>
+              <option value="مصري">مصري</option>
+              <option value="سعودي">سعودي</option>
+              <option value="إماراتي">إماراتي</option>
+              <option value="كويتي">كويتي</option>
+              <option value="عماني">عماني</option>
+              <option value="قطري">قطري</option>
+              <option value="بحريني">بحريني</option>
+              <option value="يمني">يمني</option>
+              <option value="عراقي">عراقي</option>
+              <option value="سوري">سوري</option>
+              <option value="لبناني">لبناني</option>
+              <option value="سوداني">سوداني</option>
+              <option value="ليبي">ليبي</option>
+              <option value="تونسي">تونسي</option>
+              <option value="جزائري">جزائري</option>
+              <option value="مغربي">مغربي</option>
+              <option value="موريتاني">موريتاني</option>
+              <option value="بريطاني">بريطاني</option>
+              <option value="كندي">كندي</option>
+              <option value="أمريكي">أمريكي</option>
+              <option value="تركي">تركي</option>
+              <option value="ألماني">ألماني</option>
+              <option value="فرنسي">فرنسي</option>
+              <option value="سويدي">سويدي</option>
+              <option value="هولندي">هولندي</option>
+              <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
+              {t('common.password', 'كلمة المرور')}
+            </label>
             <input 
               type="password" 
               name="password"
@@ -385,7 +415,7 @@ export default function RegisterPage() {
               className="mt-1 flex-shrink-0 w-4 h-4 text-baaqoon-accent border-gray-300 rounded focus:ring-baaqoon-accent"
             />
             <label htmlFor="terms" className="text-xs text-baaqoon-700 dark:text-baaqoon-300 leading-relaxed">
-              أتعهد بالاحترام المتبادل والمحافظة على بيئة تعليمية آمنة. نتفهم ظروف الحرب الصعبة، ونسعى لتوفير هذه البيئة الداعمة لجميع الطلبة.
+              {t('auth.terms_pledge', 'أتعهد بالاحترام المتبادل والمحافظة على بيئة تعليمية آمنة. نتفهم ظروف الحرب الصعبة، ونسعى لتوفير هذه البيئة الداعمة لجميع الطلبة.')}
             </label>
           </div>
 
@@ -400,17 +430,19 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading || !captchaToken || !agreeToTerms}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5"
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
+              isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
+            } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}
           >
             {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <UserPlus className="w-6 h-6" />}
-            {isLoading ? 'جاري الإنشاء...' : 'إنشاء حساب'}
+            {isLoading ? t('auth.creating', 'جاري الإنشاء...') : t('auth.create_account_btn', 'إنشاء حساب')}
           </button>
         </form>
 
         <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
-          لديك حساب بالفعل؟{' '}
+          {t('auth.already_have_account', 'لديك حساب بالفعل؟')}{' '}
           <Link to="/login" className="text-baaqoon-accent hover:underline font-medium">
-            سجل دخولك
+            {t('auth.sign_in_link', 'سجل دخولك')}
           </Link>
         </p>
 
