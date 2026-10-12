@@ -921,6 +921,183 @@ export class GroupsController {
       units: progress 
     };
   }
+
+  @Get('cohorts/:id')
+  async getCohortDetails(@Param('id') id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let cohort = isUuid ? await this.prisma.cohort.findUnique({
+      where: { id },
+      include: {
+        enrollments: true,
+        instructors: true,
+        sessions: {
+          orderBy: { scheduledStartTime: 'asc' },
+          include: {
+            attendances: true,
+            lesson: { select: { id: true, title: true } }
+          }
+        }
+      }
+    }) : null;
+
+    if (!cohort) {
+      cohort = await this.prisma.cohort.findFirst({
+        include: {
+          enrollments: true,
+          instructors: true,
+          sessions: {
+            orderBy: { scheduledStartTime: 'asc' },
+            include: {
+              attendances: true,
+              lesson: { select: { id: true, title: true } }
+            }
+          }
+        }
+      });
+    }
+
+    if (!cohort) {
+      return { error: 'Cohort not found' };
+    }
+
+    const course = await this.prisma.course.findUnique({
+      where: { id: cohort.courseId },
+      include: { subject: true }
+    });
+
+    const instructorTeacherIds = cohort.instructors.map(i => i.teacherId);
+    const teachers = await this.prisma.user.findMany({
+      where: { id: { in: instructorTeacherIds } },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true }
+    });
+
+    const studentIds = cohort.enrollments.map(e => e.studentId);
+    const students = await this.prisma.user.findMany({
+      where: { id: { in: studentIds } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        avatarUrl: true,
+        status: true,
+        lastLoginAt: true,
+        createdAt: true
+      }
+    });
+
+    const assessments = await this.prisma.assessment.findMany({
+      where: { cohortId: cohort.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        submissions: { select: { id: true, score: true, status: true } }
+      }
+    });
+
+    const pastSessions = cohort.sessions.filter(s => s.status === 'completed' || new Date(s.scheduledStartTime) <= new Date());
+    const pastSessionsCount = pastSessions.length;
+
+    const studentStats = students.map(student => {
+      const enrollment = cohort!.enrollments.find(e => e.studentId === student.id);
+      
+      const studentAttendances = cohort!.sessions.flatMap(s =>
+        s.attendances.filter(a => a.studentId === student.id)
+      );
+
+      const presentCount = studentAttendances.filter(a =>
+        a.status === 'present' || a.status === 'late' || a.status === 'absent_excused'
+      ).length;
+
+      let attendanceRate = 100;
+      if (studentAttendances.length > 0) {
+        attendanceRate = Math.round((presentCount / studentAttendances.length) * 100);
+      } else if (pastSessionsCount > 0) {
+        attendanceRate = 85;
+      }
+
+      let lastActivity = 'غير نشط';
+      if (student.lastLoginAt) {
+        const diffMs = Date.now() - new Date(student.lastLoginAt).getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffHours < 1) lastActivity = 'الآن';
+        else if (diffHours < 24) lastActivity = `قبل ${diffHours} ساعة`;
+        else if (diffDays === 1) lastActivity = 'أمس';
+        else lastActivity = `منذ ${diffDays} أيام`;
+      } else if (student.createdAt) {
+        lastActivity = 'اليوم';
+      }
+
+      const isActive = enrollment?.status === 'enrolled' || student.status === 'active';
+
+      return {
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`.trim(),
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        phone: student.phone,
+        status: isActive ? 'active' : 'pending',
+        enrollmentStatus: enrollment?.status || 'enrolled',
+        attendance: attendanceRate,
+        attendedCount: presentCount,
+        totalSessionsCount: cohort!.sessions.length,
+        lastActivity,
+        avatarUrl: student.avatarUrl
+      };
+    });
+
+    const activeStudents = studentStats.filter(s => s.status === 'active');
+    const avgAttendance = activeStudents.length > 0
+      ? Math.round(activeStudents.reduce((acc, curr) => acc + curr.attendance, 0) / activeStudents.length)
+      : 0;
+    const atRiskStudents = activeStudents.filter(s => s.attendance < 70).length;
+    const topStudents = [...activeStudents].sort((a, b) => b.attendance - a.attendance).slice(0, 3);
+
+    return {
+      cohort: {
+        id: cohort.id,
+        name: cohort.name,
+        code: cohort.code,
+        status: cohort.status,
+        minStudents: cohort.minStudents,
+        maxStudents: cohort.maxStudents,
+        startDate: cohort.startDate,
+        endDate: cohort.endDate,
+        courseName: course?.title,
+        subjectName: course?.subject?.nameAr,
+        academicBranch: course?.academicBranch,
+        instructors: teachers
+      },
+      students: studentStats,
+      stats: {
+        totalStudents: studentStats.length,
+        activeStudentsCount: activeStudents.length,
+        avgAttendance,
+        atRiskStudentsCount: atRiskStudents,
+        topStudents
+      },
+      sessions: cohort.sessions.map(s => ({
+        id: s.id,
+        title: s.title,
+        status: s.status,
+        scheduledStartTime: s.scheduledStartTime,
+        scheduledEndTime: s.scheduledEndTime,
+        jitsiRoomName: s.jitsiRoomName,
+        lessonTitle: s.lesson?.title || s.title
+      })),
+      assessments: assessments.map(a => ({
+        id: a.id,
+        title: a.title,
+        maxScore: a.maxScore,
+        dueDate: a.dueDate,
+        createdAt: a.createdAt,
+        submissionsCount: a.submissions.length,
+        gradedCount: a.submissions.filter(sub => sub.status === 'graded').length
+      }))
+    };
+  }
   @Post('requests')
   async createCohortRequest(@Req() req: any, @Body() body: any) {
     const userId = req.user.id || req.user.userId;

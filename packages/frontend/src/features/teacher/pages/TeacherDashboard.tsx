@@ -202,16 +202,24 @@ export default function TeacherDashboard() {
               <div className="col-span-3 text-center text-slate-500 font-bold py-8">لم يتم إسنادك لأي فوج بعد.</div>
             ) : (
               myCohorts.map((cohort: any) => (
-                <div key={cohort.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                <Link 
+                  key={cohort.id} 
+                  to={`/teacher/cohorts/${cohort.id}`}
+                  className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-violet-400 dark:hover:border-violet-600 transition-all block group"
+                >
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-black text-slate-800 dark:text-slate-100">{cohort.name}</h3>
+                    <h3 className="font-black text-slate-800 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">{cohort.name}</h3>
                     <span className="text-xs font-bold font-mono bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md">{cohort.code}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-bold">
-                    <Users className="w-4 h-4" />
-                    عدد الطلبة: {cohort.enrollments?.length || 0}
+                  <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-bold mb-3">
+                    <Users className="w-4 h-4 text-violet-500" />
+                    <span>عدد الطلبة: {cohort.enrollments?.length || 0}</span>
                   </div>
-                </div>
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-black text-violet-600 dark:text-violet-400">
+                    <span>فتح سجل الفوج ومتابعة الحضور</span>
+                    <span className="group-hover:-translate-x-1 transition-transform">←</span>
+                  </div>
+                </Link>
               ))
             )}
           </div>
