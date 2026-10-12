@@ -24,6 +24,7 @@ import LangToggle from "../shared/LangToggle";
 import { useTranslation } from "react-i18next";
 
 import ProfileModal from "../shared/ProfileModal";
+import UserAvatar from "../shared/UserAvatar";
 import AppTour from "../tour/AppTour";
 import PlatformGuideModal from "../guide/PlatformGuideModal";
 
@@ -266,9 +267,12 @@ export default function DashboardLayout() {
             </button>
 
             <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
-              <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center text-violet-600 dark:text-violet-400 font-bold shrink-0">
-                {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-              </div>
+              <UserAvatar
+                avatarUrl={user?.avatarUrl}
+                name={`${user?.firstName || ''} ${user?.lastName || ''}`}
+                role={user?.primaryRole}
+                size="md"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                   {user?.firstName} {user?.lastName}
@@ -377,10 +381,12 @@ export default function DashboardLayout() {
                                 : "مستخدم"}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-baaqoon-accent/20 dark:bg-baaqoon-accent/30 flex items-center justify-center text-baaqoon-accentDark dark:text-baaqoon-accent font-bold border border-baaqoon-accent/30 dark:border-baaqoon-accent/50 transition-colors">
-                  {user?.firstName?.charAt(0)}
-                  {user?.lastName?.charAt(0)}
-                </div>
+                <UserAvatar
+                  avatarUrl={user?.avatarUrl}
+                  name={`${user?.firstName || ''} ${user?.lastName || ''}`}
+                  role={user?.primaryRole}
+                  size="md"
+                />
               </button>
 
               {/* Dropdown Menu */}

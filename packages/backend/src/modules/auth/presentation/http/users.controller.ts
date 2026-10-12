@@ -92,7 +92,7 @@ export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Patch('me/profile')
-  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string; nationality?: string; gradeLevel?: string }) {
+  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string; nationality?: string; gradeLevel?: string; avatarUrl?: string }) {
     const userId = req.user.id || req.user.userId;
     const updateData: any = {};
     if (body.firstName) updateData.firstName = body.firstName;
@@ -101,6 +101,11 @@ export class UsersController {
     if (body.phone !== undefined) updateData.phone = body.phone || null;
     if (body.nationality !== undefined) updateData.nationality = body.nationality || null;
     if (body.gradeLevel !== undefined) updateData.gradeLevel = body.gradeLevel || null;
+    if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;
+
+    try {
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE users.users ALTER COLUMN "avatarUrl" TYPE TEXT`);
+    } catch (_) {}
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
