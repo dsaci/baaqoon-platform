@@ -31,7 +31,7 @@ export default function SupervisorAccountabilityView() {
       return api.post('/syllabus/accountability/warn-teacher', payload);
     },
     onSuccess: (_, variables) => {
-      setWarningStatus(prev => ({ ...prev, [variables.cohortId]: 'تم إرسال الإنذار الرسمي بنجاح ✓' }));
+      setWarningStatus(prev => ({ ...prev, [variables.cohortId]: 'تم إرسال التنبيه التربوي بنجاح ✓' }));
       setTimeout(() => {
         setWarningStatus(prev => ({ ...prev, [variables.cohortId]: '' }));
       }, 3500);
@@ -102,14 +102,14 @@ export default function SupervisorAccountabilityView() {
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-indigo-500" />
-              سجل محاسبة الأساتذة وتتبع وتيرة المنهاج
+              سجل مرافقة الأساتذة وتتبع وتيرة المنهاج
             </h3>
             <p className="text-xs text-slate-500 mt-1 font-medium">
               مقارنة آلية حية بين عدد الحصص المنفذة والدروس المستهدفة لشهر {pacingInfo?.monthNameAr}.
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-            {reports.length} أفواج تحت الرقابة
+            {reports.length} أفواج قيد المرافقة التربوية
           </span>
         </div>
 
@@ -189,7 +189,7 @@ export default function SupervisorAccountabilityView() {
                     ) : isDelayed ? (
                       <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        يتطلب تنبيهاً إلزامياً للأستاذ بجدولة حصص تعويضية عاجلة
+                        يتطلب تنبيهاً تربوياً للأستاذ لجدولة حصص استدراكية داعمة
                       </span>
                     ) : (
                       <span className="text-slate-400">الوتيرة منتظمة ولا تتطلب تدخلاً</span>
@@ -209,7 +209,7 @@ export default function SupervisorAccountabilityView() {
                       className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition-all disabled:opacity-50"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      إرسال إنذار تأخير رسمي
+                      إرسال تنبيه مرافقة تربوية
                     </button>
                   )}
                 </div>

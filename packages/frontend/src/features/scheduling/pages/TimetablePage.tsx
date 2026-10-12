@@ -195,7 +195,7 @@ export default function TimetablePage() {
 
           {accountabilityData.reports[0].currentPacing.delaySessions > 0 && (
             <p className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
-              <span>⚠️ تنبيه المحاسبة:</span>
+              <span>⚠️ تنبيه المرافقة التربوية:</span>
               <span>لديك تأخر بمقدار {accountabilityData.reports[0].currentPacing.delaySessions} حصص. يُرجى استدراكها وجدولتها في هذا الأسبوع لتفادي تراكم المقرر.</span>
             </p>
           )}

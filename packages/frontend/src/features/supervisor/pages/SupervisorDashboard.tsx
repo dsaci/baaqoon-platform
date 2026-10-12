@@ -256,7 +256,7 @@ export default function SupervisorDashboard() {
           </div>
         </button>
 
-        {/* 5. المحاسبة ومتابعة المنهاج */}
+        {/* 5. المرافقة ومتابعة المنهاج */}
         <button 
           type="button"
           onClick={() => setActiveTab('accountability')}
@@ -272,12 +272,12 @@ export default function SupervisorDashboard() {
             </div>
             <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-              مساءلة فورية
+              مرافقة فورية
             </span>
           </div>
           <div>
             <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
-              المحاسبة ومتابعة المنهاج
+              المرافقة ومتابعة المنهاج
             </h3>
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               الخطة السنوية والالتزام

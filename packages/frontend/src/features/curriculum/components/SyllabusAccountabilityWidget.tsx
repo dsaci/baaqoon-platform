@@ -55,7 +55,7 @@ export default function SyllabusAccountabilityWidget() {
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
             <Clock className="w-6 h-6 text-indigo-500" />
-            مؤشر المحاسبة والالتزام بالخطة الشهرية
+            مؤشر المرافقة والالتزام بالخطة الشهرية
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
             يقيس النظام الذكي تقدمك تلقائياً مقارنة بالتوزيع السنوي والشهري المعتمد لضمان استيفاء المقرر دون تأخر.
