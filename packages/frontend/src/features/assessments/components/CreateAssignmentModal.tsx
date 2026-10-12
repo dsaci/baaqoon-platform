@@ -37,7 +37,7 @@ export default function CreateAssignmentModal({
     title: '',
     cohortId: defaultCohortId || '',
     subject: '',
-    type: 'homework',
+    type: 'assignment',
     dueDate: defaultDueDate,
     maxScore: '20',
     description: ''
@@ -105,7 +105,7 @@ export default function CreateAssignmentModal({
       title: '',
       cohortId: defaultCohortId || '',
       subject: '',
-      type: 'homework',
+      type: 'assignment',
       dueDate: defaultDueDate,
       maxScore: '20',
       description: ''
@@ -278,9 +278,9 @@ export default function CreateAssignmentModal({
                 onChange={e => setFormData({ ...formData, type: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:border-violet-600 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all"
               >
-                <option value="homework">واجب منزلي</option>
+                <option value="assignment">واجب منزلي / تكليف</option>
                 <option value="quiz">اختبار قصير (Quiz)</option>
-                <option value="activity">نشاط / مشروع تطبيقي</option>
+                <option value="project">نشاط / مشروع تطبيقي</option>
               </select>
             </div>
 

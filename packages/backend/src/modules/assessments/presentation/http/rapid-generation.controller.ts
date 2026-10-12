@@ -1,8 +1,10 @@
 import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards } from '@nestjs/common';
 import { RapidGenerationService } from '../../application/rapid-generation.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
 @Controller('assessments')
+@UseGuards(JwtAuthGuard)
 export class AssessmentsController {
   constructor(
     private readonly rapidGenService: RapidGenerationService,
@@ -14,7 +16,11 @@ export class AssessmentsController {
     @Req() req: any,
     @Body() body: { cohortId: string; curriculumLessonId: string; questionCount?: number }
   ) {
-    const teacherId = req.user?.id || req.user?.userId || 'demo-teacher-001'; // Mock ID for testing
+    let teacherId = req.user?.id || req.user?.userId;
+    if (!teacherId) {
+      const teacher = await this.prisma.user.findFirst({ where: { primaryRole: 'teacher' } });
+      teacherId = teacher?.id || 'demo-teacher-001';
+    }
     return this.rapidGenService.generateAssessment(body.cohortId, body.curriculumLessonId, teacherId, body.questionCount);
   }
 
@@ -23,29 +29,99 @@ export class AssessmentsController {
     @Req() req: any,
     @Body() body: { title: string; cohortId?: string; description?: string; subject?: string; dueDate?: string; maxScore?: number; type?: string }
   ) {
-    const teacherId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
-    
-    // Find a default cohort if none is provided
-    let cohortId = body.cohortId;
-    if (!cohortId) {
-      const cohort = await this.prisma.cohort.findFirst();
-      if (cohort) cohortId = cohort.id;
-    }
-    if (!cohortId) cohortId = '22222222-2222-2222-2222-222222222222'; // fallback mock
-
-    const dueDate = body.dueDate ? new Date(body.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    return this.prisma.assessment.create({
-      data: {
-        title: body.title,
-        description: body.subject ? "الموضوع: " + body.subject + "\n\n" + (body.description || "") : body.description,
-        dueDate: dueDate,
-        maxScore: body.maxScore ? Number(body.maxScore) : 100,
-        type: (body.type as any) || 'assignment',
-        cohortId,
-        createdById: teacherId
+    try {
+      // 1. Resolve author / teacher ID
+      let teacherId: string | undefined = req.user?.id || req.user?.userId;
+      if (teacherId) {
+        const userExists = await this.prisma.user.findUnique({ where: { id: teacherId } }).catch(() => null);
+        if (!userExists) teacherId = undefined;
       }
-    });
+      if (!teacherId) {
+        const teacher = await this.prisma.user.findFirst({ where: { primaryRole: 'teacher', status: 'active' } });
+        if (teacher) {
+          teacherId = teacher.id;
+        } else {
+          const anyUser = await this.prisma.user.findFirst();
+          teacherId = anyUser?.id;
+        }
+      }
+
+      // 2. Resolve target cohort ID
+      let cohortId: string | undefined = body.cohortId;
+      if (cohortId) {
+        const cohortExists = await this.prisma.cohort.findUnique({ where: { id: cohortId } }).catch(() => null);
+        if (!cohortExists) cohortId = undefined;
+      }
+      if (!cohortId) {
+        const firstCohort = await this.prisma.cohort.findFirst();
+        cohortId = firstCohort?.id;
+      }
+
+      // If database has no cohorts at all, create an initial cohort
+      if (!cohortId) {
+        const subject = await this.prisma.subject.findFirst() || await this.prisma.subject.create({ 
+          data: { code: 'DEF-SUB', nameAr: 'عام', curriculumType: 'governmental' } 
+        });
+        const course = await this.prisma.course.findFirst() || await this.prisma.course.create({ 
+          data: { subjectId: subject.id, code: 'DEF-CRS', title: 'مقرر عام', slug: 'def-crs', curriculumType: 'governmental', academicBranch: 'scientific', gradeLevel: 'grade_12', academicYear: '2025' } 
+        });
+        const version = await this.prisma.curriculumVersion.findFirst() || await this.prisma.curriculumVersion.create({ 
+          data: { courseId: course.id, versionTag: 'v1', status: 'published' } 
+        });
+        const emergencyCohort = await this.prisma.cohort.create({
+          data: {
+            courseId: course.id,
+            curriculumVersionId: version.id,
+            name: 'فوج غزة 1',
+            code: 'DEF-COHORT-' + Date.now(),
+            maxStudents: 30,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
+          }
+        });
+        cohortId = emergencyCohort.id;
+      }
+
+      // 3. Map type to valid Postgres AssessmentType enum ('quiz', 'assignment', 'exam', 'project')
+      let validAssessmentType: 'quiz' | 'assignment' | 'exam' | 'project' = 'assignment';
+      const rawType = (body.type || '').toLowerCase();
+      if (rawType === 'quiz') {
+        validAssessmentType = 'quiz';
+      } else if (rawType === 'exam') {
+        validAssessmentType = 'exam';
+      } else if (rawType === 'project' || rawType === 'activity') {
+        validAssessmentType = 'project';
+      } else {
+        // 'homework', 'assignment' or any other string maps to 'assignment'
+        validAssessmentType = 'assignment';
+      }
+
+      // 4. Resolve due date safely
+      let dueDate: Date;
+      try {
+        dueDate = body.dueDate ? new Date(body.dueDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        if (isNaN(dueDate.getTime())) {
+          dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        }
+      } catch {
+        dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      }
+
+      return await this.prisma.assessment.create({
+        data: {
+          title: body.title || 'واجب جديد',
+          description: body.subject ? "الموضوع: " + body.subject + "\n\n" + (body.description || "") : body.description,
+          dueDate: dueDate,
+          maxScore: body.maxScore ? Number(body.maxScore) : 20,
+          type: validAssessmentType,
+          cohortId: cohortId!,
+          createdById: teacherId!
+        }
+      });
+    } catch (err: any) {
+      console.error('Error creating assessment:', err);
+      throw err;
+    }
   }
 
   @Post(':assessmentId/submit')
@@ -142,31 +218,36 @@ export class AssessmentsController {
 
   @Get()
   async getAssessments(@Req() req: any) {
-    const userId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
+    const userId = req.user?.id || req.user?.userId;
     const role = req.user?.primaryRole || 'teacher';
 
     let whereClause: any = {};
-    if (role === 'teacher') {
+    if (role === 'teacher' && userId) {
       whereClause = {
         OR: [
           { createdById: userId },
           { cohort: { instructors: { some: { teacherId: userId } } } }
         ]
       };
-    } else if (role === 'supervisor' || role === 'subject_supervisor') {
-      whereClause = {
-        cohort: {
-          course: {
-            subject: {
-              supervisors: { some: { id: userId } }
-            }
-          }
-        }
-      };
-    } else if (role === 'super_admin' || role === 'admin') {
-      whereClause = {}; // Admin sees all
+    } else if ((role === 'supervisor' || role === 'subject_supervisor') && userId) {
+      const supervisor = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (supervisor?.supervisedSubjectId) {
+        const courses = await this.prisma.course.findMany({
+          where: { subjectId: supervisor.supervisedSubjectId },
+          select: { id: true }
+        });
+        const courseIds = courses.map(c => c.id);
+        const cohorts = await this.prisma.cohort.findMany({
+          where: { courseId: { in: courseIds } },
+          select: { id: true }
+        });
+        const cohortIds = cohorts.map(c => c.id);
+        whereClause = { cohortId: { in: cohortIds } };
+      } else {
+        whereClause = {};
+      }
     } else {
-       whereClause = { id: 'none' }; // Fallback
+      whereClause = {}; // Admin or fallback
     }
 
     return this.prisma.assessment.findMany({

@@ -97,6 +97,7 @@ export default function CreateAssessmentModal({
           cohortId: targetCohort,
           subject: manualSubject,
           description: manualDetails,
+          type: 'assignment'
         });
         queryClient.invalidateQueries({ queryKey: ['assessments'] });
         onClose();
