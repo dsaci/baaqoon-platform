@@ -370,13 +370,23 @@ export class SyllabusController {
       orderBy: { createdAt: 'desc' }
     });
 
+    // Keep active for 7 days after sending
     const isRecentlySent = recentReminderLog 
-      ? (now.getTime() - new Date(recentReminderLog.createdAt).getTime()) < (24 * 60 * 60 * 1000)
+      ? (now.getTime() - new Date(recentReminderLog.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000)
       : false;
+
+    let reminderDetails: any = null;
+    if (recentReminderLog?.details) {
+      try {
+        reminderDetails = JSON.parse(recentReminderLog.details);
+      } catch (e) {
+        reminderDetails = null;
+      }
+    }
 
     // Count cohorts and enrolled students
     const totalCohorts = await this.prisma.cohort.count();
-    const totalStudents = await this.prisma.user.count({ where: { primaryRole: 'student' } });
+    const totalStudents = await this.prisma.user.count({ where: { primaryRole: 'student', status: { not: 'suspended' } } });
 
     // Calculate syllabus progress average
     const sessions = await this.prisma.session.findMany({ select: { status: true } });
@@ -400,7 +410,9 @@ export class SyllabusController {
         isActive: isRecentlySent,
         lastSentAt: recentReminderLog?.createdAt || null,
         targetStudentsCount: totalStudents,
-        targetCohortsCount: totalCohorts
+        targetCohortsCount: totalCohorts,
+        title: reminderDetails?.title || campTitle,
+        message: reminderDetails?.message || null,
       }
     };
   }
@@ -414,9 +426,9 @@ export class SyllabusController {
     const title = body?.campTitle || 'معسكر المراجعة الربع سنوي لاختبارات الفترة الأولى';
     const message = body?.customMessage || `تذكير رسمي من إدارة المنصة: ${title} سيبدأ خلال الأيام القادمة وفق التوزيع السنوي والشهري المعتمد. يرجى المراجعة والتحضير للجدول الافتراضي.`;
 
-    // Fetch all active students
+    // Fetch all active or pending registered students (not suspended)
     const students = await this.prisma.user.findMany({
-      where: { primaryRole: 'student', status: 'active' },
+      where: { primaryRole: 'student', status: { not: 'suspended' } },
       select: { id: true }
     });
 
@@ -433,9 +445,9 @@ export class SyllabusController {
       });
     }
 
-    // Also notify active teachers
+    // Also notify active or pending teachers (not suspended)
     const teachers = await this.prisma.user.findMany({
-      where: { primaryRole: 'teacher', status: 'active' },
+      where: { primaryRole: 'teacher', status: { not: 'suspended' } },
       select: { id: true }
     });
 

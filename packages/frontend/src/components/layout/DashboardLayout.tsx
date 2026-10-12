@@ -27,6 +27,7 @@ import ProfileModal from "../shared/ProfileModal";
 import UserAvatar from "../shared/UserAvatar";
 import AppTour from "../tour/AppTour";
 import PlatformGuideModal from "../guide/PlatformGuideModal";
+import NotificationBell from "./NotificationBell";
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
@@ -360,6 +361,7 @@ export default function DashboardLayout() {
               <span className="hidden sm:inline">{t("guide.button", "دليل الاستخدام والأزرار")}</span>
             </button>
 
+            <NotificationBell />
             <LangToggle />
             <ThemeToggle />
 

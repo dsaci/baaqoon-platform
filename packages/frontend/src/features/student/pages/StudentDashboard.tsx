@@ -22,6 +22,7 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { DownloadCloud, Trophy, LifeBuoy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 
 const motivationalQuotes = [
   "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
@@ -119,6 +120,9 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ══════════════════════ Camp & Exam Prep Reminder Widget ══════════════════════ */}
+      <ExamPrepWidget role="student" />
 
       {/* ══════════════════════ Quick Stats ══════════════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

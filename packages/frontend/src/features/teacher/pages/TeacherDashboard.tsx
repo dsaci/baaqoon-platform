@@ -7,6 +7,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAccountabilityWidget';
+import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import { useTranslation } from 'react-i18next';
 
 export default function TeacherDashboard() {
@@ -73,6 +74,9 @@ export default function TeacherDashboard() {
 
       {/* Smart Syllabus Accountability & Progress Tracker */}
       <SyllabusAccountabilityWidget />
+
+      {/* Camp & Exam Prep Supervisory Directive */}
+      <ExamPrepWidget role="teacher" />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
