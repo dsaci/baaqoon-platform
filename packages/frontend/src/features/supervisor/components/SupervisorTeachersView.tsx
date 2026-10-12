@@ -189,21 +189,28 @@ export default function SupervisorTeachersView() {
 
           {/* Subject Switcher & Defaults */}
           <div className="flex items-center gap-3 w-full lg:w-auto">
-            <div className="flex-1 lg:flex-initial flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-              <BookOpen className="w-4 h-4 text-emerald-600 mr-2" />
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مادة التنسيق:</label>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                {allSubjects.map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nameAr} ({s.code})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {allSubjects.length > 1 ? (
+              <div className="flex-1 lg:flex-initial flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <BookOpen className="w-4 h-4 text-emerald-600 mr-2" />
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">مادة التنسيق:</label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  {allSubjects.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nameAr} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : allSubjects[0] ? (
+              <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                <BookOpen className="w-4 h-4 text-emerald-600" />
+                <span>مادة التخصص: {allSubjects[0].nameAr}</span>
+              </div>
+            ) : null}
 
             {selectedSubjectId && selectedSubjectId !== user?.supervisedSubjectId && (
               <button

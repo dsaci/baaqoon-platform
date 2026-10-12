@@ -254,21 +254,28 @@ export default function SupervisorCohortsView() {
 
           <div className="flex items-center gap-3 w-full lg:w-auto flex-wrap sm:flex-nowrap">
             {/* Subject selector */}
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-              <BookOpen className="w-4 h-4 text-indigo-600 mr-2" />
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">المادة:</label>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {allSubjects.map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nameAr} ({s.code})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {allSubjects.length > 1 ? (
+              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <BookOpen className="w-4 h-4 text-indigo-600 mr-2" />
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-300">المادة:</label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {allSubjects.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nameAr} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : allSubjects[0] ? (
+              <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/60 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 text-xs font-bold text-indigo-800 dark:text-indigo-200">
+                <BookOpen className="w-4 h-4 text-indigo-600" />
+                <span>مادة التخصص: {allSubjects[0].nameAr}</span>
+              </div>
+            ) : null}
 
             <button
               onClick={() => refetchCohorts()}

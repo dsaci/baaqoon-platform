@@ -260,11 +260,14 @@ export class GroupsController {
     const userId = req.user.id || req.user.userId;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const role = user?.primaryRole;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role || '');
     
-    let subjectFilter = {};
-    if (role === 'subject_supervisor') {
+    let subjectFilter: any = {};
+    if (isSupervisor) {
       if (user?.supervisedSubjectId) {
         subjectFilter = { subjectId: user.supervisedSubjectId };
+      } else {
+        return { teachers: [], students: [] };
       }
     }
 
@@ -275,7 +278,7 @@ export class GroupsController {
     const courseIds = courses.map(c => c.id);
 
     const cohorts = await this.prisma.cohort.findMany({
-      where: { courseId: { in: courseIds } },
+      where: isSupervisor ? { courseId: { in: courseIds } } : (courseIds.length > 0 ? { courseId: { in: courseIds } } : {}),
       select: { id: true }
     });
     const cohortIds = cohorts.map(c => c.id);
@@ -287,7 +290,7 @@ export class GroupsController {
     const cohortTeacherIds = instructors.map(i => i.teacherId);
 
     let teacherWhere: any = { primaryRole: 'teacher' };
-    if (role === 'subject_supervisor' && user?.supervisedSubjectId) {
+    if (isSupervisor && user?.supervisedSubjectId) {
       teacherWhere = {
         primaryRole: 'teacher',
         OR: [
@@ -316,14 +319,23 @@ export class GroupsController {
     const userId = req.user.id || req.user.userId;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const role = user?.primaryRole;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role || '');
     
-    let subjectFilter = {};
+    let subjectFilter: any = {};
     let supervisedSubject = null;
 
-    if (role === 'subject_supervisor') {
+    if (isSupervisor) {
       if (user?.supervisedSubjectId) {
         subjectFilter = { subjectId: user.supervisedSubjectId };
         supervisedSubject = await this.prisma.subject.findUnique({ where: { id: user.supervisedSubjectId } });
+      } else {
+        return {
+          supervisedSubject: null,
+          totalCohorts: 0,
+          totalStudents: 0,
+          totalTeachers: 0,
+          recentAssessments: []
+        };
       }
     }
 
@@ -333,10 +345,12 @@ export class GroupsController {
     });
     const courseIds = courses.map(c => c.id);
 
-    const totalCohorts = await this.prisma.cohort.count({ where: { courseId: { in: courseIds } } });
+    const totalCohorts = await this.prisma.cohort.count({
+      where: isSupervisor ? { courseId: { in: courseIds } } : (courseIds.length > 0 ? { courseId: { in: courseIds } } : undefined)
+    });
     
     const cohorts = await this.prisma.cohort.findMany({
-      where: { courseId: { in: courseIds } },
+      where: isSupervisor ? { courseId: { in: courseIds } } : (courseIds.length > 0 ? { courseId: { in: courseIds } } : undefined),
       select: { id: true }
     });
     const cohortIds = cohorts.map(c => c.id);
@@ -383,6 +397,7 @@ export class GroupsController {
     if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
       throw new UnauthorizedException();
     }
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
 
     // Ensure database tables exist
     try {
@@ -420,13 +435,19 @@ export class GroupsController {
       `);
     } catch (_) {}
 
-    const allSubjects = await this.prisma.subject.findMany({
+    let allSubjects = await this.prisma.subject.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       select: { id: true, nameAr: true, code: true, iconUrl: true }
     });
 
-    const activeSubjectId = querySubjectId || user.supervisedSubjectId || (allSubjects[0]?.id || null);
+    if (isSupervisor && user.supervisedSubjectId) {
+      allSubjects = allSubjects.filter(s => s.id === user.supervisedSubjectId);
+    }
+
+    const activeSubjectId = (isSupervisor && user.supervisedSubjectId)
+      ? user.supervisedSubjectId
+      : (querySubjectId || user.supervisedSubjectId || (allSubjects[0]?.id || null));
 
     let subjectInfo = null;
     if (activeSubjectId) {
@@ -450,7 +471,7 @@ export class GroupsController {
     }
 
     const cohortInstructors = await this.prisma.cohortInstructor.findMany({
-      where: subjectCohortIds.length > 0 ? { cohortId: { in: subjectCohortIds } } : undefined,
+      where: { cohortId: { in: subjectCohortIds } },
       select: { teacherId: true }
     });
     const instructorTeacherIds = cohortInstructors.map(ci => ci.teacherId);
@@ -789,9 +810,10 @@ export class GroupsController {
     try {
       const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
       const role = user?.primaryRole;
+      const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role || '');
       
-      let subjectFilter = {};
-      if (role === 'subject_supervisor') {
+      let subjectFilter: any = {};
+      if (isSupervisor) {
         if (!user?.supervisedSubjectId) return [];
         subjectFilter = { subjectId: user.supervisedSubjectId };
       } else if (role !== 'admin' && role !== 'super_admin') {
@@ -804,8 +826,12 @@ export class GroupsController {
       });
       const courseIds = courses.map(c => c.id);
 
+      if (isSupervisor && courseIds.length === 0) {
+        return [];
+      }
+
       const cohorts = await this.prisma.cohort.findMany({
-        where: { courseId: { in: courseIds } },
+        where: isSupervisor ? { courseId: { in: courseIds } } : (courseIds.length > 0 ? { courseId: { in: courseIds } } : {}),
         include: {
           instructors: true,
           sessions: {
@@ -1248,10 +1274,13 @@ export class GroupsController {
       return [];
     }
 
-    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
+    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
     let whereClause: any = {};
     if (activeSubjectId) {
       whereClause = { subjectId: activeSubjectId };
+    } else if (isSupervisor) {
+      return [];
     }
 
     return this.prisma.course.findMany({
@@ -1270,10 +1299,13 @@ export class GroupsController {
       return [];
     }
 
-    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
+    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
     let whereClause: any = { primaryRole: 'teacher', status: 'active' };
     if (activeSubjectId) {
       whereClause.supervisedSubjectId = activeSubjectId;
+    } else if (isSupervisor) {
+      return [];
     }
 
     return this.prisma.user.findMany({
@@ -1305,11 +1337,14 @@ export class GroupsController {
       throw new UnauthorizedException();
     }
 
-    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
+    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
 
     let courseFilter: any = {};
     if (activeSubjectId) {
       courseFilter = { subjectId: activeSubjectId };
+    } else if (isSupervisor) {
+      return [];
     }
 
     const courses = await this.prisma.course.findMany({
@@ -1321,8 +1356,12 @@ export class GroupsController {
     const courseIds = courses.map(c => c.id);
     const courseMap = new Map(courses.map(c => [c.id, c]));
 
+    if (isSupervisor && courseIds.length === 0) {
+      return [];
+    }
+
     const cohorts = await this.prisma.cohort.findMany({
-      where: courseIds.length > 0 ? { courseId: { in: courseIds } } : undefined,
+      where: isSupervisor ? { courseId: { in: courseIds } } : (courseIds.length > 0 ? { courseId: { in: courseIds } } : undefined),
       orderBy: { createdAt: 'desc' },
       include: {
         instructors: true,

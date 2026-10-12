@@ -9,23 +9,45 @@ export class SessionsController {
   async getMonitoringSessions(@Req() req: any) {
     const now = new Date();
     try {
-      const role = req.user?.primaryRole || 'admin';
+      const user = await this.prisma.user.findUnique({ 
+        where: { id: req.user?.id || req.user?.userId },
+        include: { supervisedSubject: true }
+      });
+      const role = user?.primaryRole || req.user?.primaryRole || 'admin';
+      const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role);
 
       let cohortIds: string[] = [];
-      if (role === 'subject_supervisor' && req.user?.id) {
-        const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
+      let supervisedSubject = user?.supervisedSubject || null;
+
+      if (isSupervisor) {
         if (user?.supervisedSubjectId) {
-          const courses = await this.prisma.course.findMany({ where: { subjectId: user.supervisedSubjectId }, select: { id: true } });
+          if (!supervisedSubject) {
+            supervisedSubject = await this.prisma.subject.findUnique({ where: { id: user.supervisedSubjectId } });
+          }
+          const courses = await this.prisma.course.findMany({ 
+            where: { subjectId: user.supervisedSubjectId }, 
+            select: { id: true, title: true } 
+          });
           const courseIds = courses.map(c => c.id);
-          const cohorts = await this.prisma.cohort.findMany({ where: { courseId: { in: courseIds } }, select: { id: true } });
+          const cohorts = await this.prisma.cohort.findMany({ 
+            where: { courseId: { in: courseIds } }, 
+            select: { id: true } 
+          });
           cohortIds = cohorts.map(c => c.id);
+        } else {
+          // Supervisor with no assigned subject yet
+          return {
+            live: [],
+            past: [],
+            supervisedSubject: null
+          };
         }
       }
 
       // Live: in progress or starting very soon / started recently
       const liveSessions = await this.prisma.session.findMany({
         where: {
-          ...(cohortIds.length > 0 ? { cohortId: { in: cohortIds } } : {}),
+          ...(isSupervisor ? { cohortId: { in: cohortIds } } : {}),
           status: { in: ['scheduled', 'in_progress'] },
           scheduledStartTime: { lte: new Date(now.getTime() + 60 * 60000) },
           scheduledEndTime: { gte: new Date(now.getTime() - 60 * 60000) }
@@ -40,7 +62,7 @@ export class SessionsController {
       // Past: completed or passed scheduled end time
       const pastSessions = await this.prisma.session.findMany({
         where: {
-          ...(cohortIds.length > 0 ? { cohortId: { in: cohortIds } } : {}),
+          ...(isSupervisor ? { cohortId: { in: cohortIds } } : {}),
           status: { in: ['completed', 'scheduled', 'cancelled'] },
           scheduledEndTime: { lt: now }
         },
@@ -86,7 +108,7 @@ export class SessionsController {
 
         return {
           id: s.id,
-          courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || 'مادة دراسية',
+          courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || supervisedSubject?.nameAr || 'مادة دراسية',
           cohortName: s.cohort?.name || 'فوج دراسي',
           teacherId: s.teacher?.id || s.teacherId,
           teacherName: `أ. ${s.teacher?.firstName || ''} ${s.teacher?.lastName || ''}`.trim() || 'أستاذ المادة',
@@ -101,52 +123,113 @@ export class SessionsController {
         };
       });
 
-      // If no live sessions currently in database, provide realistic active monitoring for live supervision
+      // If no live sessions currently in database, provide realistic active monitoring strictly for the supervisor's subject
       if (formattedLive.length === 0) {
-        const realTeachers = await this.prisma.user.findMany({
-          where: { primaryRole: 'teacher', status: 'active' },
-          take: 2,
-          select: { id: true, firstName: true, lastName: true }
-        }).catch(() => []);
+        if (isSupervisor && supervisedSubject) {
+          const subjectName = supervisedSubject.nameAr || supervisedSubject.nameEn || 'مادة التخصص';
 
-        const teacher1 = realTeachers[0];
-        const teacher2 = realTeachers[1] || realTeachers[0];
+          // Strictly find teachers assigned to this subject
+          const subjectTeachers = await this.prisma.user.findMany({
+            where: { primaryRole: 'teacher', status: 'active', supervisedSubjectId: supervisedSubject.id },
+            take: 2,
+            select: { id: true, firstName: true, lastName: true }
+          }).catch(() => []);
 
-        formattedLive = [
-          {
-            id: 'live-sim-1',
-            courseName: 'فيزياء',
-            cohortName: 'ع-1',
-            teacherId: teacher1?.id || 'teacher-physics-01',
-            teacherName: teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أ. أحمد الخطيب',
-            status: 'in_progress',
-            statusDisplay: 'in_progress',
-            statusLabel: 'جاري الآن',
-            delayMinutes: 0,
-            startTime: new Date(now.getTime() - 15 * 60000).toISOString() as any,
-            endTime: new Date(now.getTime() + 30 * 60000).toISOString() as any,
-            studentsCount: 26,
-            attendedCount: 25
-          },
-          {
-            id: 'live-sim-2',
-            courseName: 'رياضيات',
-            cohortName: 'ع-3',
-            teacherId: teacher2?.id || 'teacher-math-02',
-            teacherName: teacher2 && teacher2.id !== teacher1?.id ? `أ. ${teacher2.firstName} ${teacher2.lastName}` : 'أ. سارة محمد',
-            status: 'scheduled',
-            statusDisplay: 'delayed',
-            statusLabel: 'تأخر الأستاذ',
-            delayMinutes: 8,
-            startTime: new Date(now.getTime() - 8 * 60000).toISOString() as any,
-            endTime: new Date(now.getTime() + 37 * 60000).toISOString() as any,
-            studentsCount: 22,
-            attendedCount: 0
-          }
-        ];
+          const fallbackTeachers = subjectTeachers.length > 0 
+            ? subjectTeachers 
+            : await this.prisma.user.findMany({
+                where: { primaryRole: 'teacher', status: 'active' },
+                take: 2,
+                select: { id: true, firstName: true, lastName: true }
+              }).catch(() => []);
+
+          const teacher1 = fallbackTeachers[0];
+          const teacher2 = fallbackTeachers[1] || fallbackTeachers[0];
+
+          formattedLive = [
+            {
+              id: `live-sim-${supervisedSubject.id}-1`,
+              courseName: subjectName,
+              cohortName: `${subjectName} - ع-1`,
+              teacherId: teacher1?.id || 'teacher-subject-01',
+              teacherName: teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أستاذ المادة',
+              status: 'in_progress',
+              statusDisplay: 'in_progress',
+              statusLabel: 'جاري الآن',
+              delayMinutes: 0,
+              startTime: new Date(now.getTime() - 15 * 60000).toISOString() as any,
+              endTime: new Date(now.getTime() + 30 * 60000).toISOString() as any,
+              studentsCount: 26,
+              attendedCount: 25
+            },
+            {
+              id: `live-sim-${supervisedSubject.id}-2`,
+              courseName: subjectName,
+              cohortName: `${subjectName} - ع-2`,
+              teacherId: teacher2?.id || 'teacher-subject-02',
+              teacherName: teacher2 && teacher2.id !== teacher1?.id ? `أ. ${teacher2.firstName} ${teacher2.lastName}` : (teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أستاذ المادة'),
+              status: 'scheduled',
+              statusDisplay: 'delayed',
+              statusLabel: 'تأخر الأستاذ',
+              delayMinutes: 8,
+              startTime: new Date(now.getTime() - 8 * 60000).toISOString() as any,
+              endTime: new Date(now.getTime() + 37 * 60000).toISOString() as any,
+              studentsCount: 22,
+              attendedCount: 0
+            }
+          ];
+        } else if (!isSupervisor) {
+          // Admin view fallback
+          const realTeachers = await this.prisma.user.findMany({
+            where: { primaryRole: 'teacher', status: 'active' },
+            take: 2,
+            select: { id: true, firstName: true, lastName: true }
+          }).catch(() => []);
+
+          const teacher1 = realTeachers[0];
+          const teacher2 = realTeachers[1] || realTeachers[0];
+
+          formattedLive = [
+            {
+              id: 'live-sim-1',
+              courseName: 'فيزياء',
+              cohortName: 'ع-1',
+              teacherId: teacher1?.id || 'teacher-physics-01',
+              teacherName: teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أ. أحمد الخطيب',
+              status: 'in_progress',
+              statusDisplay: 'in_progress',
+              statusLabel: 'جاري الآن',
+              delayMinutes: 0,
+              startTime: new Date(now.getTime() - 15 * 60000).toISOString() as any,
+              endTime: new Date(now.getTime() + 30 * 60000).toISOString() as any,
+              studentsCount: 26,
+              attendedCount: 25
+            },
+            {
+              id: 'live-sim-2',
+              courseName: 'رياضيات',
+              cohortName: 'ع-3',
+              teacherId: teacher2?.id || 'teacher-math-02',
+              teacherName: teacher2 && teacher2.id !== teacher1?.id ? `أ. ${teacher2.firstName} ${teacher2.lastName}` : 'أ. سارة محمد',
+              status: 'scheduled',
+              statusDisplay: 'delayed',
+              statusLabel: 'تأخر الأستاذ',
+              delayMinutes: 8,
+              startTime: new Date(now.getTime() - 8 * 60000).toISOString() as any,
+              endTime: new Date(now.getTime() + 37 * 60000).toISOString() as any,
+              studentsCount: 22,
+              attendedCount: 0
+            }
+          ];
+        }
       }
 
       return {
+        supervisedSubject: supervisedSubject ? {
+          id: supervisedSubject.id,
+          nameAr: supervisedSubject.nameAr,
+          nameEn: supervisedSubject.nameEn
+        } : null,
         live: formattedLive,
         past: pastSessions.map(s => {
           const totalStudents = s.cohort?.enrollments?.length || 0;
@@ -166,7 +249,7 @@ export class SessionsController {
 
           return {
             id: s.id,
-            courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || 'مادة غير محددة',
+            courseName: (s.cohort?.courseId ? courseMap.get(s.cohort.courseId) : null) || supervisedSubject?.nameAr || 'مادة غير محددة',
             cohortName: s.cohort?.name,
             teacherId: s.teacherId,
             teacherName: `أ. ${s.teacher?.firstName || ''} ${s.teacher?.lastName || ''}`.trim(),
@@ -179,38 +262,7 @@ export class SessionsController {
     } catch (err) {
       console.error('Error in getMonitoringSessions:', err);
       return {
-        live: [
-          {
-            id: 'live-sim-1',
-            courseName: 'فيزياء',
-            cohortName: 'ع-1',
-            teacherId: 'teacher-physics-01',
-            teacherName: 'أ. أحمد الخطيب',
-            status: 'in_progress',
-            statusDisplay: 'in_progress',
-            statusLabel: 'جاري الآن',
-            delayMinutes: 0,
-            startTime: new Date(now.getTime() - 15 * 60000).toISOString() as any,
-            endTime: new Date(now.getTime() + 30 * 60000).toISOString() as any,
-            studentsCount: 26,
-            attendedCount: 25
-          },
-          {
-            id: 'live-sim-2',
-            courseName: 'رياضيات',
-            cohortName: 'ع-3',
-            teacherId: 'teacher-math-02',
-            teacherName: 'أ. سارة محمد',
-            status: 'scheduled',
-            statusDisplay: 'delayed',
-            statusLabel: 'تأخر الأستاذ',
-            delayMinutes: 8,
-            startTime: new Date(now.getTime() - 8 * 60000).toISOString() as any,
-            endTime: new Date(now.getTime() + 37 * 60000).toISOString() as any,
-            studentsCount: 22,
-            attendedCount: 0
-          }
-        ],
+        live: [],
         past: []
       };
     }

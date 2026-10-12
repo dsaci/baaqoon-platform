@@ -163,7 +163,7 @@ export default function LiveMonitoringWidget({ role = 'supervisor', className = 
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 absolute -top-1 -right-1 ring-2 ring-white dark:ring-slate-900 animate-ping"></span>
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                 المراقبة المباشرة الحالية
               </h2>
@@ -171,6 +171,11 @@ export default function LiveMonitoringWidget({ role = 'supervisor', className = 
                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
                 بث حي
               </span>
+              {monitoringData?.supervisedSubject?.nameAr && (
+                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  مادة التخصص: {monitoringData.supervisedSubject.nameAr}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5">
               متابعة الحصص الافتراضية الجارية فورياً، رصد تأخر الأساتذة، وتوجيه التنبيهات الآنية
