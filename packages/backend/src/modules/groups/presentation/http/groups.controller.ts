@@ -28,7 +28,8 @@ export class GroupsController {
       orderBy: { nameAr: 'asc' },
       include: {
         supervisors: {
-          select: { id: true, firstName: true, lastName: true, email: true }
+          where: { primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] } },
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true }
         }
       }
     });
@@ -67,8 +68,15 @@ export class GroupsController {
     });
 
     const supervisors = await this.prisma.user.findMany({
-      where: { primaryRole: 'subject_supervisor' },
-      select: { id: true, firstName: true, lastName: true, email: true }
+      where: {
+        primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin', 'teacher'] },
+        status: { in: ['active', 'pending'] }
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true },
+      orderBy: [
+        { primaryRole: 'asc' },
+        { firstName: 'asc' }
+      ]
     });
 
     return { subjects: formattedSubjects, supervisors };
@@ -76,24 +84,70 @@ export class GroupsController {
 
   @Patch('admin/distribution/:subjectId/supervisor/:userId')
   async assignSupervisor(@Req() req: any, @Param('subjectId') subjectId: string, @Param('userId') userId: string) {
-    if (req.user.primaryRole !== 'super_admin' && req.user.primaryRole !== 'admin') {
+    const role = req.user?.primaryRole;
+    if (role !== 'super_admin' && role !== 'admin') {
       return { error: 'Unauthorized' };
     }
     
-    if (userId === 'none') {
-      // Unassign all supervisors from this subject
-      await this.prisma.user.updateMany({
-        where: { supervisedSubjectId: subjectId, primaryRole: 'subject_supervisor' },
-        data: { supervisedSubjectId: null }
-      });
-      return { success: true };
-    } else {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { supervisedSubjectId: subjectId }
-      });
-      return { success: true };
+    // Clear previous supervisors assigned to this subject
+    await this.prisma.user.updateMany({
+      where: {
+        supervisedSubjectId: subjectId,
+        primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
+      },
+      data: { supervisedSubjectId: null }
+    });
+
+    if (userId === 'none' || !userId) {
+      try {
+        await this.prisma.activityLog.create({
+          data: {
+            userId: req.user.id,
+            action: 'UNASSIGN_SUPERVISOR',
+            details: `إلغاء تعيين مشرف المادة ${subjectId}`
+          }
+        });
+      } catch (e) {
+        // ignore logging error
+      }
+      return { success: true, message: 'تم إزالة المشرف بنجاح' };
     }
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!targetUser) {
+      return { error: 'User not found' };
+    }
+
+    const updateData: any = {
+      supervisedSubjectId: subjectId
+    };
+
+    // Promote teacher to subject_supervisor if applicable
+    if (targetUser.primaryRole === 'teacher') {
+      updateData.primaryRole = 'subject_supervisor';
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData
+    });
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'ASSIGN_SUPERVISOR',
+          details: `تعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً للمادة`
+        }
+      });
+    } catch (e) {
+      // ignore logging error
+    }
+
+    return { success: true, message: 'تم تعيين المشرف بنجاح' };
   }
 
   constructor(private readonly prisma: PrismaService) {}
