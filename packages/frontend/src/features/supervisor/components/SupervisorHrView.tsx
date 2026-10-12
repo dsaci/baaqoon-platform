@@ -17,7 +17,7 @@ export default function SupervisorHrView({ role }: { role: 'teacher' | 'student'
   }
 
   const usersList = role === 'teacher' ? data?.teachers || [] : data?.students || [];
-  const title = role === 'teacher' ? 'أساتذة مادة التخصص' : 'طلبة مادة التخصص';
+  const title = role === 'teacher' ? 'أساتذة مادة التخصص' : 'طلبة المنصة (المتاحون للتفويج والإسناد)';
 
   return (
     <div className="bg-white dark:bg-baaqoon-900 rounded-2xl p-6 shadow-sm border border-baaqoon-100 dark:border-baaqoon-800">
@@ -28,7 +28,7 @@ export default function SupervisorHrView({ role }: { role: 'teacher' | 'student'
 
       {usersList.length === 0 ? (
         <div className="text-center p-12 text-slate-500">
-          <p className="font-bold">لا يوجد {role === 'teacher' ? 'أساتذة' : 'طلبة'} مسجلين في مادة تخصصك حتى الآن.</p>
+          <p className="font-bold">لا يوجد {role === 'teacher' ? 'أساتذة مسجلين في مادة تخصصك' : 'طلبة مسجلين في المنصة'} حتى الآن.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -223,7 +223,7 @@ export default function SupervisorDashboard() {
               طلبة المادة
             </h3>
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-              سجلات وحضور الطلاب
+              كافة الطلبة المتاحين للتفويج والإسناد
             </p>
           </div>
         </button>

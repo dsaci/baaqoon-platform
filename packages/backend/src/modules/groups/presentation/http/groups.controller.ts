@@ -198,19 +198,14 @@ export class GroupsController {
     });
     const teacherIds = [...new Set(instructors.map(i => i.teacherId))];
 
-    const enrollments = await this.prisma.cohortEnrollment.findMany({
-      where: { cohortId: { in: cohortIds } },
-      select: { studentId: true }
-    });
-    const studentIds = [...new Set(enrollments.map(e => e.studentId))];
-
     const teachers = await this.prisma.user.findMany({
       where: { id: { in: teacherIds }, primaryRole: 'teacher' },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
     const students = await this.prisma.user.findMany({
-      where: { id: { in: studentIds }, primaryRole: 'student' },
+      where: { primaryRole: 'student' },
+      orderBy: { firstName: 'asc' },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
@@ -247,7 +242,7 @@ export class GroupsController {
     });
     const cohortIds = cohorts.map(c => c.id);
 
-    const totalStudents = await this.prisma.cohortEnrollment.count({ where: { cohortId: { in: cohortIds } } });
+    const totalStudents = await this.prisma.user.count({ where: { primaryRole: 'student' } });
     
     const instructors = await this.prisma.cohortInstructor.findMany({
       where: { cohortId: { in: cohortIds } },
@@ -620,17 +615,17 @@ export class GroupsController {
   @Get('supervisor/delegated/students')
   async getDelegatedStudents(@Req() req: any, @Query('branch') branch?: string, @Query('curriculum') curriculum?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
-    if (!user || user.primaryRole !== 'subject_supervisor') {
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
       return { error: 'Unauthorized' };
     }
 
-    const whereClause: any = { primaryRole: 'student', status: 'active' };
-    if (branch) whereClause.academicBranch = branch;
-    if (curriculum) whereClause.curriculumType = curriculum;
-
+    // Return all students to coordinator for effortless cohorting, preventing exclusion if student misselected their branch
     return this.prisma.user.findMany({
-      where: whereClause,
-      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, email: true }
+      where: { primaryRole: 'student', status: 'active' },
+      orderBy: [
+        { firstName: 'asc' }
+      ],
+      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, email: true, phone: true }
     });
   }
 

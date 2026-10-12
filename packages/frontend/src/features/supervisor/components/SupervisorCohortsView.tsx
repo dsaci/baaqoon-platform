@@ -34,15 +34,11 @@ export default function SupervisorCohortsView() {
     }
   });
 
-  // Fetch eligible students based on filters
+  // Fetch all eligible students for easy assignment and grouping
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
-    queryKey: ['supervisor_delegated_students', formData.academicBranch, formData.curriculumType],
+    queryKey: ['supervisor_delegated_students'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (formData.academicBranch) params.append('branch', formData.academicBranch);
-      if (formData.curriculumType) params.append('curriculum', formData.curriculumType);
-      
-      const res = await api.get(`/groups/supervisor/delegated/students?${params.toString()}`);
+      const res = await api.get('/groups/supervisor/delegated/students');
       return res.data;
     }
   });
@@ -225,8 +221,8 @@ export default function SupervisorCohortsView() {
                 <div className="space-y-6 animate-fade-in flex flex-col h-full">
                   <div className="text-center mb-4">
                     <GraduationCap className="w-12 h-12 text-indigo-500 mx-auto mb-3" />
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">تفويج الطلبة</h3>
-                    <p className="text-slate-500 text-sm mt-1">تحديد الطلبة المنضمين لهذا الفوج. المعروض هم طلبة الفرع والمنهج المحددين للمساق.</p>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">تفويج وإسناد الطلبة</h3>
+                    <p className="text-slate-500 text-sm mt-1">تحديد الطلبة المنضمين لهذا الفوج. يتم عرض كافة طلبة المنصة لتسهيل التفويج والإسناد وتدارك أي خطأ يقع فيه الطالب عند اختيار تخصصه.</p>
                   </div>
 
                   <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
@@ -249,7 +245,7 @@ export default function SupervisorCohortsView() {
                       </div>
                     ) : students.length === 0 ? (
                       <div className="p-8 text-center text-slate-500">
-                        لا يوجد طلبة مطابقين للفرع والمنهج المطلوب.
+                        لا يوجد طلبة مسجلين حالياً في المنصة.
                       </div>
                     ) : (
                       <table className="w-full text-right text-sm">
@@ -279,7 +275,7 @@ export default function SupervisorCohortsView() {
                               <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{s.firstName} {s.lastName}</td>
                               <td className="px-4 py-3 text-slate-500 dir-ltr text-right">{s.email}</td>
                               <td className="px-4 py-3 text-slate-600">
-                                {s.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} - {s.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'}
+                                {s.academicBranch === 'scientific' ? 'علمي' : s.academicBranch === 'literary' ? 'أدبي' : 'عام / غير محدد'} - {s.curriculumType === 'governmental' ? 'حكومي' : s.curriculumType === 'azhari' ? 'أزهري' : 'عام'}
                               </td>
                             </tr>
                           ))}
