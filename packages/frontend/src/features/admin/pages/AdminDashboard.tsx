@@ -34,6 +34,7 @@ import ActivityLogsView from '../components/ActivityLogsView';
 import SupervisorAccountabilityView from '../../supervisor/components/SupervisorAccountabilityView';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
+import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
 
 export default function AdminDashboard() {
   const { user } = useAuthStore();
@@ -488,6 +489,9 @@ export default function AdminDashboard() {
               <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">توزيع المهام والمشرفين على المواد والمراحل الدراسية</p>
             </button>
           </div>
+
+          {/* Live Sessions Monitoring Section for Admin / Director */}
+          <LiveMonitoringWidget role="admin" />
 
           {/* Activity Logs Section */}
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">

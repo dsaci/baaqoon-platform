@@ -11,6 +11,7 @@ import { ShieldAlert } from 'lucide-react';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
+import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
 
 export default function SupervisorDashboard() {
   const { user } = useAuthStore();
@@ -328,59 +329,9 @@ export default function SupervisorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Live Monitoring */}
         <div className="lg:col-span-2 space-y-6">
-          <section className="glass-panel p-6 rounded-xl shadow-sm border border-gray-100 dark:border-baaqoon-800">
-            <h2 className="text-xl font-semibold text-baaqoon-900 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-red-500" />
-              المراقبة المباشرة الحالية
-            </h2>
-            <div className="space-y-4">
-              {/* Session 1 */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-baaqoon-800/50 rounded-lg border border-gray-100 dark:border-baaqoon-800">
-                <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                  <div>
-                    <h3 className="font-bold text-gray-800 dark:text-white">فيزياء - ع-1</h3>
-                    <p className="text-sm text-gray-500 dark:text-baaqoon-400">أ. أحمد الخطيب</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                    جاري الآن
-                  </span>
-                </div>
-              </div>
-              
-              {/* Session 2 */}
-              <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
-                <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <div>
-                    <h3 className="font-bold text-gray-800 dark:text-white">رياضيات - ع-3</h3>
-                    <p className="text-sm text-gray-500 dark:text-baaqoon-400">أ. سارة محمد</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
-                    تأخر الأستاذ
-                  </span>
-                  <button 
-                    onClick={() => handleNudge('session-2')}
-                    disabled={!!nudgeStatus['session-2']}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      nudgeStatus['session-2'] === 'تم التنبيه' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-baaqoon-accent text-white hover:bg-opacity-90'
-                    }`}
-                  >
-                    {nudgeStatus['session-2'] === 'تم التنبيه' ? <CheckCircle className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-                    {nudgeStatus['session-2'] || 'إرسال تنبيه للأستاذ'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* Live Monitoring Dynamic Component */}
+          <LiveMonitoringWidget role="supervisor" />
 
           {/* Attendance Reports */}
           <section className="glass-panel p-6 rounded-xl shadow-sm border border-gray-100 dark:border-baaqoon-800">
