@@ -28,15 +28,37 @@ export class AuthService {
       throw new ConflictException("لا يوجد حساب بهذا البريد أو رقم الهاتف");
     }
     const hash = await bcrypt.hash(newPassword, 12);
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE users.password_reset_requests SET status='cancelled', resolved_at=now() WHERE user_id=$1::uuid AND status='pending'`,
-      user.id,
-    );
-    await this.prisma.$executeRawUnsafe(
-      `INSERT INTO users.password_reset_requests (user_id, new_password_hash) VALUES ($1::uuid, $2)`,
-      user.id,
-      hash,
-    );
+    try {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE users.password_reset_requests SET status='cancelled', resolved_at=now() WHERE user_id=$1::uuid AND status='pending'`,
+        user.id,
+      );
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO users.password_reset_requests (user_id, new_password_hash) VALUES ($1::uuid, $2)`,
+        user.id,
+        hash,
+      );
+    } catch (err) {
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS users.password_reset_requests (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+            new_password_hash VARCHAR(255) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now(),
+            resolved_at TIMESTAMPTZ(6)
+          )
+        `);
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.password_reset_requests (user_id, new_password_hash) VALUES ($1::uuid, $2)`,
+          user.id,
+          hash,
+        );
+      } catch (innerErr) {
+        throw new ConflictException("حدث خطأ أثناء إرسال طلب استعادة كلمة المرور، يرجى المحاولة لاحقاً.");
+      }
+    }
     return { message: "تم إرسال طلب تغيير كلمة المرور إلى المدير. ستتمكن من الدخول بالكلمة الجديدة بعد موافقته." };
   }
 

@@ -9,26 +9,46 @@ export class UsersController {
   @Get('admin/password-requests')
   async listPasswordRequests(@Req() req: any) {
     if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
-    return this.prisma.$queryRawUnsafe(`
-      SELECT r.id, r.created_at AS "createdAt", u.id AS "userId", u."firstName", u."lastName",
-             u.email, u.phone, u."primaryRole"
-      FROM users.password_reset_requests r JOIN users.users u ON u.id = r.user_id
-      WHERE r.status = 'pending' ORDER BY r.created_at DESC`);
+    try {
+      return await this.prisma.$queryRawUnsafe(`
+        SELECT r.id, r.created_at AS "createdAt", u.id AS "userId", u."firstName", u."lastName",
+               u.email, u.phone, u."primaryRole"
+        FROM users.password_reset_requests r JOIN users.users u ON u.id = r.user_id
+        WHERE r.status = 'pending' ORDER BY r.created_at DESC`);
+    } catch (err) {
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS users.password_reset_requests (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+            new_password_hash VARCHAR(255) NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now(),
+            resolved_at TIMESTAMPTZ(6)
+          )
+        `);
+      } catch (_) {}
+      return [];
+    }
   }
 
   @Post('admin/password-requests/:id/:action')
   async resolvePasswordRequest(@Req() req: any, @Param('id') id: string, @Param('action') action: string) {
     if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
-    const rows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT user_id, new_password_hash FROM users.password_reset_requests WHERE id=$1::uuid AND status='pending'`, id);
-    if (!rows.length) return { ok: false };
-    if (action === 'approve') {
-      await this.prisma.user.update({ where: { id: rows[0].user_id }, data: { passwordHash: rows[0].new_password_hash } });
+    try {
+      const rows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT user_id, new_password_hash FROM users.password_reset_requests WHERE id=$1::uuid AND status='pending'`, id);
+      if (!rows.length) return { ok: false };
+      if (action === 'approve') {
+        await this.prisma.user.update({ where: { id: rows[0].user_id }, data: { passwordHash: rows[0].new_password_hash } });
+      }
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE users.password_reset_requests SET status=$2, resolved_at=now() WHERE id=$1::uuid`,
+        id, action === 'approve' ? 'approved' : 'rejected');
+      return { ok: true };
+    } catch (err) {
+      return { ok: false };
     }
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE users.password_reset_requests SET status=$2, resolved_at=now() WHERE id=$1::uuid`,
-      id, action === 'approve' ? 'approved' : 'rejected');
-    return { ok: true };
   }
 
   @Patch('admin/:id/password')

@@ -219,7 +219,14 @@ export default function AppTour() {
     setSteps(newSteps);
   }, [user, pathKey]);
 
-  if (steps.length === 0) return null;
+  // Listen for custom event to trigger tour programmatically
+  useEffect(() => {
+    const handleStartTour = () => {
+      restartTour();
+    };
+    window.addEventListener('baaqoon:start_tour', handleStartTour);
+    return () => window.removeEventListener('baaqoon:start_tour', handleStartTour);
+  }, [user, pathKey]);
 
   const handleJoyrideCallback = (data: any) => {
     const { status, action } = data;
@@ -229,30 +236,28 @@ export default function AppTour() {
       setRun(false);
       
       // Save page-specific completion
-      localStorage.setItem(`tour_completed_${user?.id}_${pathKey}`, 'true');
+      if (user?.id) {
+        localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+      }
 
       // If user checked "Don't show again" across the whole app
-      if (dontShowAgainRef.current) {
-        localStorage.setItem(`tour_opt_out_all_${user?.id}`, 'true');
+      if (dontShowAgainRef.current && user?.id) {
+        localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
       }
     }
   };
 
   const restartTour = () => {
-    localStorage.removeItem(`tour_completed_${user?.id}_${pathKey}`);
-    localStorage.removeItem(`tour_opt_out_all_${user?.id}`);
+    if (steps.length === 0) {
+      return;
+    }
+    if (user?.id) {
+      localStorage.removeItem(`tour_completed_${user.id}_${pathKey}`);
+      localStorage.removeItem(`tour_opt_out_all_${user.id}`);
+    }
     setDontShowAgain(false);
     setRun(true);
   };
-
-  // Listen for custom event to trigger tour programmatically
-  useEffect(() => {
-    const handleStartTour = () => {
-      restartTour();
-    };
-    window.addEventListener('baaqoon:start_tour', handleStartTour);
-    return () => window.removeEventListener('baaqoon:start_tour', handleStartTour);
-  }, [user, pathKey]);
 
   // Custom Tooltip Component for better styling and adding the "Don't show again" checkbox
   const CustomTooltip = ({
@@ -315,15 +320,19 @@ export default function AppTour() {
     );
   };
 
+  if (!user) return null;
+
   return (
     <>
-      <Joyride
-        steps={steps}
-        run={run}
-        continuous={true}
-        tooltipComponent={CustomTooltip}
-        onEvent={handleJoyrideCallback}
-      />
+      {steps.length > 0 && (
+        <Joyride
+          steps={steps}
+          run={run}
+          continuous={true}
+          tooltipComponent={CustomTooltip}
+          onEvent={handleJoyrideCallback}
+        />
+      )}
       
       {/* Floating help buttons: Comprehensive Guide + Interactive Page Tour */}
       <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2">
