@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Post, Body, Param, Patch, Delete, UseGuards , Query } from '@nestjs/common';
+import { Controller, Get, Req, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
@@ -176,8 +176,9 @@ export class GroupsController {
     
     let subjectFilter = {};
     if (role === 'subject_supervisor') {
-      if (!user?.supervisedSubjectId) return { teachers: [], students: [] };
-      subjectFilter = { subjectId: user.supervisedSubjectId };
+      if (user?.supervisedSubjectId) {
+        subjectFilter = { subjectId: user.supervisedSubjectId };
+      }
     }
 
     const courses = await this.prisma.course.findMany({
@@ -196,10 +197,21 @@ export class GroupsController {
       where: { cohortId: { in: cohortIds } },
       select: { teacherId: true }
     });
-    const teacherIds = [...new Set(instructors.map(i => i.teacherId))];
+    const cohortTeacherIds = instructors.map(i => i.teacherId);
+
+    let teacherWhere: any = { primaryRole: 'teacher' };
+    if (role === 'subject_supervisor' && user?.supervisedSubjectId) {
+      teacherWhere = {
+        primaryRole: 'teacher',
+        OR: [
+          { supervisedSubjectId: user.supervisedSubjectId },
+          { id: { in: cohortTeacherIds } }
+        ]
+      };
+    }
 
     const teachers = await this.prisma.user.findMany({
-      where: { id: { in: teacherIds }, primaryRole: 'teacher' },
+      where: teacherWhere,
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
@@ -248,7 +260,18 @@ export class GroupsController {
       where: { cohortId: { in: cohortIds } },
       select: { teacherId: true }
     });
-    const totalTeachers = new Set(instructors.map(i => i.teacherId)).size;
+    const cohortTeacherIds = instructors.map(i => i.teacherId);
+
+    let totalTeachers = 0;
+    if (user?.supervisedSubjectId) {
+      const subjectTeachers = await this.prisma.user.findMany({
+        where: { primaryRole: 'teacher', supervisedSubjectId: user.supervisedSubjectId },
+        select: { id: true }
+      });
+      totalTeachers = new Set([...subjectTeachers.map(t => t.id), ...cohortTeacherIds]).size;
+    } else {
+      totalTeachers = await this.prisma.user.count({ where: { primaryRole: 'teacher' } });
+    }
 
     const recentAssessments = await this.prisma.assessment.findMany({
       where: { cohortId: { in: cohortIds } },
@@ -264,6 +287,381 @@ export class GroupsController {
       totalTeachers,
       recentAssessments
     };
+  }
+
+  @Get('supervisor/subject-teachers')
+  async getSupervisorSubjectTeachers(@Req() req: any, @Query('subjectId') querySubjectId?: string) {
+    const userId = req.user?.id || req.user?.userId;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    // Ensure database tables exist
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS users.teacher_evaluations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          supervisor_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          teacher_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          evaluation_type VARCHAR(100) NOT NULL DEFAULT 'survey',
+          title VARCHAR(200) NOT NULL,
+          syllabus_adherence_score INT NOT NULL DEFAULT 5,
+          pedagogical_quality_score INT NOT NULL DEFAULT 5,
+          student_interaction_score INT NOT NULL DEFAULT 5,
+          assessment_quality_score INT NOT NULL DEFAULT 5,
+          tech_platform_use_score INT NOT NULL DEFAULT 5,
+          overall_score DECIMAL(5,2) NOT NULL DEFAULT 100,
+          notes TEXT,
+          recommendations TEXT,
+          action_plan TEXT,
+          created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS users.teacher_clarifications (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          supervisor_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          teacher_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          type VARCHAR(50) NOT NULL DEFAULT 'clarification',
+          title VARCHAR(200) NOT NULL,
+          content TEXT NOT NULL,
+          teacher_reply TEXT,
+          teacher_replied_at TIMESTAMPTZ(6),
+          is_urgent BOOLEAN NOT NULL DEFAULT false,
+          status VARCHAR(32) NOT NULL DEFAULT 'sent',
+          created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now()
+        );
+      `);
+    } catch (_) {}
+
+    const allSubjects = await this.prisma.subject.findMany({
+      where: { isActive: true },
+      orderBy: { nameAr: 'asc' },
+      select: { id: true, nameAr: true, code: true, iconUrl: true }
+    });
+
+    const activeSubjectId = querySubjectId || user.supervisedSubjectId || (allSubjects[0]?.id || null);
+
+    let subjectInfo = null;
+    if (activeSubjectId) {
+      subjectInfo = await this.prisma.subject.findUnique({
+        where: { id: activeSubjectId },
+        select: { id: true, nameAr: true, code: true, iconUrl: true }
+      });
+    }
+
+    let subjectCohortIds: string[] = [];
+    if (activeSubjectId) {
+      const courses = await this.prisma.course.findMany({
+        where: { subjectId: activeSubjectId },
+        select: { id: true }
+      });
+      const cohorts = await this.prisma.cohort.findMany({
+        where: { courseId: { in: courses.map(c => c.id) } },
+        select: { id: true }
+      });
+      subjectCohortIds = cohorts.map(c => c.id);
+    }
+
+    const cohortInstructors = await this.prisma.cohortInstructor.findMany({
+      where: subjectCohortIds.length > 0 ? { cohortId: { in: subjectCohortIds } } : undefined,
+      select: { teacherId: true }
+    });
+    const instructorTeacherIds = cohortInstructors.map(ci => ci.teacherId);
+
+    let teacherWhere: any = { primaryRole: 'teacher' };
+    if (activeSubjectId) {
+      teacherWhere = {
+        primaryRole: 'teacher',
+        OR: [
+          { supervisedSubjectId: activeSubjectId },
+          { id: { in: instructorTeacherIds } }
+        ]
+      };
+    }
+
+    const teachers = await this.prisma.user.findMany({
+      where: teacherWhere,
+      orderBy: [{ status: 'asc' }, { firstName: 'asc' }],
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        avatarUrl: true,
+        nationality: true,
+        academicBranch: true,
+        curriculumType: true,
+        gradeLevel: true,
+        status: true,
+        createdAt: true,
+        lastLoginAt: true,
+        supervisedSubjectId: true,
+        supervisedSubject: {
+          select: { id: true, nameAr: true, code: true }
+        }
+      }
+    });
+
+    const teachersWithDetails = await Promise.all(teachers.map(async (t) => {
+      const myCohortInstructors = await this.prisma.cohortInstructor.findMany({
+        where: { teacherId: t.id },
+        include: {
+          cohort: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              status: true,
+              enrollments: { select: { id: true } }
+            }
+          }
+        }
+      });
+      const cohortsTaught = myCohortInstructors.map(ci => ({
+        id: ci.cohort.id,
+        name: ci.cohort.name,
+        code: ci.cohort.code,
+        status: ci.cohort.status,
+        studentsCount: ci.cohort.enrollments.length
+      }));
+
+      const teacherSessions = await this.prisma.session.findMany({
+        where: { teacherId: t.id },
+        select: { id: true, status: true, scheduledStartTime: true }
+      });
+      const totalSessions = teacherSessions.length;
+      const completedSessions = teacherSessions.filter(s => s.status === 'completed').length;
+      const scheduledSessions = teacherSessions.filter(s => s.status === 'scheduled').length;
+      const cancelledSessions = teacherSessions.filter(s => s.status === 'cancelled').length;
+
+      const sessionIds = teacherSessions.map(s => s.id);
+      let attendanceRate = 100;
+      if (sessionIds.length > 0) {
+        const totalAttendances = await this.prisma.sessionAttendance.count({
+          where: { sessionId: { in: sessionIds } }
+        });
+        if (totalAttendances > 0) {
+          const presentAttendances = await this.prisma.sessionAttendance.count({
+            where: { sessionId: { in: sessionIds }, status: 'present' }
+          });
+          attendanceRate = Math.round((presentAttendances / totalAttendances) * 100);
+        }
+      }
+
+      const createdAssessmentsCount = await this.prisma.assessment.count({
+        where: { createdById: t.id }
+      });
+      const gradedSubmissionsCount = await this.prisma.assessmentSubmission.count({
+        where: { gradedById: t.id }
+      });
+
+      let evaluations: any[] = [];
+      try {
+        evaluations = await this.prisma.$queryRawUnsafe(`
+          SELECT e.id, e.title, e.evaluation_type AS "evaluationType",
+                 e.syllabus_adherence_score AS "syllabusAdherenceScore",
+                 e.pedagogical_quality_score AS "pedagogicalQualityScore",
+                 e.student_interaction_score AS "studentInteractionScore",
+                 e.assessment_quality_score AS "assessmentQualityScore",
+                 e.tech_platform_use_score AS "techPlatformUseScore",
+                 e.overall_score AS "overallScore",
+                 e.notes, e.recommendations, e.action_plan AS "actionPlan",
+                 e.created_at AS "createdAt",
+                 u."firstName" AS "supervisorFirstName", u."lastName" AS "supervisorLastName"
+          FROM users.teacher_evaluations e
+          LEFT JOIN users.users u ON u.id = e.supervisor_id
+          WHERE e.teacher_id = $1::uuid
+          ORDER BY e.created_at DESC
+        `, t.id);
+      } catch (_) {}
+
+      const avgScore = evaluations.length > 0
+        ? Math.round(evaluations.reduce((acc, curr) => acc + Number(curr.overallScore || 0), 0) / evaluations.length)
+        : null;
+
+      let clarifications: any[] = [];
+      try {
+        clarifications = await this.prisma.$queryRawUnsafe(`
+          SELECT c.id, c.type, c.title, c.content,
+                 c.teacher_reply AS "teacherReply",
+                 c.teacher_replied_at AS "teacherRepliedAt",
+                 c.is_urgent AS "isUrgent",
+                 c.status,
+                 c.created_at AS "createdAt",
+                 u."firstName" AS "supervisorFirstName", u."lastName" AS "supervisorLastName"
+          FROM users.teacher_clarifications c
+          LEFT JOIN users.users u ON u.id = c.supervisor_id
+          WHERE c.teacher_id = $1::uuid
+          ORDER BY c.created_at DESC
+        `, t.id);
+      } catch (_) {}
+
+      return {
+        ...t,
+        cohortsTaught,
+        totalCohorts: cohortsTaught.length,
+        metrics: {
+          totalSessions,
+          completedSessions,
+          scheduledSessions,
+          cancelledSessions,
+          attendanceRate,
+          createdAssessmentsCount,
+          gradedSubmissionsCount,
+          evaluationScore: avgScore,
+          evaluationsCount: evaluations.length,
+          clarificationsCount: clarifications.length
+        },
+        recentEvaluations: evaluations.slice(0, 5),
+        recentClarifications: clarifications.slice(0, 5)
+      };
+    }));
+
+    return {
+      activeSubject: subjectInfo,
+      allSubjects,
+      teachers: teachersWithDetails,
+      totalCount: teachersWithDetails.length
+    };
+  }
+
+  @Post('supervisor/teachers/:teacherId/evaluations')
+  async createSupervisorEvaluation(
+    @Req() req: any,
+    @Param('teacherId') teacherId: string,
+    @Body() body: any
+  ) {
+    const supervisorId = req.user?.id || req.user?.userId;
+    const {
+      evaluationType = 'survey',
+      title,
+      syllabusAdherenceScore = 5,
+      pedagogicalQualityScore = 5,
+      studentInteractionScore = 5,
+      assessmentQualityScore = 5,
+      techPlatformUseScore = 5,
+      notes = '',
+      recommendations = '',
+      actionPlan = ''
+    } = body;
+
+    const overallScore = Math.round(
+      ((Number(syllabusAdherenceScore) +
+        Number(pedagogicalQualityScore) +
+        Number(studentInteractionScore) +
+        Number(assessmentQualityScore) +
+        Number(techPlatformUseScore)) / 25) * 100
+    );
+
+    const result = await this.prisma.$queryRawUnsafe(`
+      INSERT INTO users.teacher_evaluations (
+        supervisor_id, teacher_id, evaluation_type, title,
+        syllabus_adherence_score, pedagogical_quality_score,
+        student_interaction_score, assessment_quality_score,
+        tech_platform_use_score, overall_score, notes, recommendations, action_plan
+      ) VALUES (
+        $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+      ) RETURNING id, title, created_at AS "createdAt"
+    `, supervisorId, teacherId, evaluationType, title || 'استبيان تقييم أداء الأستاذ',
+       Number(syllabusAdherenceScore), Number(pedagogicalQualityScore), Number(studentInteractionScore),
+       Number(assessmentQualityScore), Number(techPlatformUseScore), overallScore, notes, recommendations, actionPlan
+    );
+
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: teacherId,
+          title: `استبيان تقييم إشرافي جديد: ${title || 'تقييم الأداء والمرافقة'}`,
+          body: `قام المشرف المنسق بتسجيل استبيان تقييم إشرافي لك بنتيجة ${overallScore}%. التوصيات: ${recommendations || 'متابعة طيبة'}`,
+          type: 'system',
+          actionUrl: '/teacher/dashboard'
+        }
+      });
+    } catch (_) {}
+
+    return { ok: true, result, overallScore };
+  }
+
+  @Get('supervisor/teachers/:teacherId/evaluations')
+  async getSupervisorTeacherEvaluations(@Param('teacherId') teacherId: string) {
+    return this.prisma.$queryRawUnsafe(`
+      SELECT e.id, e.title, e.evaluation_type AS "evaluationType",
+             e.syllabus_adherence_score AS "syllabusAdherenceScore",
+             e.pedagogical_quality_score AS "pedagogicalQualityScore",
+             e.student_interaction_score AS "studentInteractionScore",
+             e.assessment_quality_score AS "assessmentQualityScore",
+             e.tech_platform_use_score AS "techPlatformUseScore",
+             e.overall_score AS "overallScore",
+             e.notes, e.recommendations, e.action_plan AS "actionPlan",
+             e.created_at AS "createdAt",
+             u."firstName" AS "supervisorFirstName", u."lastName" AS "supervisorLastName"
+          FROM users.teacher_evaluations e
+          LEFT JOIN users.users u ON u.id = e.supervisor_id
+          WHERE e.teacher_id = $1::uuid
+          ORDER BY e.created_at DESC
+    `, teacherId);
+  }
+
+  @Post('supervisor/teachers/:teacherId/clarifications')
+  async createSupervisorClarification(
+    @Req() req: any,
+    @Param('teacherId') teacherId: string,
+    @Body() body: any
+  ) {
+    const supervisorId = req.user?.id || req.user?.userId;
+    const { type = 'clarification', title, content, isUrgent = false } = body;
+
+    const result = await this.prisma.$queryRawUnsafe(`
+      INSERT INTO users.teacher_clarifications (
+        supervisor_id, teacher_id, type, title, content, is_urgent, status
+      ) VALUES (
+        $1::uuid, $2::uuid, $3, $4, $5, $6, 'sent'
+      ) RETURNING id, title, created_at AS "createdAt"
+    `, supervisorId, teacherId, type, title || 'توضيح واستفسار إشرافي', content, isUrgent);
+
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: teacherId,
+          title: `رسالة/توضيح جديد من المشرف: ${title}`,
+          body: content,
+          type: 'system',
+          actionUrl: '/teacher/dashboard'
+        }
+      });
+    } catch (_) {}
+
+    return { ok: true, result };
+  }
+
+  @Get('supervisor/teachers/:teacherId/clarifications')
+  async getSupervisorTeacherClarifications(@Param('teacherId') teacherId: string) {
+    return this.prisma.$queryRawUnsafe(`
+      SELECT c.id, c.type, c.title, c.content,
+             c.teacher_reply AS "teacherReply",
+             c.teacher_replied_at AS "teacherRepliedAt",
+             c.is_urgent AS "isUrgent",
+             c.status,
+             c.created_at AS "createdAt",
+             u."firstName" AS "supervisorFirstName", u."lastName" AS "supervisorLastName"
+      FROM users.teacher_clarifications c
+      LEFT JOIN users.users u ON u.id = c.supervisor_id
+      WHERE c.teacher_id = $1::uuid
+      ORDER BY c.created_at DESC
+    `, teacherId);
+  }
+
+  @Patch('supervisor/set-subject')
+  async updateSupervisorSubject(@Req() req: any, @Body() body: { subjectId: string }) {
+    const userId = req.user?.id || req.user?.userId;
+    const { subjectId } = body;
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { supervisedSubjectId: subjectId },
+      include: { supervisedSubject: true }
+    });
+    return updated;
   }
 
   @Get('cohorts/me')

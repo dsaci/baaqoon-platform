@@ -7,6 +7,7 @@ import { api } from '../../../lib/axios';
 import HrManagementAdminView from '../../admin/components/HrManagementAdminView';
 import SupervisorCohortsView from '../components/SupervisorCohortsView';
 import SupervisorAccountabilityView from '../components/SupervisorAccountabilityView';
+import SupervisorTeachersView from '../components/SupervisorTeachersView';
 import { ShieldAlert } from 'lucide-react';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
@@ -435,7 +436,7 @@ export default function SupervisorDashboard() {
       </>
       )}
       
-      {activeTab === 'teachers' && <HrManagementAdminView initialRoleFilter="teacher" />}
+      {activeTab === 'teachers' && <SupervisorTeachersView />}
       {activeTab === 'students' && <HrManagementAdminView initialRoleFilter="student" />}
         
       {activeTab === 'cohorts' && <SupervisorCohortsView />}
