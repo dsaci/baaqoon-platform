@@ -978,34 +978,42 @@ export class GroupsController {
   // ==========================================
 
   @Get('supervisor/delegated/courses')
-  async getDelegatedCourses(@Req() req: any) {
+  async getDelegatedCourses(@Req() req: any, @Query('subjectId') querySubjectId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
-    if (!user || user.primaryRole !== 'subject_supervisor' || !user.supervisedSubjectId) {
-      return { error: 'Unauthorized or missing supervised subject' };
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      return [];
+    }
+
+    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+    let whereClause: any = {};
+    if (activeSubjectId) {
+      whereClause = { subjectId: activeSubjectId };
     }
 
     return this.prisma.course.findMany({
-      where: { subjectId: user.supervisedSubjectId },
+      where: whereClause,
       include: {
-        subject: { select: { nameAr: true } },
+        subject: { select: { id: true, nameAr: true, code: true } },
         versions: { where: { isDefault: true }, select: { id: true } }
       }
     });
   }
 
   @Get('supervisor/delegated/teachers')
-  async getDelegatedTeachers(@Req() req: any) {
+  async getDelegatedTeachers(@Req() req: any, @Query('subjectId') querySubjectId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
-    if (!user || user.primaryRole !== 'subject_supervisor' || !user.supervisedSubjectId) {
-      return { error: 'Unauthorized' };
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      return [];
+    }
+
+    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+    let whereClause: any = { primaryRole: 'teacher', status: 'active' };
+    if (activeSubjectId) {
+      whereClause.supervisedSubjectId = activeSubjectId;
     }
 
     return this.prisma.user.findMany({
-      where: { 
-        primaryRole: 'teacher',
-        supervisedSubjectId: user.supervisedSubjectId,
-        status: 'active'
-      },
+      where: whereClause,
       select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
   }
@@ -1014,10 +1022,9 @@ export class GroupsController {
   async getDelegatedStudents(@Req() req: any, @Query('branch') branch?: string, @Query('curriculum') curriculum?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
     if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
-      return { error: 'Unauthorized' };
+      return [];
     }
 
-    // Return all students to coordinator for effortless cohorting, preventing exclusion if student misselected their branch
     return this.prisma.user.findMany({
       where: { primaryRole: 'student', status: 'active' },
       orderBy: [
@@ -1027,11 +1034,337 @@ export class GroupsController {
     });
   }
 
+  @Get('supervisor/delegated/cohorts-detailed')
+  async getDelegatedCohortsDetailed(@Req() req: any, @Query('subjectId') querySubjectId?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const activeSubjectId = querySubjectId || user.supervisedSubjectId;
+
+    let courseFilter: any = {};
+    if (activeSubjectId) {
+      courseFilter = { subjectId: activeSubjectId };
+    }
+
+    const courses = await this.prisma.course.findMany({
+      where: courseFilter,
+      include: {
+        subject: { select: { id: true, nameAr: true, code: true } }
+      }
+    });
+    const courseIds = courses.map(c => c.id);
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+
+    const cohorts = await this.prisma.cohort.findMany({
+      where: courseIds.length > 0 ? { courseId: { in: courseIds } } : undefined,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        instructors: true,
+        enrollments: true
+      }
+    });
+
+    const teacherIds = [...new Set(cohorts.flatMap(c => c.instructors.map(i => i.teacherId)))];
+    const studentIds = [...new Set(cohorts.flatMap(c => c.enrollments.map(e => e.studentId)))];
+
+    const [teachers, students] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: teacherIds } },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, avatarUrl: true }
+      }),
+      this.prisma.user.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true }
+      })
+    ]);
+
+    const teacherMap = new Map(teachers.map(t => [t.id, t]));
+    const studentMap = new Map(students.map(s => [s.id, s]));
+
+    const detailedCohorts = cohorts.map(cohort => {
+      const course = courseMap.get(cohort.courseId);
+      const instructor = cohort.instructors[0] ? teacherMap.get(cohort.instructors[0].teacherId) : null;
+      const enrolledStudents = cohort.enrollments
+        .map(enr => {
+          const st = studentMap.get(enr.studentId);
+          if (!st) return null;
+          return {
+            ...st,
+            enrollmentStatus: enr.status
+          };
+        })
+        .filter(Boolean);
+
+      const maxCapacity = cohort.maxStudents || 12;
+      const enrolledCount = enrolledStudents.length;
+      const availableSeats = Math.max(0, maxCapacity - enrolledCount);
+      const isTeacherVacant = !instructor || instructor.status !== 'active';
+
+      let capacityStatus = 'available';
+      if (enrolledCount >= maxCapacity) {
+        capacityStatus = 'full';
+      } else if (isTeacherVacant) {
+        capacityStatus = 'teacher_vacant';
+      } else if (enrolledCount < (cohort.minStudents || 3)) {
+        capacityStatus = 'under_minimum';
+      }
+
+      return {
+        id: cohort.id,
+        name: cohort.name,
+        code: cohort.code,
+        status: cohort.status,
+        minStudents: cohort.minStudents || 3,
+        maxStudents: maxCapacity,
+        enrolledCount,
+        availableSeats,
+        capacityStatus,
+        isTeacherVacant,
+        course: {
+          id: course?.id,
+          title: course?.title,
+          code: course?.code,
+          curriculumType: course?.curriculumType,
+          academicBranch: course?.academicBranch,
+          subject: course?.subject
+        },
+        teacher: instructor || null,
+        enrolledStudents
+      };
+    });
+
+    const allActiveStudents = await this.prisma.user.findMany({
+      where: { primaryRole: 'student', status: 'active' },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true }
+    });
+
+    const enrolledStudentIdSet = new Set(studentIds);
+    const unassignedStudents = allActiveStudents.filter(s => !enrolledStudentIdSet.has(s.id));
+
+    return {
+      cohorts: detailedCohorts,
+      unassignedStudents,
+      summary: {
+        totalCohorts: detailedCohorts.length,
+        totalEnrolledStudents: studentIds.length,
+        totalAvailableSeats: detailedCohorts.reduce((acc, c) => acc + c.availableSeats, 0),
+        teacherVacantCount: detailedCohorts.filter(c => c.isTeacherVacant).length,
+        unassignedStudentsCount: unassignedStudents.length
+      }
+    };
+  }
+
+  @Post('supervisor/cohorts/:cohortId/enroll-student')
+  async enrollStudentInCohort(
+    @Req() req: any,
+    @Param('cohortId') cohortId: string,
+    @Body() body: { studentId: string; notes?: string }
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const { studentId } = body;
+    const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+    if (!cohort) throw new Error('Cohort not found');
+
+    const existing = await this.prisma.cohortEnrollment.findFirst({
+      where: { cohortId, studentId }
+    });
+    if (existing) {
+      return { ok: true, message: 'الطالب مسجل بالفعل في هذا الفوج' };
+    }
+
+    await this.prisma.cohortEnrollment.create({
+      data: {
+        cohortId,
+        studentId,
+        status: 'enrolled' as any
+      }
+    });
+
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: studentId,
+          title: `تم إسنادك إلى فوج جديد: ${cohort.name}`,
+          body: `قام المشرف المنسق بضمك إلى فوج ${cohort.name}. يمكنك متابعة جدول حصصك الآن.`,
+          type: 'enrollment',
+          actionUrl: '/student/dashboard'
+        }
+      });
+    } catch (_) {}
+
+    return { ok: true, cohortId, studentId };
+  }
+
+  @Post('supervisor/transfer-student')
+  async transferStudentBetweenCohorts(
+    @Req() req: any,
+    @Body() body: { studentId: string; fromCohortId: string; toCohortId: string; reason?: string }
+  ) {
+    const supervisorId = req.user.id || req.user.userId;
+    const { studentId, fromCohortId, toCohortId, reason = 'نقل وتنسيق إشرافي' } = body;
+
+    await this.prisma.cohortEnrollment.deleteMany({
+      where: { cohortId: fromCohortId, studentId }
+    });
+
+    const existing = await this.prisma.cohortEnrollment.findFirst({
+      where: { cohortId: toCohortId, studentId }
+    });
+    if (!existing) {
+      await this.prisma.cohortEnrollment.create({
+        data: {
+          cohortId: toCohortId,
+          studentId,
+          status: 'enrolled' as any
+        }
+      });
+    }
+
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        INSERT INTO users.student_cohort_transfers (supervisor_id, student_id, from_cohort_id, to_cohort_id, reason)
+        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5)
+      `, supervisorId, studentId, fromCohortId, toCohortId, reason);
+    } catch (_) {}
+
+    const toCohort = await this.prisma.cohort.findUnique({ where: { id: toCohortId } });
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: studentId,
+          title: `تم تغيير فوجك الدراسي إلى: ${toCohort?.name}`,
+          body: `قام المشرف المنسق بنقلك إلى فوج ${toCohort?.name}. السبب: ${reason}`,
+          type: 'enrollment',
+          actionUrl: '/student/dashboard'
+        }
+      });
+    } catch (_) {}
+
+    return { ok: true, studentId, toCohortId };
+  }
+
+  @Delete('supervisor/cohorts/:cohortId/students/:studentId')
+  async removeStudentFromCohort(
+    @Req() req: any,
+    @Param('cohortId') cohortId: string,
+    @Param('studentId') studentId: string
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    await this.prisma.cohortEnrollment.deleteMany({
+      where: { cohortId, studentId }
+    });
+
+    return { ok: true, cohortId, studentId };
+  }
+
+  @Post('supervisor/cohorts/:cohortId/assign-teacher')
+  async assignTeacherToCohort(
+    @Req() req: any,
+    @Param('cohortId') cohortId: string,
+    @Body() body: { teacherId: string; reason?: string }
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const { teacherId } = body;
+    await this.prisma.cohortInstructor.deleteMany({ where: { cohortId } });
+    await this.prisma.cohortInstructor.create({
+      data: {
+        cohortId,
+        teacherId,
+        role: 'primary_teacher'
+      }
+    });
+
+    const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: teacherId,
+          title: `تم إسناد فوج دراسي جديد لك: ${cohort?.name}`,
+          body: `قام المشرف المنسق بتعيينك معلماً رئيسياً لفوج ${cohort?.name}.`,
+          type: 'system',
+          actionUrl: '/teacher/dashboard'
+        }
+      });
+    } catch (_) {}
+
+    return { ok: true, cohortId, teacherId };
+  }
+
+  @Post('supervisor/cohorts/:fromCohortId/bulk-transfer')
+  async bulkTransferCohortStudents(
+    @Req() req: any,
+    @Param('fromCohortId') fromCohortId: string,
+    @Body() body: { toCohortId: string; studentIds?: string[]; reason?: string; archiveOldCohort?: boolean }
+  ) {
+    const supervisorId = req.user.id || req.user.userId;
+    const { toCohortId, studentIds, reason = 'معالجة شغور أستاذ وضم الطلبة', archiveOldCohort = false } = body;
+
+    const fromEnrollments = await this.prisma.cohortEnrollment.findMany({
+      where: { cohortId: fromCohortId }
+    });
+
+    const targetStudentIds = studentIds && studentIds.length > 0 
+      ? studentIds 
+      : fromEnrollments.map(e => e.studentId);
+
+    await this.prisma.cohortEnrollment.deleteMany({
+      where: {
+        cohortId: fromCohortId,
+        studentId: { in: targetStudentIds }
+      }
+    });
+
+    for (const sId of targetStudentIds) {
+      const existing = await this.prisma.cohortEnrollment.findFirst({
+        where: { cohortId: toCohortId, studentId: sId }
+      });
+      if (!existing) {
+        await this.prisma.cohortEnrollment.create({
+          data: {
+            cohortId: toCohortId,
+            studentId: sId,
+            status: 'enrolled' as any
+          }
+        });
+      }
+
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          INSERT INTO users.student_cohort_transfers (supervisor_id, student_id, from_cohort_id, to_cohort_id, reason)
+          VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5)
+        `, supervisorId, sId, fromCohortId, toCohortId, reason);
+      } catch (_) {}
+    }
+
+    if (archiveOldCohort) {
+      await this.prisma.cohort.update({
+        where: { id: fromCohortId },
+        data: { status: 'suspended' as any }
+      });
+    }
+
+    return { ok: true, transferredCount: targetStudentIds.length, toCohortId };
+  }
+
   @Post('supervisor/delegated/cohorts')
   async createDelegatedCohort(@Req() req: any, @Body() body: { name: string, courseId: string, teacherId: string, studentIds: string[] }) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
-    if (!user || user.primaryRole !== 'subject_supervisor' || !user.supervisedSubjectId) {
-      throw new Error('Unauthorized');
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
     }
 
     // Find default curriculum version for course
@@ -1040,8 +1373,8 @@ export class GroupsController {
       include: { versions: { where: { isDefault: true } } }
     });
 
-    if (!course || course.subjectId !== user.supervisedSubjectId) {
-      throw new Error('Invalid course or not authorized for this subject');
+    if (!course) {
+      throw new Error('Course not found');
     }
 
     const versionId = course.versions[0]?.id;
