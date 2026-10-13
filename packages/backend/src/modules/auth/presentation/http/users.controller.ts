@@ -67,23 +67,28 @@ export class UsersController {
     if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
     const bcrypt = require('bcrypt');
     const passwordHash = await bcrypt.hash(body.password || 'Baaqoon2024!', 12);
+
+    const isDual = body.primaryRole === 'dual_teacher_supervisor' || body.isDualRole === true;
+    const effectivePrimaryRole = isDual ? 'subject_supervisor' : body.primaryRole;
+    const rolesToCreate = isDual
+      ? [{ role: 'subject_supervisor' as any }, { role: 'teacher' as any }]
+      : [{ role: effectivePrimaryRole as any }];
+
     return this.prisma.user.create({
       data: {
         email: body.email,
         firstName: body.firstName,
         lastName: body.lastName,
-        primaryRole: body.primaryRole,
+        primaryRole: effectivePrimaryRole as any,
         passwordHash,
         status: 'active',
         academicBranch: body.academicBranch || null,
         curriculumType: body.curriculumType || null,
-        gradeLevel: body.gradeLevel || (body.primaryRole === 'student' ? 'grade_11' : null),
+        gradeLevel: body.gradeLevel || (effectivePrimaryRole === 'student' ? 'grade_11' : null),
         supervisedSubjectId: body.supervisedSubjectId || null,
         nationality: body.nationality || null,
         roles: {
-          create: {
-            role: body.primaryRole
-          }
+          create: rolesToCreate
         }
       }
     });
@@ -110,42 +115,54 @@ export class UsersController {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        primaryRole: true,
-        status: true,
-        avatarUrl: true,
-        nationality: true,
-        gradeLevel: true,
-      }
+      include: { roles: true }
     });
-    return updated;
+    const rawRoles = updated.roles?.map((r: any) => r.role) || [];
+    const roles = Array.from(new Set([updated.primaryRole, ...rawRoles]));
+    const isDualRole = roles.includes('teacher') && (roles.includes('subject_supervisor') || roles.includes('supervisor'));
+
+    return {
+      id: updated.id,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      email: updated.email,
+      phone: updated.phone,
+      primaryRole: updated.primaryRole,
+      roles,
+      isDualRole,
+      supervisedSubjectId: updated.supervisedSubjectId,
+      status: updated.status,
+      avatarUrl: updated.avatarUrl,
+      nationality: updated.nationality,
+      gradeLevel: updated.gradeLevel,
+    };
   }
 
   @Get('admin/list')
   async getAllUsers(@Req() req: any) {
-    if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) {
+    if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(req.user.primaryRole)) {
       return { error: 'Unauthorized' };
     }
     
-    let whereClause = {};
-    if (req.user.primaryRole === 'subject_supervisor') {
+    let whereClause: any = {};
+    if (req.user.primaryRole === 'subject_supervisor' || req.user.primaryRole === 'supervisor') {
       const supervisor = await this.prisma.user.findUnique({ where: { id: req.user.id } });
       const subjectId = supervisor?.supervisedSubjectId;
 
       whereClause = {
         OR: [
-          ...(subjectId ? [{ primaryRole: 'teacher', supervisedSubjectId: subjectId }] : [{ primaryRole: 'teacher' }]),
+          ...(subjectId
+            ? [
+                { primaryRole: 'teacher', supervisedSubjectId: subjectId },
+                { roles: { some: { role: 'teacher' } }, supervisedSubjectId: subjectId },
+              ]
+            : [{ primaryRole: 'teacher' }]),
           { primaryRole: 'student' } // Display all students to coordinator for easy assignment and grouping
         ]
       };
     }
     
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -162,10 +179,132 @@ export class UsersController {
         curriculumType: true,
         gradeLevel: true,
         supervisedSubjectId: true,
+        supervisedSubject: {
+          select: { id: true, nameAr: true, code: true }
+        },
+        roles: {
+          select: { role: true }
+        },
         lastLoginAt: true,
         emailVerified: true
       }
     });
+
+    return users.map(u => {
+      const rawRoles = u.roles?.map(r => r.role as string) || [];
+      const roles: string[] = Array.from(new Set([u.primaryRole as string, ...rawRoles]));
+      const isDualRole = roles.includes('teacher') && (roles.includes('subject_supervisor') || roles.includes('supervisor'));
+      return {
+        ...u,
+        roles,
+        isDualRole
+      };
+    });
+  }
+
+  @Patch('admin/:id/dual-role')
+  async updateUserDualRole(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: {
+      enableDualRole: boolean;
+      supervisedSubjectId?: string | null;
+      singleRole?: 'teacher' | 'subject_supervisor';
+    }
+  ) {
+    if (!['super_admin', 'admin'].includes(req.user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id },
+      include: { roles: true }
+    });
+    if (!targetUser) {
+      throw new UnauthorizedException('المستخدم غير موجود');
+    }
+
+    const subjectId = body.supervisedSubjectId !== undefined ? (body.supervisedSubjectId || null) : targetUser.supervisedSubjectId;
+
+    if (body.enableDualRole) {
+      // Grant Dual Role: Teacher + Subject Supervisor together
+      await this.prisma.user.update({
+        where: { id },
+        data: {
+          primaryRole: 'subject_supervisor',
+          supervisedSubjectId: subjectId
+        }
+      });
+
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId: id, role: 'teacher' } },
+        update: {},
+        create: { userId: id, role: 'teacher', grantedById: req.user.id }
+      });
+
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId: id, role: 'subject_supervisor' } },
+        update: {},
+        create: { userId: id, role: 'subject_supervisor', grantedById: req.user.id }
+      });
+
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: id,
+            title: 'ترقية الحساب: منح الصفة الثنائية (تدريس + إشراف)',
+            body: 'تمت ترقية حسابك ومنحك الصفة الثنائية (أستاذ مدرّس ومشرف منسق للمادة معاً). يمكنك التبديل بين فضاء الإشراف وفضاء التدريس من القائمة العلوية أو الجانبية مباشرة.',
+            actionUrl: '/supervisor/dashboard',
+            type: 'system'
+          }
+        });
+      } catch (_) {}
+
+      try {
+        await this.prisma.activityLog.create({
+          data: {
+            userId: req.user.id,
+            action: 'PROMOTE_DUAL_ROLE',
+            details: `ترقية ومنح الصفة الثنائية (تدريس + إشراف) للمستخدم ${targetUser.firstName} ${targetUser.lastName}`
+          }
+        });
+      } catch (_) {}
+    } else {
+      // Revert to single role (either teacher or subject_supervisor)
+      const targetSingleRole = body.singleRole || 'teacher';
+      await this.prisma.user.update({
+        where: { id },
+        data: {
+          primaryRole: targetSingleRole as any,
+          supervisedSubjectId: subjectId
+        }
+      });
+
+      await this.prisma.userRoleAssignment.deleteMany({
+        where: { userId: id }
+      });
+
+      await this.prisma.userRoleAssignment.create({
+        data: { userId: id, role: targetSingleRole as any, grantedById: req.user.id }
+      });
+    }
+
+    const updated = await this.prisma.user.findUnique({
+      where: { id },
+      include: { roles: true, supervisedSubject: { select: { id: true, nameAr: true, code: true } } }
+    });
+    const rawRoles = updated?.roles?.map(r => r.role as string) || [];
+    const roles: string[] = updated ? Array.from(new Set([updated.primaryRole as string, ...rawRoles])) : [];
+    const isDualRole = roles.includes('teacher') && (roles.includes('subject_supervisor') || roles.includes('supervisor'));
+
+    return {
+      ...updated,
+      roles,
+      isDualRole,
+      message: body.enableDualRole
+        ? `تم منح الصفة الثنائية (التدريس والإشراف معاً) لـ ${targetUser.firstName} ${targetUser.lastName} بنجاح`
+        : `تم تحديث صلاحية ${targetUser.firstName} ${targetUser.lastName} بنجاح`
+    };
   }
 
   @Patch('admin/:id/status')

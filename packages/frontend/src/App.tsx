@@ -59,7 +59,16 @@ const PrivateRoute = ({
 
   if (allowedRole) {
     const roles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
-    if (!roles.includes(user.primaryRole)) {
+    const userRoles = Array.from(
+      new Set([
+        user.primaryRole,
+        ...(Array.isArray(user.roles) ? user.roles : []),
+        ...(user.isDualRole ? ['teacher', 'subject_supervisor'] : []),
+      ])
+    );
+
+    const hasAccess = roles.some((r) => userRoles.includes(r as any));
+    if (!hasAccess) {
       if (user.primaryRole === 'subject_supervisor' || user.primaryRole === 'supervisor') {
         return <Navigate to="/supervisor/dashboard" replace />;
       }
@@ -84,18 +93,18 @@ function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (token && !user) {
+      if (token) {
         try {
           const res = await api.get('/auth/me');
           initialize(res.data);
         } catch (err) {
-          logout();
+          if (!user) logout();
         }
       }
       setIsInitializing(false);
     };
     initAuth();
-  }, [token, user, initialize, logout]);
+  }, [token]);
 
   if (isInitializing) {
     return (
@@ -126,7 +135,7 @@ function App() {
       <Route
         path="/teacher"
         element={
-          <PrivateRoute allowedRole="teacher">
+          <PrivateRoute allowedRole={["teacher", "subject_supervisor", "supervisor"]}>
             <DashboardLayout />
           </PrivateRoute>
         }

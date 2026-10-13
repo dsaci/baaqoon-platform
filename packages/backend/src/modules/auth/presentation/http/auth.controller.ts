@@ -34,9 +34,18 @@ export class AuthController {
   getProfile(@Request() req: any) {
     // req.user is populated by JwtStrategy
     const user = req.user;
+    const rawRoles = user.roles?.map((r: any) => (typeof r === 'string' ? r : r.role)) || [];
+    const roles = Array.from(new Set([user.primaryRole, ...rawRoles]));
+    const isDualRole =
+      roles.includes('teacher') &&
+      (roles.includes('subject_supervisor') || roles.includes('supervisor'));
 
     // Remove sensitive data before returning
     const { passwordHash, ...safeUser } = user;
-    return safeUser;
+    return {
+      ...safeUser,
+      roles,
+      isDualRole,
+    };
   }
 }

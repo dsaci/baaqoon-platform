@@ -169,7 +169,11 @@ export class AuthService {
       throw new UnauthorizedException("هذا الحساب غير مفعل أو تم إيقافه");
     }
 
-    const roles = user.roles?.map((r: any) => r.role) || [user.primaryRole];
+    const rawRoles = user.roles?.map((r: any) => (typeof r === 'string' ? r : r.role)) || [];
+    const roles = Array.from(new Set([user.primaryRole, ...rawRoles]));
+    const isDualRole =
+      roles.includes('teacher') &&
+      (roles.includes('subject_supervisor') || roles.includes('supervisor'));
 
     const payload = {
       sub: user.id,
@@ -178,7 +182,7 @@ export class AuthService {
       roles: roles,
     };
 
-        // Log Activity
+    // Log Activity
     try {
       await this.prisma.activityLog.create({
         data: {
@@ -199,10 +203,16 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         primaryRole: user.primaryRole,
+        roles,
+        isDualRole,
+        supervisedSubjectId: user.supervisedSubjectId,
         status: user.status,
         phone: user.phone,
         nationality: user.nationality,
         gradeLevel: user.gradeLevel,
+        academicBranch: user.academicBranch,
+        curriculumType: user.curriculumType,
+        avatarUrl: user.avatarUrl,
       },
     };
   }

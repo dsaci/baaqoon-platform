@@ -16,7 +16,9 @@ import {
   Phone,
   Mail,
   Trash2,
-  UserPlus
+  UserPlus,
+  Sparkles,
+  GraduationCap
 } from 'lucide-react';
 
 interface ErrorBoundaryProps { children: React.ReactNode }
@@ -306,7 +308,7 @@ function DistributionAdminPageInner() {
                   {isAssigning && (
                     <div className="space-y-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border-2 border-violet-200 dark:border-violet-900/60 shadow-sm animate-in fade-in mb-3">
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
-                        اختر المشرف أو الأستاذ لإضافته إلى قائمة منسقي هذه المادة:
+                        اختر المشرف أو الأستاذ لإضافته إلى قائمة منسقي هذه المادة (المعلم المرقّى يحصل تلقائياً على صفة ثنائية: تدريس + إشراف دون الحاجة لحسابين):
                       </label>
                       <select
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none text-slate-800 dark:text-slate-100"
@@ -324,12 +326,12 @@ function DistributionAdminPageInner() {
                               </option>
                             ))}
                         </optgroup>
-                        <optgroup label="الأساتذة (سيتم ترقيتهم إلى مشرف منسق)">
+                        <optgroup label="الأساتذة (ترقية لصفة ثنائية: أستاذ مدرّس + مشرف منسق)">
                           {availableCandidates
                             .filter((s: any) => s.primaryRole === 'teacher')
                             .map((s: any) => (
                               <option key={s.id} value={s.id}>
-                                {s.firstName} {s.lastName} (معلم)
+                                {s.firstName} {s.lastName} (أستاذ — ترقية لصفة ثنائية)
                               </option>
                             ))}
                         </optgroup>
@@ -357,7 +359,7 @@ function DistributionAdminPageInner() {
                           ) : (
                             <>
                               <Check className="w-3.5 h-3.5" />
-                              إضافة المشرف
+                              تعيين / ترقية بصفة ثنائية
                             </>
                           )}
                         </button>
@@ -378,13 +380,20 @@ function DistributionAdminPageInner() {
                               {supervisor.firstName?.[0] || 'م'}{supervisor.lastName?.[0] || ''}
                             </div>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
                                   {supervisor.firstName} {supervisor.lastName}
                                 </p>
-                                <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.2 rounded">
+                                <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">
                                   منسق معتمد
                                 </span>
+                                {(supervisor.isDualRole || (supervisor.taughtCohortsCount && supervisor.taughtCohortsCount > 0)) && (
+                                  <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <GraduationCap className="w-3 h-3" />
+                                    صفة ثنائية: مشرف + أستاذ مدرّس
+                                    {supervisor.taughtCohortsCount ? ` (${supervisor.taughtCohortsCount} أفواج)` : ''}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                                 {supervisor.email && (
@@ -406,7 +415,7 @@ function DistributionAdminPageInner() {
                           <button
                             onClick={() => handleRemoveSupervisor(subject.id, supervisor)}
                             disabled={removeSupervisorMutation.isPending}
-                            title="إلغاء إسناد هذا المشرف من المادة"
+                            title="إلغاء إسناد هذا المشرف من المادة (مع الاحتفاظ بحسابه التدريسي)"
                             className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors shrink-0 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -430,24 +439,48 @@ function DistributionAdminPageInner() {
                   ) : null}
                 </div>
 
-                {/* Teachers Section */}
+                {/* Teachers Section with 1-Click Dual-Role Promotion */}
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700/60">
-                  <h4 className="text-xs font-black flex items-center gap-1.5 text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider">
-                    <Users className="w-4 h-4 text-emerald-500" />
-                    الأساتذة النشطون ضمن أفواج المادة ({subject.teachers?.length || 0})
-                  </h4>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h4 className="text-xs font-black flex items-center gap-1.5 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      <Users className="w-4 h-4 text-emerald-500" />
+                      الأساتذة النشطون ضمن أفواج المادة ({subject.teachers?.length || 0})
+                    </h4>
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      يمكن ترقية أي أستاذ لمشرف منسق بصفة ثنائية بضغطة زر
+                    </span>
+                  </div>
                   
                   {subject.teachers && subject.teachers.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {subject.teachers.map((teacher: any) => (
-                        <div 
-                          key={teacher.id} 
-                          className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs"
-                        >
-                          <User className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                          <span>{teacher.firstName} {teacher.lastName}</span>
-                        </div>
-                      ))}
+                      {subject.teachers.map((teacher: any) => {
+                        const isAlreadySupervisor = subjectSupervisors.some((s: any) => s.id === teacher.id);
+                        return (
+                          <div 
+                            key={teacher.id} 
+                            className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs"
+                          >
+                            <User className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>{teacher.firstName} {teacher.lastName}</span>
+                            {isAlreadySupervisor ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                                مشرف + أستاذ
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => addSupervisorMutation.mutate({ subjectId: subject.id, userId: teacher.id })}
+                                disabled={addSupervisorMutation.isPending}
+                                title="ترقية هذا الأستاذ ليصبح مشرفاً منسقاً للمادة مع احتفاظه بتدريس أفواجه (صفة ثنائية)"
+                                className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer"
+                              >
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>ترقية لمشرف (صفة ثنائية)</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 dark:text-slate-500 font-bold p-2 bg-white/40 dark:bg-slate-800/20 rounded-lg">

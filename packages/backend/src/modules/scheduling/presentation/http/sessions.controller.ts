@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Get, Param, Delete, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Param, Delete, Patch, UseGuards, Query } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
@@ -446,12 +446,12 @@ export class SessionsController {
   }
 
   @Get()
-  async getSessions(@Req() req: any) {
+  async getSessions(@Req() req: any, @Query('mode') mode?: string) {
     const userId = req.user?.id || req.user?.userId;
     const role = req.user?.primaryRole || 'teacher';
 
     let whereClause: any = {};
-    if (role === 'teacher' && userId) {
+    if ((mode === 'teacher' || role === 'teacher') && userId) {
       whereClause = { teacherId: userId };
     } else if ((role === 'supervisor' || role === 'subject_supervisor') && userId) {
       const supervisor = await this.prisma.user.findUnique({ where: { id: userId } });

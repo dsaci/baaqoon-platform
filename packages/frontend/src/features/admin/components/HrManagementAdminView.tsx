@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft } from 'lucide-react';
 
 interface HrManagementAdminViewProps {
   initialRoleFilter?: string;
@@ -24,6 +24,9 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [selectedUserForReset, setSelectedUserForReset] = useState<any>(null);
   const [selectedUserForView, setSelectedUserForView] = useState<any>(null);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
+  const [selectedUserForDualRole, setSelectedUserForDualRole] = useState<any>(null);
+  const [dualRoleSubjectId, setDualRoleSubjectId] = useState<string>('');
+  const [enableDualRoleState, setEnableDualRoleState] = useState<boolean>(true);
   const [newPassword, setNewPassword] = useState('');
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', gradeLevel: 'grade_11', supervisedSubjectId: '', nationality: '' });
 
@@ -60,8 +63,29 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_distribution'] });
       setIsAddUserOpen(false);
       setNewUser({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', gradeLevel: 'grade_11', supervisedSubjectId: '', nationality: '' });
+    }
+  });
+
+  const dualRoleMutation = useMutation({
+    mutationFn: async ({ id, enableDualRole, supervisedSubjectId }: { id: string; enableDualRole: boolean; supervisedSubjectId?: string }) => {
+      const res = await api.patch(`/users/admin/${id}/dual-role`, {
+        enableDualRole,
+        supervisedSubjectId: supervisedSubjectId || undefined,
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_distribution'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      alert(data?.message || 'تم تحديث الصفة الثنائية بنجاح');
+      setSelectedUserForDualRole(null);
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || 'تعذر تحديث الصفة الثنائية');
     }
   });
   
@@ -101,15 +125,54 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     return <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>;
   }
 
-  const filteredUsers = users.filter((u: any) => roleFilter === 'all' || u.primaryRole === roleFilter);
+  const filteredUsers = users.filter((u: any) => {
+    if (roleFilter === 'all') return true;
+    if (roleFilter === 'teacher') {
+      return u.primaryRole === 'teacher' || u.isDualRole || (Array.isArray(u.roles) && u.roles.includes('teacher'));
+    }
+    if (roleFilter === 'subject_supervisor') {
+      return u.primaryRole === 'subject_supervisor' || u.isDualRole || (Array.isArray(u.roles) && u.roles.includes('subject_supervisor'));
+    }
+    return u.primaryRole === roleFilter;
+  });
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (userOrRole: any) => {
+    const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.primaryRole;
+    const isDual = typeof userOrRole === 'object' && userOrRole?.isDualRole;
+    const subjectName = typeof userOrRole === 'object' ? (userOrRole?.supervisedSubject?.nameAr || subjects.find((s: any) => s.id === userOrRole?.supervisedSubjectId)?.nameAr) : null;
+
+    if (isDual) {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex items-center gap-1 text-indigo-700 bg-gradient-to-r from-purple-100 to-emerald-100 border border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-black">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            مشرف منسق + أستاذ (صفة ثنائية)
+          </span>
+          {subjectName && (
+            <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+              مادة: {subjectName}
+            </span>
+          )}
+        </div>
+      );
+    }
+
     switch(role) {
-      case 'student': return <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md text-xs font-bold"><GraduationCap className="w-3 h-3"/> طالب</span>;
-      case 'teacher': return <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-xs font-bold"><User className="w-3 h-3"/> أستاذ</span>;
-      case 'subject_supervisor': return <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-md text-xs font-bold"><Shield className="w-3 h-3"/> مشرف</span>;
+      case 'student': return <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md text-xs font-bold"><GraduationCap className="w-3 h-3"/> طالب</span>;
+      case 'teacher': return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-xs font-bold"><User className="w-3 h-3"/> أستاذ</span>
+          {subjectName && <span className="text-[11px] font-bold text-blue-700 bg-blue-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>}
+        </div>
+      );
+      case 'subject_supervisor': return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-md text-xs font-bold"><Shield className="w-3 h-3"/> مشرف منسق</span>
+          {subjectName && <span className="text-[11px] font-bold text-purple-700 bg-purple-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>}
+        </div>
+      );
       case 'admin':
-      case 'super_admin': return <span className="flex items-center gap-1 text-rose-600 bg-rose-50 px-2 py-1 rounded-md text-xs font-bold"><ShieldAlert className="w-3 h-3"/> إدارة</span>;
+      case 'super_admin': return <span className="inline-flex items-center gap-1 text-rose-600 bg-rose-50 px-2 py-1 rounded-md text-xs font-bold"><ShieldAlert className="w-3 h-3"/> إدارة</span>;
       default: return <span className="text-slate-600 bg-slate-50 px-2 py-1 rounded-md text-xs font-bold">{role}</span>;
     }
   };
@@ -198,7 +261,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                     <div className="text-xs text-slate-500 font-mono" dir="ltr">{u.phone || 'لا يوجد هاتف'}</div>
                   </td>
                   <td className="px-6 py-4">
-                    {getRoleBadge(u.primaryRole)}
+                    {getRoleBadge(u)}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs font-bold rounded-md ${
@@ -219,6 +282,24 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                           className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
                         >
                           <CheckCircle className="w-5 h-5" />
+                        </button>
+                      )}
+                      {(u.primaryRole === 'teacher' || u.primaryRole === 'subject_supervisor' || u.isDualRole) && (
+                        <button
+                          onClick={() => {
+                            setSelectedUserForDualRole(u);
+                            setDualRoleSubjectId(u.supervisedSubjectId || '');
+                            setEnableDualRoleState(true);
+                          }}
+                          title="ترقية أو إدارة الصفة الثنائية (تدريس + إشراف معاً بدون حسابين)"
+                          className={`px-2.5 py-2 rounded-lg transition-colors ml-1 flex items-center gap-1 text-xs font-black ${
+                            u.isDualRole
+                              ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border border-indigo-200'
+                              : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                          }`}
+                        >
+                          <ArrowRightLeft className="w-4 h-4" />
+                          <span className="hidden xl:inline">{u.isDualRole ? 'الصفة الثنائية' : 'ترقية لصفة ثنائية'}</span>
                         </button>
                       )}
                       <button
@@ -295,6 +376,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 <option value="student">طالب</option>
                 <option value="teacher">أستاذ</option>
                 <option value="subject_supervisor">مشرف منسق</option>
+                <option value="dual_teacher_supervisor">أستاذ ومشرف منسق معاً (صفة ثنائية)</option>
                 <option value="admin">مدير (Admin)</option>
               </select>
 
@@ -329,10 +411,10 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 </div>
               )}
 
-              {(newUser.primaryRole === 'teacher' || newUser.primaryRole === 'subject_supervisor') && (
+              {(newUser.primaryRole === 'teacher' || newUser.primaryRole === 'subject_supervisor' || newUser.primaryRole === 'dual_teacher_supervisor') && (
                 <div className="animate-fade-in-up">
                   <label className="block text-xs font-bold text-slate-500 mb-1">
-                    {newUser.primaryRole === 'teacher' ? 'مادة التخصص للأستاذ' : 'مادة التنسيق والمتابعة للمشرف'}
+                    {newUser.primaryRole === 'teacher' ? 'مادة التخصص للأستاذ' : newUser.primaryRole === 'dual_teacher_supervisor' ? 'مادة التدريس والتنسيق المشترك (صفة ثنائية)' : 'مادة التنسيق والمتابعة للمشرف'}
                   </label>
                   <select className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl" value={newUser.supervisedSubjectId} onChange={e => setNewUser({...newUser, supervisedSubjectId: e.target.value})}>
                     <option value="">-- اختر المادة --</option>
@@ -508,6 +590,108 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
               <button onClick={() => setIsViewDetailsOpen(false)} className="px-8 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold transition-all">
                 إغلاق
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {selectedUserForDualRole && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl p-6 border border-indigo-100 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center">
+                  <ArrowRightLeft className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                    الترقية والصفة الثنائية (تدريس + إشراف)
+                  </h2>
+                  <p className="text-xs font-bold text-slate-500">
+                    {selectedUserForDualRole.firstName} {selectedUserForDualRole.lastName}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedUserForDualRole(null)} className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 text-xs font-bold text-indigo-900 dark:text-indigo-200 leading-relaxed">
+              تتيح <strong>الصفة الثنائية</strong> للأستاذ أو المشرف الجمع بين <strong>التدريس الفعلي للأفواج</strong> و<strong>الإشراف والتنسيق الأكاديمي للمادة</strong> من نفس الحساب مع زر تبديل فوري بين الفضاءين دون الحاجة للتسجيل مرتين، كما تسمح بتعيين أكثر من مشرف لنفس المادة.
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-2">
+                مادة التخصص والتنسيق المشترك:
+              </label>
+              <select
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm"
+                value={dualRoleSubjectId}
+                onChange={(e) => setDualRoleSubjectId(e.target.value)}
+              >
+                <option value="">-- اختر المادة الدراسية --</option>
+                {subjects.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.nameAr}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-black text-slate-700 dark:text-slate-300">
+                نوع الصلاحية المطلوبة:
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEnableDualRoleState(true)}
+                  className={`p-3 rounded-xl border text-right font-bold text-xs flex items-center justify-between transition-all ${
+                    enableDualRoleState
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <span>تفعيل الصفة الثنائية (مشرف منسق للمادة + أستاذ مدرّس للأفواج معاً)</span>
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                </button>
+                {selectedUserForDualRole.isDualRole && (
+                  <button
+                    type="button"
+                    onClick={() => setEnableDualRoleState(false)}
+                    className={`p-3 rounded-xl border text-right font-bold text-xs flex items-center justify-between transition-all ${
+                      !enableDualRoleState
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>إلغاء الصفة الثنائية والاكتفاء بصفة أستاذ فقط</span>
+                    <User className="w-4 h-4 shrink-0" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setSelectedUserForDualRole(null)}
+                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-sm"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={() =>
+                  dualRoleMutation.mutate({
+                    id: selectedUserForDualRole.id,
+                    enableDualRole: enableDualRoleState,
+                    supervisedSubjectId: dualRoleSubjectId || undefined,
+                  })
+                }
+                disabled={dualRoleMutation.isPending || (enableDualRoleState && !dualRoleSubjectId)}
+                className="flex-2 w-2/3 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black text-sm shadow-md"
+              >
+                {dualRoleMutation.isPending ? 'جاري الحفظ...' : 'اعتماد وحفظ الصفة'}
               </button>
             </div>
           </div>

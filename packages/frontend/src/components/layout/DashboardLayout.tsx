@@ -16,6 +16,9 @@ import {
   Settings,
   BarChart3,
   HelpCircle,
+  ArrowRightLeft,
+  ShieldCheck,
+  GraduationCap,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import WelcomeModal from "../shared/WelcomeModal";
@@ -57,7 +60,28 @@ export default function DashboardLayout() {
     navigate("/login");
   };
 
-  // Determine navigation links based on role
+  const userRoles = Array.from(
+    new Set([
+      user?.primaryRole,
+      ...(Array.isArray(user?.roles) ? user!.roles! : []),
+      ...(user?.isDualRole ? ["teacher", "subject_supervisor"] : []),
+    ].filter(Boolean))
+  );
+
+  const canSwitchTeacherSupervisor = Boolean(
+    user?.isDualRole ||
+      (userRoles.includes("teacher") &&
+        (userRoles.includes("subject_supervisor") || userRoles.includes("supervisor"))) ||
+      user?.primaryRole === "subject_supervisor" ||
+      user?.primaryRole === "supervisor"
+  );
+
+  const isInTeacherSpace = location.pathname.startsWith("/teacher");
+  const isInSupervisorSpace = location.pathname.startsWith("/supervisor");
+  const isTeacherWorkspace = isInTeacherSpace;
+  const isSupervisorWorkspace = isInSupervisorSpace;
+
+  // Determine navigation links based on role and active workspace
   const getNavLinks = () => {
     if (user?.primaryRole === "super_admin") {
       return [
@@ -90,72 +114,80 @@ export default function DashboardLayout() {
       ];
     }
 
+    const teacherLinks = [
+      {
+        name: t("nav.dashboard", "الرئيسية (التدريس)"),
+        path: "/teacher/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        name: t("nav.cohorts", "الأفواج"),
+        path: "/teacher/cohorts",
+        icon: Users,
+      },
+      {
+        name: t("nav.curriculum_builder", "بناء الحصص (المناهج)"),
+        path: "/teacher/curriculum",
+        icon: BookOpen,
+      },
+      {
+        name: t("nav.assessments", "الواجبات"),
+        path: "/teacher/assessments",
+        icon: FileText,
+      },
+      {
+        name: t("nav.schedule", "الجدول والحصص"),
+        path: "/teacher/schedule",
+        icon: Calendar,
+      },
+      {
+        name: t("nav.textbooks", "المكتبة الرقمية"),
+        path: "/teacher/textbooks",
+        icon: BookOpen,
+      },
+      {
+        name: t("nav.distribution_teacher", "التوزيع السنوي والأسبوعي"),
+        path: "/teacher/distribution",
+        icon: Calendar,
+      },
+      {
+        name: t("nav.chat", "المحادثات"),
+        path: "/teacher/chat",
+        icon: MessageSquare,
+      },
+    ];
+
+    const supervisorLinks = [
+      {
+        name: t("nav.dashboard", "لوحة الإشراف والتنسيق"),
+        path: "/supervisor/dashboard",
+        icon: LayoutDashboard,
+      },
+      { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/supervisor/reports", icon: BarChart3 },
+      { name: t("nav.teachers", "الأساتذة"), path: "/supervisor/teachers", icon: Users },
+      { name: t("nav.distribution", "التوزيع السنوي والشهري"), path: "/supervisor/distribution", icon: Calendar },
+      {
+        name: t("nav.schedule_weekly", "الجدول الأسبوعي"),
+        path: "/supervisor/schedule",
+        icon: Calendar,
+      },
+      {
+        name: t("nav.exam_prep", "متابعة الامتحانات"),
+        path: "/supervisor/exam-prep",
+        icon: BookOpen,
+      },
+    ];
+
+    if (canSwitchTeacherSupervisor) {
+      return isInTeacherSpace ? teacherLinks : supervisorLinks;
+    }
+
     if (user?.primaryRole === "supervisor" || user?.primaryRole === "subject_supervisor") {
-      return [
-        {
-          name: t("nav.dashboard", "لوحة التحكم"),
-          path: "/supervisor/dashboard",
-          icon: LayoutDashboard,
-        },
-        { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/supervisor/reports", icon: BarChart3 },
-        { name: t("nav.teachers", "الأساتذة"), path: "/supervisor/teachers", icon: Users },
-        { name: t("nav.distribution", "التوزيع السنوي والشهري"), path: "/supervisor/distribution", icon: Calendar },
-        {
-          name: t("nav.schedule_weekly", "الجدول الأسبوعي"),
-          path: "/supervisor/schedule",
-          icon: Calendar,
-        },
-        {
-          name: t("nav.exam_prep", "متابعة الامتحانات"),
-          path: "/supervisor/exam-prep",
-          icon: BookOpen,
-        },
-      ];
+      return supervisorLinks;
     }
 
     if (user?.primaryRole === "teacher") {
-      return [
-        {
-          name: t("nav.dashboard", "الرئيسية"),
-          path: "/teacher/dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          name: t("nav.cohorts", "الأفواج"),
-          path: "/teacher/cohorts",
-          icon: Users,
-        },
-        {
-          name: t("nav.curriculum_builder", "بناء الحصص (المناهج)"),
-          path: "/teacher/curriculum",
-          icon: BookOpen,
-        },
-        {
-          name: t("nav.assessments", "الواجبات"),
-          path: "/teacher/assessments",
-          icon: FileText,
-        },
-        {
-          name: t("nav.schedule", "الجدول والحصص"),
-          path: "/teacher/schedule",
-          icon: Calendar,
-        },
-        {
-          name: t("nav.textbooks", "المكتبة الرقمية"),
-          path: "/teacher/textbooks",
-          icon: BookOpen,
-        },
-        {
-          name: t("nav.distribution_teacher", "التوزيع السنوي والأسبوعي"),
-          path: "/teacher/distribution",
-          icon: Calendar,
-        },
-        {
-          name: t("nav.chat", "المحادثات"),
-          path: "/teacher/chat",
-          icon: MessageSquare,
-        },
-      ];
+      return teacherLinks;
     }
 
     if (user?.primaryRole === "student") {
@@ -246,6 +278,46 @@ export default function DashboardLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {canSwitchTeacherSupervisor && (
+            <div className="mb-4 p-2 bg-gradient-to-r from-indigo-50 via-purple-50 to-emerald-50 dark:from-indigo-950/50 dark:via-purple-950/40 dark:to-emerald-950/50 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs">
+              <div className="flex items-center justify-between px-2 pb-1.5">
+                <span className="text-[11px] font-black text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  {isRtl ? "تبديل الصفة (تدريس / إشراف)" : "Switch Role Mode"}
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-600 text-white">
+                  {isRtl ? "صفة ثنائية" : "Dual Role"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => navigate("/supervisor/dashboard")}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-black transition-all ${
+                    isSupervisorWorkspace
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-white"
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isRtl ? "فضاء الإشراف" : "Supervision"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/teacher/dashboard")}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-black transition-all ${
+                    isTeacherWorkspace
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-white"
+                  }`}
+                >
+                  <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isRtl ? "فضاء التدريس" : "Teaching"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {navLinks.map((link) => {
             const isActive = location.pathname.startsWith(link.path);
             const Icon = link.icon;
@@ -344,6 +416,40 @@ export default function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            {canSwitchTeacherSupervisor && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    isTeacherWorkspace
+                      ? "/supervisor/dashboard"
+                      : "/teacher/dashboard"
+                  )
+                }
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm border transition-all shadow-xs ${
+                  isTeacherWorkspace
+                    ? "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100"
+                    : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
+                }`}
+                title={
+                  isTeacherWorkspace
+                    ? "الانتقال إلى لوحة الإشراف والتنسيق الأكاديمي"
+                    : "الانتقال إلى لوحة التدريس وأفواجي الدراسية"
+                }
+              >
+                <ArrowRightLeft className="w-4 h-4 shrink-0" />
+                <span>
+                  {isTeacherWorkspace
+                    ? isRtl
+                      ? "الانتقال لفضاء الإشراف"
+                      : "Switch to Supervision"
+                    : isRtl
+                      ? "الانتقال لفضاء التدريس"
+                      : "Switch to Teaching"}
+                </span>
+              </button>
+            )}
+
             <Link
               to="/"
               className="hidden lg:flex items-center gap-2 text-sm font-medium text-baaqoon-600 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white transition-colors"
@@ -378,17 +484,21 @@ export default function DashboardLayout() {
                     {user?.firstName} {user?.lastName}
                   </p>
                   <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 capitalize">
-                    {user?.primaryRole === "teacher"
-                      ? t("roles.teacher", "أستاذ / أستاذة")
-                      : user?.primaryRole === "student"
-                        ? t("roles.student", "طالب / طالبة")
-                        : user?.primaryRole === "subject_supervisor" || user?.primaryRole === "supervisor"
-                          ? t("roles.supervisor", "مشرف / موجه تربوي")
-                          : user?.primaryRole === "admin"
-                            ? t("roles.admin", "مدير منصة")
-                            : user?.primaryRole === "super_admin"
-                              ? t("roles.super_admin", "مدير عام")
-                              : t("roles.user", "مستخدم")}
+                    {user?.isDualRole
+                      ? isRtl
+                        ? "مشرف منسق + أستاذ (صفة ثنائية)"
+                        : "Supervisor & Teacher"
+                      : user?.primaryRole === "teacher"
+                        ? t("roles.teacher", "أستاذ / أستاذة")
+                        : user?.primaryRole === "student"
+                          ? t("roles.student", "طالب / طالبة")
+                          : user?.primaryRole === "subject_supervisor" || user?.primaryRole === "supervisor"
+                            ? t("roles.supervisor", "مشرف / موجه تربوي")
+                            : user?.primaryRole === "admin"
+                              ? t("roles.admin", "مدير منصة")
+                              : user?.primaryRole === "super_admin"
+                                ? t("roles.super_admin", "مدير عام")
+                                : t("roles.user", "مستخدم")}
                   </p>
                 </div>
                 <UserAvatar

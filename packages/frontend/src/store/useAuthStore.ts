@@ -7,6 +7,8 @@ export interface User {
   firstName: string;
   lastName: string;
   primaryRole: 'super_admin' | 'admin' | 'supervisor' | 'subject_supervisor' | 'teacher' | 'student' | 'tech_support';
+  roles?: string[];
+  isDualRole?: boolean;
   status?: string;
   phone?: string;
   nationality?: string;

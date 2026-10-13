@@ -28,8 +28,21 @@ export class GroupsController {
       orderBy: { nameAr: 'asc' },
       include: {
         supervisors: {
-          where: { primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] } },
-          select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true }
+          where: {
+            OR: [
+              { primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] } },
+              { roles: { some: { role: 'subject_supervisor' } } }
+            ]
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            primaryRole: true,
+            roles: { select: { role: true } }
+          }
         }
       }
     });
@@ -48,35 +61,88 @@ export class GroupsController {
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: instructors.map(i => i.teacherId) } },
-      select: { id: true, firstName: true, lastName: true, email: true }
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        primaryRole: true,
+        supervisedSubjectId: true,
+        roles: { select: { role: true } }
+      }
     });
 
-    const formattedSubjects = subjects.map(subject => {
+    const formattedSubjects = subjects.map((subject: any) => {
       const subjectCourses = courses.filter(c => c.subjectId === subject.id).map(c => c.id);
       const subjectCohorts = cohorts.filter(c => subjectCourses.includes(c.courseId)).map(c => c.id);
       
       const teachersMap = new Map();
       instructors.filter(inst => subjectCohorts.includes(inst.cohortId)).forEach(inst => {
-        const teacher = users.find(u => u.id === inst.teacherId);
-        if (teacher) teachersMap.set(teacher.id, teacher);
+        const teacher: any = users.find(u => u.id === inst.teacherId);
+        if (teacher) {
+          const rawRoles = teacher.roles?.map((r: any) => r.role as string) || [];
+          const roleList: string[] = Array.from(new Set([teacher.primaryRole as string, ...rawRoles]));
+          const isDualRole = roleList.includes('teacher') && (roleList.includes('subject_supervisor') || roleList.includes('supervisor'));
+          teachersMap.set(teacher.id, {
+            ...teacher,
+            roles: roleList,
+            isDualRole
+          });
+        }
+      });
+
+      const formattedSupervisors = ((subject.supervisors as any[]) || []).map((sup: any) => {
+        const rawRoles = sup.roles?.map((r: any) => r.role as string) || [];
+        const roleList: string[] = Array.from(new Set([sup.primaryRole as string, ...rawRoles]));
+        const taughtCount = instructors.filter(inst => inst.teacherId === sup.id).length;
+        const isDualRole =
+          (roleList.includes('teacher') && (roleList.includes('subject_supervisor') || roleList.includes('supervisor'))) ||
+          taughtCount > 0;
+        return {
+          ...sup,
+          roles: isDualRole ? Array.from(new Set([...roleList, 'teacher', 'subject_supervisor'])) : roleList,
+          isDualRole,
+          taughtCohortsCount: taughtCount
+        };
       });
 
       return {
         ...subject,
+        supervisors: formattedSupervisors,
         teachers: Array.from(teachersMap.values())
       };
     });
 
-    const supervisors = await this.prisma.user.findMany({
+    const rawSupervisors = await this.prisma.user.findMany({
       where: {
         primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin', 'teacher'] },
         status: { in: ['active', 'pending'] }
       },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        primaryRole: true,
+        supervisedSubjectId: true,
+        roles: { select: { role: true } }
+      },
       orderBy: [
         { primaryRole: 'asc' },
         { firstName: 'asc' }
       ]
+    });
+
+    const supervisors = rawSupervisors.map((s: any) => {
+      const rawRoles = s.roles?.map((r: any) => r.role as string) || [];
+      const roleList: string[] = Array.from(new Set([s.primaryRole as string, ...rawRoles]));
+      const isDualRole = roleList.includes('teacher') && (roleList.includes('subject_supervisor') || roleList.includes('supervisor'));
+      return {
+        ...s,
+        roles: roleList,
+        isDualRole
+      };
     });
 
     return { subjects: formattedSubjects, supervisors };
@@ -84,7 +150,12 @@ export class GroupsController {
 
   @Patch('admin/distribution/:subjectId/supervisor/:userId')
   @Post('admin/distribution/:subjectId/supervisor/:userId')
-  async assignSupervisor(@Req() req: any, @Param('subjectId') subjectId: string, @Param('userId') userId: string) {
+  async assignSupervisor(
+    @Req() req: any,
+    @Param('subjectId') subjectId: string,
+    @Param('userId') userId: string,
+    @Body() body?: { keepTeaching?: boolean }
+  ) {
     const role = req.user?.primaryRole;
     if (role !== 'super_admin' && role !== 'admin') {
       return { error: 'Unauthorized' };
@@ -111,38 +182,70 @@ export class GroupsController {
     }
 
     const targetUser = await this.prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: { roles: true }
     });
 
     if (!targetUser) {
       return { error: 'User not found' };
     }
 
-    const updateData: any = {
-      supervisedSubjectId: subjectId
-    };
+    const existingRoles = targetUser.roles?.map(r => r.role) || [];
+    const wasTeacher = targetUser.primaryRole === 'teacher' || existingRoles.includes('teacher');
+    const enableDual = body?.keepTeaching !== undefined ? body.keepTeaching : true;
 
-    // Promote teacher to subject_supervisor if applicable
-    if (targetUser.primaryRole === 'teacher') {
-      updateData.primaryRole = 'subject_supervisor';
-    }
+    const updateData: any = {
+      supervisedSubjectId: subjectId,
+      primaryRole: 'subject_supervisor'
+    };
 
     await this.prisma.user.update({
       where: { id: userId },
       data: updateData
     });
 
+    // Always grant subject_supervisor role
+    await this.prisma.userRoleAssignment.upsert({
+      where: { userId_role: { userId, role: 'subject_supervisor' } },
+      update: {},
+      create: { userId, role: 'subject_supervisor', grantedById: req.user.id }
+    });
+
+    // Preserve or grant teacher role for dual-role (Teaching + Supervision together)
+    if (wasTeacher || enableDual) {
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId, role: 'teacher' } },
+        update: {},
+        create: { userId, role: 'teacher', grantedById: req.user.id }
+      });
+    }
+
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          title: 'ترقية وتكليف إشرافي (صفة ثنائية: تدريس + إشراف)',
+          body: 'تم تعيينك مشرفاً منسقاً للمادة مع الاحتفاظ الكامل بصلاحيات التدريس وأفواجك. يمكنك التبديل بين فضاء الإشراف وفضاء التدريس بنقرة واحدة من القائمة الجانبية أو العلوية.',
+          actionUrl: '/supervisor/dashboard',
+          type: 'system'
+        }
+      });
+    } catch (_) {}
+
     try {
       await this.prisma.activityLog.create({
         data: {
           userId: req.user.id,
-          action: 'ASSIGN_SUPERVISOR',
-          details: `تعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً منسقاً للمادة`
+          action: 'ASSIGN_SUPERVISOR_DUAL',
+          details: `ترقية وتعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً منسقاً للمادة بصفة ثنائية (تدريس + إشراف)`
         }
       });
     } catch (e) {}
 
-    return { success: true, message: `تم إضافة وتعيين المشرف ${targetUser.firstName} ${targetUser.lastName} بنجاح` };
+    return {
+      success: true,
+      message: `تم تعيين وترقية ${targetUser.firstName} ${targetUser.lastName} كمشرف منسق للمادة بصفة ثنائية (تدريس + إشراف معاً) بنجاح!`
+    };
   }
 
   @Delete('admin/distribution/:subjectId/supervisor/:userId')
@@ -163,24 +266,51 @@ export class GroupsController {
       return { success: true, message: 'تم إزالة جميع المشرفين من المادة' };
     }
 
-    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    await this.prisma.user.update({
+    const targetUser = await this.prisma.user.findUnique({
       where: { id: userId },
-      data: { supervisedSubjectId: null }
+      include: { roles: true }
     });
+
+    const hasTeacherRole = targetUser?.roles?.some(r => r.role === 'teacher');
+    const taughtCohortsCount = await this.prisma.cohortInstructor.count({ where: { teacherId: userId } });
+
+    if (hasTeacherRole || taughtCohortsCount > 0) {
+      // Revert to teacher role while keeping their subject specialization
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { primaryRole: 'teacher', supervisedSubjectId: subjectId }
+      });
+      await this.prisma.userRoleAssignment.deleteMany({
+        where: { userId, role: 'subject_supervisor' }
+      });
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId, role: 'teacher' } },
+        update: {},
+        create: { userId, role: 'teacher' }
+      });
+    } else {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { supervisedSubjectId: null }
+      });
+    }
 
     try {
       await this.prisma.activityLog.create({
         data: {
           userId: req.user.id,
           action: 'REMOVE_SUPERVISOR',
-          details: `إزالة المشرف ${targetUser ? targetUser.firstName + ' ' + targetUser.lastName : userId} من المادة`
+          details: `إزالة المشرف ${targetUser ? targetUser.firstName + ' ' + targetUser.lastName : userId} من إشراف المادة`
         }
       });
     } catch (e) {}
 
-    return { success: true, message: 'تم إزالة المشرف من المادة بنجاح' };
+    return {
+      success: true,
+      message: hasTeacherRole || taughtCohortsCount > 0
+        ? 'تم إلغاء التكليف الإشرافي مع إبقاء الحساب كأستاذ مدرّس للمادة'
+        : 'تم إزالة المشرف من المادة بنجاح'
+    };
   }
 
   constructor(private readonly prisma: PrismaService) {}
@@ -188,8 +318,13 @@ export class GroupsController {
   @Get('admin/data')
   async getAdminData() {
     const teachers = await this.prisma.user.findMany({
-      where: { primaryRole: 'teacher' },
-      select: { id: true, firstName: true, lastName: true, email: true, supervisedSubjectId: true }
+      where: {
+        OR: [
+          { primaryRole: 'teacher' },
+          { roles: { some: { role: 'teacher' } } }
+        ]
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, supervisedSubjectId: true }
     });
     const students = await this.prisma.user.findMany({
       where: { primaryRole: 'student' },
@@ -227,9 +362,23 @@ export class GroupsController {
 
   @Get('admin/stats')
   async getAdminStats() {
-    const teachers = await this.prisma.user.count({ where: { primaryRole: 'teacher' } });
+    const teachers = await this.prisma.user.count({
+      where: {
+        OR: [
+          { primaryRole: 'teacher' },
+          { roles: { some: { role: 'teacher' } } }
+        ]
+      }
+    });
     const students = await this.prisma.user.count({ where: { primaryRole: 'student' } });
-    const supervisors = await this.prisma.user.count({ where: { primaryRole: 'subject_supervisor' } });
+    const supervisors = await this.prisma.user.count({
+      where: {
+        OR: [
+          { primaryRole: 'subject_supervisor' },
+          { roles: { some: { role: 'subject_supervisor' } } }
+        ]
+      }
+    });
     const cohorts = await this.prisma.cohort.count();
     const activeSessions = await this.prisma.session.count({ where: { status: 'scheduled' } });
     const pendingUsers = await this.prisma.user.count({ where: { status: 'pending' } });
@@ -289,13 +438,19 @@ export class GroupsController {
     });
     const cohortTeacherIds = instructors.map(i => i.teacherId);
 
-    let teacherWhere: any = { primaryRole: 'teacher' };
+    let teacherWhere: any = {
+      OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+    };
     if (isSupervisor && user?.supervisedSubjectId) {
       teacherWhere = {
-        primaryRole: 'teacher',
-        OR: [
-          { supervisedSubjectId: user.supervisedSubjectId },
-          { id: { in: cohortTeacherIds } }
+        AND: [
+          { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
+          {
+            OR: [
+              { supervisedSubjectId: user.supervisedSubjectId },
+              { id: { in: cohortTeacherIds } }
+            ]
+          }
         ]
       };
     }
@@ -366,12 +521,19 @@ export class GroupsController {
     let totalTeachers = 0;
     if (user?.supervisedSubjectId) {
       const subjectTeachers = await this.prisma.user.findMany({
-        where: { primaryRole: 'teacher', supervisedSubjectId: user.supervisedSubjectId },
+        where: {
+          AND: [
+            { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
+            { supervisedSubjectId: user.supervisedSubjectId }
+          ]
+        },
         select: { id: true }
       });
       totalTeachers = new Set([...subjectTeachers.map(t => t.id), ...cohortTeacherIds]).size;
     } else {
-      totalTeachers = await this.prisma.user.count({ where: { primaryRole: 'teacher' } });
+      totalTeachers = await this.prisma.user.count({
+        where: { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] }
+      });
     }
 
     const recentAssessments = await this.prisma.assessment.findMany({
@@ -476,13 +638,19 @@ export class GroupsController {
     });
     const instructorTeacherIds = cohortInstructors.map(ci => ci.teacherId);
 
-    let teacherWhere: any = { primaryRole: 'teacher' };
+    let teacherWhere: any = {
+      OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+    };
     if (activeSubjectId) {
       teacherWhere = {
-        primaryRole: 'teacher',
-        OR: [
-          { supervisedSubjectId: activeSubjectId },
-          { id: { in: instructorTeacherIds } }
+        AND: [
+          { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
+          {
+            OR: [
+              { supervisedSubjectId: activeSubjectId },
+              { id: { in: instructorTeacherIds } }
+            ]
+          }
         ]
       };
     }
@@ -501,6 +669,8 @@ export class GroupsController {
         academicBranch: true,
         curriculumType: true,
         gradeLevel: true,
+        primaryRole: true,
+        roles: { select: { role: true } },
         status: true,
         createdAt: true,
         lastLoginAt: true,
@@ -773,14 +943,28 @@ export class GroupsController {
   }
 
   @Get('cohorts/me')
-  async getMyCohorts(@Req() req: any) {
+  async getMyCohorts(@Req() req: any, @Query('mode') mode?: string) {
     const userId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
     const role = req.user?.primaryRole || 'teacher';
+    const rawRoles = req.user?.roles?.map((r: any) => (typeof r === 'string' ? r : r.role)) || [];
+    const hasTeacherRole = role === 'teacher' || rawRoles.includes('teacher');
 
     let whereClause: any = {};
-    if (role === 'teacher') {
+    if (mode === 'teacher' || role === 'teacher') {
       whereClause = { instructors: { some: { teacherId: userId } } };
-    } else if (role === 'subject_supervisor') {
+    } else if (role === 'subject_supervisor' || role === 'supervisor') {
+      // If dual-role supervisor is teaching cohorts and didn't explicitly ask for supervisor mode, check their taught cohorts first
+      if (hasTeacherRole && mode !== 'supervisor') {
+        const taughtCount = await this.prisma.cohort.count({
+          where: { instructors: { some: { teacherId: userId } } }
+        });
+        if (taughtCount > 0) {
+          return this.prisma.cohort.findMany({
+            where: { instructors: { some: { teacherId: userId } } },
+            include: { enrollments: true }
+          });
+        }
+      }
       const courses = await this.prisma.course.findMany({
         where: {
           subject: {
@@ -1301,7 +1485,13 @@ export class GroupsController {
 
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
     const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
-    let whereClause: any = { primaryRole: 'teacher', status: 'active' };
+    let whereClause: any = {
+      status: 'active',
+      OR: [
+        { primaryRole: 'teacher' },
+        { roles: { some: { role: 'teacher' } } }
+      ]
+    };
     if (activeSubjectId) {
       whereClause.supervisedSubjectId = activeSubjectId;
     } else if (isSupervisor) {
@@ -1310,7 +1500,7 @@ export class GroupsController {
 
     return this.prisma.user.findMany({
       where: whereClause,
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true }
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true }
     });
   }
 

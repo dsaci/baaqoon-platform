@@ -27,7 +27,7 @@ export default function TimetablePage() {
   const { user } = useAuthStore();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
-  const isTeacherOrSupervisor = user?.primaryRole === "teacher" || user?.primaryRole === "supervisor";
+  const isTeacherOrSupervisor = user?.primaryRole === "teacher" || user?.primaryRole === "supervisor" || user?.primaryRole === "subject_supervisor" || !!user?.isDualRole;
 
   const [selectedCohort, setSelectedCohort] = useState("all");
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
@@ -45,7 +45,8 @@ export default function TimetablePage() {
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['timetable_sessions'],
     queryFn: async () => {
-      const endpoint = user?.primaryRole === 'student' ? '/sessions/student/me' : '/sessions';
+      const isTeacherWorkspace = window.location.pathname.startsWith('/teacher');
+      const endpoint = user?.primaryRole === 'student' ? '/sessions/student/me' : isTeacherWorkspace ? '/sessions?mode=teacher' : '/sessions';
       const res = await api.get(endpoint);
       return res.data;
     }

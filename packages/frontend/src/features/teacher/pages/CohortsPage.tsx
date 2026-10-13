@@ -9,17 +9,17 @@ export default function CohortsPage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const { data: myCohorts, isLoading: loadingCohorts } = useQuery({
-    queryKey: ['myCohorts'],
+    queryKey: ['myCohorts', 'teacher'],
     queryFn: async () => {
-      const res = await api.get('/groups/cohorts/me');
+      const res = await api.get('/groups/cohorts/me?mode=teacher');
       return res.data;
     }
   });
 
   const { data: sessions = [] } = useQuery({
-    queryKey: ['sessions'],
+    queryKey: ['sessions', 'teacher'],
     queryFn: async () => {
-      const res = await api.get('/sessions');
+      const res = await api.get('/sessions?mode=teacher');
       return res.data;
     }
   });

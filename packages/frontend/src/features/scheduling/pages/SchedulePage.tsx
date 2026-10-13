@@ -84,7 +84,7 @@ export default function SchedulePage() {
   const { data: cohorts = [], isLoading: isLoadingCohorts } = useQuery({
     queryKey: ["myCohorts"],
     queryFn: async () => {
-      const res = await api.get("/groups/cohorts/me");
+      const res = await api.get("/groups/cohorts/me?mode=teacher");
       return res.data;
     },
   });

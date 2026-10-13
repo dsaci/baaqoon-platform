@@ -12,7 +12,11 @@ export default function AssessmentsPage() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const { user } = useAuthStore();
-  const isTeacher = user?.primaryRole === 'teacher';
+  const isTeacher =
+    user?.primaryRole === 'teacher' ||
+    user?.isDualRole ||
+    user?.roles?.includes('teacher') ||
+    window.location.pathname.startsWith('/teacher');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [generatorMode, setGeneratorMode] = useState<'smart' | 'manual'>('smart');
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
