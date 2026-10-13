@@ -6,8 +6,9 @@ import {
   Users, UserPlus, BookOpen, Search, Filter, Loader2, CheckCircle, 
   GraduationCap, AlertTriangle, ArrowRightLeft, UserCheck, UserX, 
   ShieldAlert, RefreshCw, X, ChevronDown, ChevronUp, Sparkles, 
-  Share2, Plus, ArrowRight, Check, AlertCircle, HelpCircle
+  Share2, Plus, ArrowRight, Check, AlertCircle, HelpCircle, Clock
 } from 'lucide-react';
+import CohortRequestsAdminView from '../../admin/components/CohortRequestsAdminView';
 
 export default function SupervisorCohortsView() {
   const queryClient = useQueryClient();
@@ -21,9 +22,20 @@ export default function SupervisorCohortsView() {
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
   const [selectedCohortForAddStudent, setSelectedCohortForAddStudent] = useState<any>(null);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<{ student: any; fromCohort: any } | null>(null);
   const [selectedCohortForTeacherVacancy, setSelectedCohortForTeacherVacancy] = useState<any>(null);
+
+  // Cohort Requests Query
+  const { data: cohortRequests = [] } = useQuery({
+    queryKey: ['cohort_requests_supervisor_counter'],
+    queryFn: async () => {
+      const res = await api.get('/groups/requests');
+      return res.data || [];
+    }
+  });
+  const pendingRequestsCount = Array.isArray(cohortRequests) ? cohortRequests.filter((r: any) => r.status === 'pending').length : 0;
 
   // Create Cohort Form State
   const [step, setStep] = useState(1);
@@ -283,6 +295,19 @@ export default function SupervisorCohortsView() {
               title="تحديث الأفواج"
             >
               <RefreshCw className={`w-4 h-4 ${isLoadingDetailed ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button 
+              onClick={() => setIsRequestsModalOpen(true)}
+              className="relative px-4 py-2.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold rounded-xl flex items-center gap-2 transition-all text-xs flex-shrink-0 shadow-xs"
+            >
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span>طلبات فتح الأفواج</span>
+              {pendingRequestsCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse">
+                  {pendingRequestsCount} جديد
+                </span>
+              )}
             </button>
 
             <button 
@@ -1170,6 +1195,36 @@ export default function SupervisorCohortsView() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requests Modal for Supervisor */}
+      {isRequestsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    طلبات فتح الأفواج من الأساتذة
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500">
+                    مراجعة طلبات الأساتذة لفتح أفواج جديدة واعتمادها مع إسناد الفوج للأستاذ مقدم الطلب أو أستاذ بديل
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRequestsModalOpen(false)}
+                className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <CohortRequestsAdminView />
           </div>
         </div>
       )}

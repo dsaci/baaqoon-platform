@@ -1358,33 +1358,253 @@ export class GroupsController {
 
   @Get('requests')
   async getCohortRequests(@Req() req: any) {
-    const role = req.user.primaryRole;
+    const role = req.user?.primaryRole;
+    const userId = req.user?.id || req.user?.userId;
+
     if (role === 'admin' || role === 'super_admin') {
       return this.prisma.cohortRequest.findMany({
         include: {
-          teacher: { select: { firstName: true, lastName: true } },
-          subject: { select: { nameAr: true } }
+          teacher: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          subject: { select: { id: true, nameAr: true, code: true } }
         },
         orderBy: { createdAt: 'desc' }
       });
-    } else {
-      const userId = req.user.id || req.user.userId;
+    }
+
+    const caller = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: true }
+    });
+    const rawRoles = caller?.roles?.map(r => r.role as string) || [];
+    const isSupervisor = role === 'subject_supervisor' || rawRoles.includes('subject_supervisor');
+
+    if (isSupervisor && caller?.supervisedSubjectId) {
       return this.prisma.cohortRequest.findMany({
-        where: { teacherId: userId },
-        include: { subject: { select: { nameAr: true } } },
+        where: {
+          OR: [
+            { subjectId: caller.supervisedSubjectId },
+            { teacherId: userId }
+          ]
+        },
+        include: {
+          teacher: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          subject: { select: { id: true, nameAr: true, code: true } }
+        },
         orderBy: { createdAt: 'desc' }
       });
     }
+
+    return this.prisma.cohortRequest.findMany({
+      where: { teacherId: userId },
+      include: {
+        teacher: { select: { id: true, firstName: true, lastName: true } },
+        subject: { select: { id: true, nameAr: true, code: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   @Patch('requests/:id/status')
-  async updateCohortRequestStatus(@Param('id') id: string, @Body() body: { status: string, rejectionReason?: string }) {
+  async updateCohortRequestStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: {
+      status: string;
+      rejectionReason?: string;
+      assignedTeacherId?: string;
+      cohortName?: string;
+      maxStudents?: number;
+      studentIds?: string[];
+    }
+  ) {
+    const callerId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
+
+    const request = await this.prisma.cohortRequest.findUnique({
+      where: { id },
+      include: {
+        teacher: true,
+        subject: {
+          include: {
+            courses: {
+              where: { isActive: true },
+              include: {
+                versions: { where: { isDefault: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!request) {
+      return { error: 'Request not found' };
+    }
+
+    if (body.status === 'rejected') {
+      const updatedReq = await this.prisma.cohortRequest.update({
+        where: { id },
+        data: {
+          status: 'rejected',
+          rejectionReason: body.rejectionReason || 'تم رفض الطلب بناءً على التنسيق الإداري والأكاديمي'
+        }
+      });
+
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: request.teacherId,
+            title: 'تم رفض طلب فتح الفوج',
+            body: `نعتذر، لم تتم الموافقة على طلب فتح فوج "${request.suggestedName}". السبب: ${body.rejectionReason || 'بناءً على توجيه الإدارة والتنسيق الأكاديمي.'}`,
+            actionUrl: '/teacher/cohorts',
+            type: 'system'
+          }
+        });
+      } catch (_) {}
+
+      return updatedReq;
+    }
+
+    if (body.status === 'approved') {
+      // 1. Resolve course and curriculum version
+      let course: any = request.subject.courses?.[0];
+      if (!course) {
+        course = await this.prisma.course.findFirst({
+          where: { subjectId: request.subjectId },
+          include: { versions: true }
+        });
+      }
+
+      if (!course) {
+        course = await this.prisma.course.create({
+          data: {
+            subjectId: request.subjectId,
+            code: `${(request.subject.code || 'SUB').toUpperCase()}-AUTO-${Date.now().toString().slice(-4)}`,
+            title: `منهاج ${request.subject.nameAr}`,
+            slug: `course-${Date.now()}`,
+            curriculumType: request.subject.curriculumType || 'governmental',
+            academicBranch: 'scientific',
+            gradeLevel: 'grade_11',
+            academicYear: '2024-2025'
+          },
+          include: { versions: true }
+        });
+      }
+
+      let versionId = course.versions?.[0]?.id;
+      if (!versionId) {
+        const newVersion = await this.prisma.curriculumVersion.create({
+          data: {
+            courseId: course.id,
+            versionTag: 'v1.0',
+            isDefault: true,
+            status: 'published'
+          }
+        });
+        versionId = newVersion.id;
+      }
+
+      // 2. The primary teacher: Defaults directly to the requesting teacher!
+      const targetTeacherId = body.assignedTeacherId || request.teacherId;
+      const finalCohortName = body.cohortName?.trim() || request.suggestedName;
+      const finalMaxStudents = body.maxStudents || request.expectedStudents || 20;
+
+      const cleanSubCode = (request.subject.code || 'COH').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const code = `COH-${cleanSubCode}-${Date.now().toString().slice(-4)}`;
+
+      // 3. Create real cohort and assign teacher
+      const cohort = await this.prisma.cohort.create({
+        data: {
+          name: finalCohortName,
+          code,
+          courseId: course.id,
+          curriculumVersionId: versionId,
+          status: 'active',
+          minStudents: 3,
+          maxStudents: finalMaxStudents,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          createdById: callerId,
+          instructors: {
+            create: [
+              {
+                teacherId: targetTeacherId,
+                role: 'primary_teacher',
+                assignedById: callerId
+              }
+            ]
+          }
+        }
+      });
+
+      // 4. Enroll any provided students
+      if (body.studentIds && body.studentIds.length > 0) {
+        await this.prisma.cohortEnrollment.createMany({
+          data: body.studentIds.map(stId => ({
+            cohortId: cohort.id,
+            studentId: stId,
+            status: 'enrolled'
+          }))
+        });
+      }
+
+      // 5. Update request status to approved
+      const updatedReq = await this.prisma.cohortRequest.update({
+        where: { id },
+        data: {
+          status: 'approved'
+        }
+      });
+
+      // 6. Send congratulations and assignment notifications
+      const isAssignedToRequester = targetTeacherId === request.teacherId;
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: request.teacherId,
+            title: 'تم قبول طلب فتح الفوج وإسناده لك رسمياً 🎉',
+            body: isAssignedToRequester
+              ? `تم اعتماد طلبك رسمياً وتأسيس فوج "${cohort.name}"، وتم إسناد الفوج إليك كأستاذ رئيسي للفوج. يمكنك الآن بدء جدولة الحصص ورصد الطلاب.`
+              : `تم اعتماد طلبك وتأسيس فوج "${cohort.name}" بنجاح، وتم إسناد التدريس للأستاذ البديل بالتنسيق مع الإدارة.`,
+            actionUrl: '/teacher/cohorts',
+            type: 'system'
+          }
+        });
+
+        if (!isAssignedToRequester) {
+          await this.prisma.notification.create({
+            data: {
+              userId: targetTeacherId,
+              title: 'إسناد فوج دراسي جديد إليك',
+              body: `تم إسناد الفوج الجديد "${cohort.name}" في مادة ${request.subject.nameAr} إليك للتدريس.`,
+              actionUrl: '/teacher/cohorts',
+              type: 'system'
+            }
+          });
+        }
+      } catch (_) {}
+
+      // 7. Activity Log
+      try {
+        await this.prisma.activityLog.create({
+          data: {
+            userId: callerId,
+            action: 'APPROVE_COHORT_REQUEST',
+            details: `الموافقة على طلب فتح الفوج "${cohort.name}" وإسناده للأستاذ المعني (${targetTeacherId})`
+          }
+        });
+      } catch (_) {}
+
+      return {
+        ...updatedReq,
+        cohort,
+        assignedTeacherId: targetTeacherId,
+        message: `تم فتح الفوج "${cohort.name}" بنجاح وإسناده للأستاذ`
+      };
+    }
+
     return this.prisma.cohortRequest.update({
       where: { id },
-      data: {
-        status: body.status as any,
-        rejectionReason: body.rejectionReason
-      }
+      data: { status: body.status as any }
     });
   }
 
