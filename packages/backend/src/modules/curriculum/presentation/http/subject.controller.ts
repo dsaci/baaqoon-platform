@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards, Header } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { SubjectService } from '../../application/subject.service';
 
@@ -7,6 +7,9 @@ export class SubjectController {
   constructor(private readonly subjectService: SubjectService) {}
 
   @Get()
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  @Header('Pragma', 'no-cache')
+  @Header('Expires', '0')
   async getSubjects(@Query('activeOnly') activeOnly?: string) {
     const isActive = activeOnly !== 'false';
     return this.subjectService.findAll(isActive);

@@ -48,7 +48,10 @@ export default function RegisterPage() {
     queryFn: async () => {
       const res = await api.get('/curriculum/subjects');
       return res.data;
-    }
+    },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always'
   });
 
   const handleRegister = async (e: React.FormEvent) => {
