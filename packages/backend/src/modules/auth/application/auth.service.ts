@@ -71,6 +71,18 @@ export class AuthService {
       throw new ConflictException("البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل");
     }
 
+    if (!data.nationality?.trim()) {
+      throw new ConflictException("تحديد الجنسية إجباري لاستكمال التسجيل");
+    }
+
+    if ((data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') && !data.supervisedSubjectId) {
+      throw new ConflictException(
+        data.primaryRole === 'teacher'
+          ? "تحديد مادة التدريس إجباري للمعلم لاستكمال التسجيل وتفويجه وإسناد الحصص"
+          : "تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي"
+      );
+    }
+
     if (data.email) {
       const existingEmail = await this.usersFacade.getUserByIdentifier(
         data.email,
@@ -115,6 +127,16 @@ export class AuthService {
         },
       },
     });
+
+    if (newUser.supervisedSubjectId) {
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          INSERT INTO users.supervisor_subjects (user_id, subject_id)
+          VALUES ('${newUser.id}', '${newUser.supervisedSubjectId}')
+          ON CONFLICT (user_id, subject_id) DO NOTHING;
+        `);
+      } catch (_) {}
+    }
 
     if (data.primaryRole === 'student') {
       try {

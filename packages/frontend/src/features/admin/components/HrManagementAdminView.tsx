@@ -33,6 +33,8 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [nudgeUserModal, setNudgeUserModal] = useState<any>(null);
   const [nudgeMessage, setNudgeMessage] = useState<string>('');
   const [isNudging, setIsNudging] = useState<boolean>(false);
+  const [viewEditSubjectId, setViewEditSubjectId] = useState<string>('');
+  const [viewEditNationality, setViewEditNationality] = useState<string>('');
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['admin_subjects_list'],
@@ -90,6 +92,26 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     },
     onError: (err: any) => {
       alert(err?.response?.data?.message || 'تعذر تحديث الصفة الثنائية');
+    }
+  });
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: async ({ id, supervisedSubjectId, nationality }: { id: string; supervisedSubjectId?: string | null; nationality?: string | null }) => {
+      const res = await api.patch(`/users/admin/${id}/details`, {
+        supervisedSubjectId,
+        nationality
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin_users_list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin_distribution'] });
+      queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+      setSelectedUserForView((prev: any) => prev ? { ...prev, ...data } : null);
+      alert('تم تثبيت وحفظ البيانات بنجاح في قاعدة البيانات!');
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || 'تعذر حفظ البيانات');
     }
   });
   
@@ -171,13 +193,25 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
       case 'teacher': return (
         <div className="flex flex-col items-start gap-1">
           <span className="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-xs font-bold"><User className="w-3 h-3"/> أستاذ</span>
-          {subjectName && <span className="text-[11px] font-bold text-blue-700 bg-blue-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>}
+          {subjectName ? (
+            <span className="text-[11px] font-bold text-blue-700 bg-blue-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>
+          ) : (
+            <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1" title="يجب تحديد مادة التدريس لتفويجه وإسناد الأفواج إليه">
+              <AlertTriangle className="w-2.5 h-2.5" /> بحاجة لتحديد مادة التدريس
+            </span>
+          )}
         </div>
       );
       case 'subject_supervisor': return (
         <div className="flex flex-col items-start gap-1">
           <span className="inline-flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-md text-xs font-bold"><Shield className="w-3 h-3"/> مشرف منسق</span>
-          {subjectName && <span className="text-[11px] font-bold text-purple-700 bg-purple-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>}
+          {subjectName ? (
+            <span className="text-[11px] font-bold text-purple-700 bg-purple-50/70 px-2 py-0.5 rounded">مادة: {subjectName}</span>
+          ) : (
+            <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+              <AlertTriangle className="w-2.5 h-2.5" /> بحاجة لتحديد مادة الإشراف
+            </span>
+          )}
         </div>
       );
       case 'admin':
@@ -358,7 +392,12 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                         </button>
                       )}
                       <button
-                        onClick={() => { setSelectedUserForView(u); setIsViewDetailsOpen(true); }}
+                        onClick={() => { 
+                          setSelectedUserForView(u); 
+                          setViewEditSubjectId(u.supervisedSubjectId || '');
+                          setViewEditNationality(u.nationality || '');
+                          setIsViewDetailsOpen(true); 
+                        }}
                         title="عرض كل التفاصيل"
                         className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors ml-1"
                       >
@@ -596,9 +635,62 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                   <span className={`w-3 h-3 rounded-full ${selectedUserForView.status === 'active' ? 'bg-emerald-500' : selectedUserForView.status === 'pending' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></span>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 md:col-span-2">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> الجنسية</span>
-                  <div className="text-lg font-black text-slate-900 dark:text-white">{selectedUserForView.nationality || 'غير محدد'}</div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 md:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                      <MapPin className="w-4 h-4 text-slate-400" /> الجنسية
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-400">تعديل فوري</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <select
+                      value={viewEditNationality}
+                      onChange={(e) => setViewEditNationality(e.target.value)}
+                      className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold outline-none focus:ring-2 focus:ring-slate-400"
+                    >
+                      <option value="">-- غير محدد --</option>
+                      <option value="فلسطيني">فلسطيني</option>
+                      <option value="أردني">أردني</option>
+                      <option value="مصري">مصري</option>
+                      <option value="سعودي">سعودي</option>
+                      <option value="إماراتي">إماراتي</option>
+                      <option value="كويتي">كويتي</option>
+                      <option value="عماني">عماني</option>
+                      <option value="قطري">قطري</option>
+                      <option value="بحريني">بحريني</option>
+                      <option value="يمني">يمني</option>
+                      <option value="عراقي">عراقي</option>
+                      <option value="سوري">سوري</option>
+                      <option value="لبناني">لبناني</option>
+                      <option value="سوداني">سوداني</option>
+                      <option value="ليبي">ليبي</option>
+                      <option value="تونسي">تونسي</option>
+                      <option value="جزائري">جزائري</option>
+                      <option value="مغربي">مغربي</option>
+                      <option value="موريتاني">موريتاني</option>
+                      <option value="بريطاني">بريطاني</option>
+                      <option value="كندي">كندي</option>
+                      <option value="أمريكي">أمريكي</option>
+                      <option value="تركي">تركي</option>
+                      <option value="ألماني">ألماني</option>
+                      <option value="فرنسي">فرنسي</option>
+                      <option value="سويدي">سويدي</option>
+                      <option value="هولندي">هولندي</option>
+                      <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        updateDetailsMutation.mutate({
+                          id: selectedUserForView.id,
+                          nationality: viewEditNationality || null
+                        });
+                      }}
+                      disabled={updateDetailsMutation.isPending}
+                      className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all disabled:opacity-50 shrink-0"
+                    >
+                      تثبيت الجنسية
+                    </button>
+                  </div>
                 </div>
 
                 {selectedUserForView.primaryRole === 'student' && (
@@ -631,13 +723,45 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 )}
 
                 {(selectedUserForView.primaryRole === 'teacher' || selectedUserForView.primaryRole === 'subject_supervisor') && (
-                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-800/50 md:col-span-2">
-                    <span className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                      <BookOpen className="w-4 h-4" /> {selectedUserForView.primaryRole === 'teacher' ? 'مادة التدريس' : 'مادة التنسيق والإشراف'}
-                    </span>
-                    <div className="text-lg font-black text-purple-900 dark:text-purple-200">
-                      {subjects.find((s:any) => s.id === selectedUserForView.supervisedSubjectId)?.nameAr || 'غير محدد (ربما يدرس أكثر من مادة أو يحتاج إسناد)'}
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-2xl border border-purple-200 dark:border-purple-800/60 md:col-span-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-purple-600" />
+                        {selectedUserForView.primaryRole === 'teacher' ? 'مادة التدريس والتخصص الدراسي' : 'مادة التنسيق والإشراف الأكاديمي'}
+                      </span>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        إسناد وتفويج فوري
+                      </span>
                     </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <select
+                        value={viewEditSubjectId}
+                        onChange={(e) => setViewEditSubjectId(e.target.value)}
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 shadow-xs"
+                      >
+                        <option value="">-- غير محدد (اختر المادة لتفويج الأستاذ) --</option>
+                        {subjects.map((s: any) => (
+                          <option key={s.id} value={s.id}>{s.nameAr}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => {
+                          updateDetailsMutation.mutate({
+                            id: selectedUserForView.id,
+                            supervisedSubjectId: viewEditSubjectId || null
+                          });
+                        }}
+                        disabled={updateDetailsMutation.isPending}
+                        className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/20 transition-all disabled:opacity-50 shrink-0"
+                      >
+                        {updateDetailsMutation.isPending ? 'جاري الحفظ...' : 'تثبيت مادة التدريس'}
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-purple-700/80 dark:text-purple-300/80 font-medium">
+                      💡 عند تثبيت مادة التدريس، يظهر الأستاذ فوراً لدى مشرف المادة في قائمة أساتذة التخصص ويكون متاحاً للإسناد في أي فوج دراسي جديد.
+                    </p>
                   </div>
                 )}
 

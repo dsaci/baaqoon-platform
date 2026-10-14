@@ -48,12 +48,37 @@ export default function DashboardLayout() {
 
   const isMissingEmail = !user?.email || user.email.trim() === '';
   const isMissingPhone = !user?.phone || user.phone.trim() === '';
-  const hasIncompleteContact = Boolean(user && (isMissingEmail || isMissingPhone));
-  const missingContactText = isMissingEmail && isMissingPhone 
-    ? (isRtl ? 'البريد الإلكتروني ورقم الهاتف' : 'Email and Phone number')
-    : isMissingEmail 
-    ? (isRtl ? 'البريد الإلكتروني' : 'Email address')
-    : (isRtl ? 'رقم الهاتف' : 'Phone number');
+  const isTeacherOrSupervisor = Boolean(
+    user?.primaryRole === 'teacher' || 
+    user?.primaryRole === 'subject_supervisor' || 
+    user?.isDualRole ||
+    (Array.isArray(user?.roles) && user!.roles!.includes('teacher'))
+  );
+  const isMissingSubject = Boolean(isTeacherOrSupervisor && !user?.supervisedSubjectId);
+  const isMissingNationality = !user?.nationality || user.nationality.trim() === '';
+  const hasIncompleteContact = Boolean(user && (isMissingEmail || isMissingPhone || isMissingSubject || isMissingNationality));
+
+  const missingFieldsList: string[] = [];
+  if (isMissingSubject) {
+    missingFieldsList.push(user?.primaryRole === 'teacher' ? (isRtl ? 'مادة التدريس' : 'Teaching Subject') : (isRtl ? 'مادة التنسيق' : 'Supervision Subject'));
+  }
+  if (isMissingNationality) {
+    missingFieldsList.push(isRtl ? 'الجنسية' : 'Nationality');
+  }
+  if (isMissingEmail) {
+    missingFieldsList.push(isRtl ? 'البريد الإلكتروني' : 'Email');
+  }
+  if (isMissingPhone) {
+    missingFieldsList.push(isRtl ? 'رقم الهاتف' : 'Phone');
+  }
+  const missingContactText = missingFieldsList.join(isRtl ? ' و ' : ' & ');
+
+  // Auto-prompt teachers who haven't set their teaching subject yet
+  useEffect(() => {
+    if (user && isMissingSubject) {
+      setIsCompleteContactOpen(true);
+    }
+  }, [user?.id, isMissingSubject]);
 
   // Listen to open guide custom event
   useEffect(() => {
@@ -579,29 +604,35 @@ export default function DashboardLayout() {
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-4 md:p-8 relative z-10 bg-baaqoon-50 dark:bg-baaqoon-950">
-          {/* Missing Contact Info Urgent Banner */}
+          {/* Missing Contact / Subject Info Urgent Banner */}
           {hasIncompleteContact && (
-            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/15 border border-amber-500/30 dark:border-amber-500/40 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-xs" dir={isRtl ? 'rtl' : 'ltr'}>
+            <div className={`mb-6 p-4 rounded-2xl ${isMissingSubject ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-purple-500/20 border-purple-400/50 dark:border-purple-500/40' : 'bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/15 border-amber-500/30 dark:border-amber-500/40'} border backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-xs`} dir={isRtl ? 'rtl' : 'ltr'}>
               <div className="flex items-start sm:items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30">
+                <div className={`w-10 h-10 rounded-xl ${isMissingSubject ? 'bg-purple-600 shadow-purple-600/30' : 'bg-amber-500 shadow-amber-500/30'} text-white flex items-center justify-center shrink-0 shadow-md`}>
                   <ShieldAlert className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-amber-900 dark:text-amber-200">
-                    {isRtl ? `تنبيه أمني هام: حسابك يفتقر إلى ${missingContactText}` : `Important Security Alert: Your account is missing ${missingContactText}`}
-                  </h4>
-                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80 font-medium mt-0.5">
+                  <h4 className={`text-sm font-black ${isMissingSubject ? 'text-purple-950 dark:text-purple-200' : 'text-amber-900 dark:text-amber-200'}`}>
                     {isRtl 
-                      ? 'يرجى استكمال بياناتك الإلزامية لتأمين الحساب واستلام الإشعارات وضمان إمكانية استرجاعه بسهولة في حال نسيان كلمة المرور.'
-                      : 'Please complete your mandatory contact info to secure your account and enable easy password recovery.'}
+                      ? (isMissingSubject 
+                          ? `تنبيه أكاديمي هام: حسابك يفتقر إلى ${missingContactText}` 
+                          : `تنبيه أمني هام: حسابك يفتقر إلى ${missingContactText}`)
+                      : `Important Alert: Your account is missing ${missingContactText}`}
+                  </h4>
+                  <p className={`text-xs ${isMissingSubject ? 'text-purple-900/80 dark:text-purple-300/80' : 'text-amber-800/80 dark:text-amber-300/80'} font-medium mt-0.5`}>
+                    {isRtl 
+                      ? (isMissingSubject 
+                          ? 'يرجى تحديد مادة التدريس الخاصة بك فوراً لتتمكن إدارة المنصة والمشرفون من تفويجك وإسناد الحصص والطلاب إليك والظهور في جدول الإسناد الأكاديمي.' 
+                          : 'يرجى استكمال بياناتك الإلزامية لتأمين الحساب واستلام الإشعارات وضمان إمكانية استرجاعه بسهولة في حال نسيان كلمة المرور.')
+                      : 'Please complete your mandatory profile information so administrators and supervisors can assign cohorts and manage your account properly.'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCompleteContactOpen(true)}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black rounded-xl shadow-lg shadow-amber-600/20 whitespace-nowrap transition-all self-stretch sm:self-auto text-center"
+                className={`px-5 py-2.5 ${isMissingSubject ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-600/20' : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 shadow-amber-600/20'} text-white text-xs font-black rounded-xl shadow-lg whitespace-nowrap transition-all self-stretch sm:self-auto text-center`}
               >
-                {isRtl ? 'استكمال البيانات الآن' : 'Complete Info Now'}
+                {isRtl ? (isMissingSubject ? 'تحديد مادة التدريس واستكمال البيانات' : 'استكمال البيانات الآن') : 'Complete Info Now'}
               </button>
             </div>
           )}
@@ -625,6 +656,8 @@ export default function DashboardLayout() {
         onClose={() => setIsCompleteContactOpen(false)}
         isMissingEmail={isMissingEmail}
         isMissingPhone={isMissingPhone}
+        isMissingSubject={isMissingSubject}
+        isMissingNationality={isMissingNationality}
       />
 
       {/* Platform Step-by-Step Guide Modal */}

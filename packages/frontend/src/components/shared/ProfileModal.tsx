@@ -22,14 +22,39 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     email: user?.email || '',
     phone: user?.phone || '',
     nationality: user?.nationality || '',
-    gradeLevel: user?.gradeLevel || 'grade_11'
+    gradeLevel: user?.gradeLevel || 'grade_11',
+    supervisedSubjectId: user?.supervisedSubjectId || ''
   });
   
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(user?.avatarUrl || 'preset:anime_male_1');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [uploadNote, setUploadNote] = useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      api.get('/curriculum/subjects').then((res) => {
+        if (res.data) setSubjects(res.data);
+      }).catch(() => {});
+    }
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        nationality: user.nationality || '',
+        gradeLevel: user.gradeLevel || 'grade_11',
+        supervisedSubjectId: user.supervisedSubjectId || ''
+      });
+      if (user.avatarUrl) setSelectedAvatar(user.avatarUrl);
+    }
+  }, [user]);
 
   if (!isOpen) return null;
 
@@ -101,6 +126,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         phone: formData.phone,
         nationality: formData.nationality,
         gradeLevel: formData.gradeLevel,
+        supervisedSubjectId: formData.supervisedSubjectId || undefined,
         avatarUrl: selectedAvatar,
       });
 
@@ -369,6 +395,25 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 >
                   <option value="grade_11">الصف الحادي عشر (11)</option>
                   <option value="grade_12">الصف الثاني عشر (التوجيهي - 12)</option>
+                </select>
+              </div>
+            )}
+
+            {(user?.primaryRole === 'teacher' || user?.primaryRole === 'subject_supervisor' || user?.isDualRole) && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-black text-purple-700 dark:text-purple-300">
+                  <span>📚</span> {user?.primaryRole === 'teacher' ? 'مادة التدريس والتخصص الدراسي' : 'مادة التنسيق والإشراف'}
+                </label>
+                <select 
+                  name="supervisedSubjectId" 
+                  value={formData.supervisedSubjectId} 
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                >
+                  <option value="">-- اختر مادة التخصص والتدريس --</option>
+                  {subjects.map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.nameAr}</option>
+                  ))}
                 </select>
               </div>
             )}

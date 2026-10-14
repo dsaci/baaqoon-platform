@@ -140,7 +140,19 @@ export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Patch('me/profile')
-  async updateMyProfile(@Req() req: any, @Body() body: { firstName?: string; lastName?: string; email?: string; phone?: string; nationality?: string; gradeLevel?: string; avatarUrl?: string }) {
+  async updateMyProfile(
+    @Req() req: any, 
+    @Body() body: { 
+      firstName?: string; 
+      lastName?: string; 
+      email?: string; 
+      phone?: string; 
+      nationality?: string; 
+      gradeLevel?: string; 
+      avatarUrl?: string;
+      supervisedSubjectId?: string;
+    }
+  ) {
     const userId = req.user.id || req.user.userId;
     const updateData: any = {};
     if (body.firstName) updateData.firstName = body.firstName;
@@ -150,6 +162,9 @@ export class UsersController {
     if (body.nationality !== undefined) updateData.nationality = body.nationality || null;
     if (body.gradeLevel !== undefined) updateData.gradeLevel = body.gradeLevel || null;
     if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;
+    if (body.supervisedSubjectId !== undefined) {
+      updateData.supervisedSubjectId = body.supervisedSubjectId || null;
+    }
 
     try {
       await this.prisma.$executeRawUnsafe(`ALTER TABLE users.users ALTER COLUMN "avatarUrl" TYPE TEXT`);
@@ -158,8 +173,22 @@ export class UsersController {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
-      include: { roles: true }
+      include: { 
+        roles: true,
+        supervisedSubject: { select: { id: true, nameAr: true, code: true } }
+      }
     });
+
+    if (body.supervisedSubjectId) {
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          INSERT INTO users.supervisor_subjects (user_id, subject_id)
+          VALUES ('${userId}', '${body.supervisedSubjectId}')
+          ON CONFLICT (user_id, subject_id) DO NOTHING;
+        `);
+      } catch (_) {}
+    }
+
     const rawRoles = updated.roles?.map((r: any) => r.role) || [];
     const roles = Array.from(new Set([updated.primaryRole, ...rawRoles]));
     const isDualRole = roles.includes('teacher') && (roles.includes('subject_supervisor') || roles.includes('supervisor'));
@@ -174,6 +203,7 @@ export class UsersController {
       roles,
       isDualRole,
       supervisedSubjectId: updated.supervisedSubjectId,
+      supervisedSubject: updated.supervisedSubject,
       status: updated.status,
       avatarUrl: updated.avatarUrl,
       nationality: updated.nationality,
@@ -347,6 +377,89 @@ export class UsersController {
       message: body.enableDualRole
         ? `تم منح الصفة الثنائية (التدريس والإشراف معاً) لـ ${targetUser.firstName} ${targetUser.lastName} بنجاح`
         : `تم تحديث صلاحية ${targetUser.firstName} ${targetUser.lastName} بنجاح`
+    };
+  }
+
+  @Patch('admin/:id/details')
+  async updateUserAdminDetails(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: {
+      supervisedSubjectId?: string | null;
+      nationality?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+    }
+  ) {
+    if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(req.user.primaryRole)) {
+      throw new UnauthorizedException('غير مصرح لك بتعديل بيانات المستخدمين');
+    }
+
+    const targetUser = await this.prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      throw new UnauthorizedException('المستخدم غير موجود');
+    }
+
+    const updateData: any = {};
+    if (body.supervisedSubjectId !== undefined) {
+      updateData.supervisedSubjectId = body.supervisedSubjectId || null;
+    }
+    if (body.nationality !== undefined) {
+      updateData.nationality = body.nationality || null;
+    }
+    if (body.phone !== undefined) {
+      updateData.phone = body.phone || null;
+    }
+    if (body.email !== undefined) {
+      updateData.email = body.email || null;
+    }
+    if (body.firstName && body.firstName.trim()) {
+      updateData.firstName = body.firstName.trim();
+    }
+    if (body.lastName && body.lastName.trim()) {
+      updateData.lastName = body.lastName.trim();
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: updateData,
+      include: {
+        supervisedSubject: { select: { id: true, nameAr: true, code: true } },
+        roles: true
+      }
+    });
+
+    if (body.supervisedSubjectId) {
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          INSERT INTO users.supervisor_subjects (user_id, subject_id)
+          VALUES ('${id}', '${body.supervisedSubjectId}')
+          ON CONFLICT (user_id, subject_id) DO NOTHING;
+        `);
+      } catch (_) {}
+    }
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'UPDATE_USER_DETAILS',
+          details: `تحديث بيانات المستخدم ${updated.firstName} ${updated.lastName} (المادة: ${updated.supervisedSubject?.nameAr || 'غير محدد'}، الجنسية: ${updated.nationality || 'غير محدد'})`
+        }
+      });
+    } catch (_) {}
+
+    const rawRoles = updated.roles?.map(r => r.role as string) || [];
+    const roles: string[] = Array.from(new Set([updated.primaryRole as string, ...rawRoles]));
+    const isDualRole = roles.includes('teacher') && (roles.includes('subject_supervisor') || roles.includes('supervisor'));
+
+    return {
+      ...updated,
+      roles,
+      isDualRole,
+      message: `تم تحديث بيانات ${updated.firstName} ${updated.lastName} بنجاح`
     };
   }
 

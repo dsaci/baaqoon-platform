@@ -72,6 +72,22 @@ export default function RegisterPage() {
         return;
       }
 
+      if (!formData.nationality) {
+        setError('تحديد الجنسية إجباري لاستكمال التسجيل');
+        setIsLoading(false);
+        return;
+      }
+
+      if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && !formData.supervisedSubjectId) {
+        setError(
+          formData.primaryRole === 'teacher'
+            ? 'تحديد مادة التدريس إجباري للمعلم للتفويج وإسناد الحصص الدراسية'
+            : 'تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي'
+        );
+        setIsLoading(false);
+        return;
+      }
+
       const cleanPhone = (formData.phone || '').trim().replace(/^0+/, '');
       const dialCode = (formData.countryCode || '+970').split('-')[0];
       const formattedPhone = cleanPhone
@@ -192,20 +208,32 @@ export default function RegisterPage() {
             </select>
           </div>
 
-          {/* Supervised Subject - shown only for subject_supervisor */}
+          {/* Supervised Subject - shown only for subject_supervisor and teacher */}
           {(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher') && (
             <div className="space-y-1.5 animate-fade-in-up">
               <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                {t("auth.coordination_subject", "مادة التنسيق (اختر مادة واحدة فقط)")}
+                {formData.primaryRole === 'teacher' ? (
+                  <span>
+                    {t("auth.teaching_subject", "مادة التدريس والتخصص الأكاديمي")} <span className="text-rose-500 font-bold">* (إجباري للتفويج وإسناد الحصص)</span>
+                  </span>
+                ) : (
+                  <span>
+                    {t("auth.coordination_subject", "مادة التنسيق والإشراف الأكاديمي")} <span className="text-rose-500 font-bold">* (إجباري للمشرف)</span>
+                  </span>
+                )}
               </label>
               <select 
                 name="supervisedSubjectId"
                 value={formData.supervisedSubjectId}
                 onChange={handleChange}
                 className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
-                required={(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher')}
+                required
               >
-                <option value="" className="dark:bg-baaqoon-800">{t("auth.choose_coordination_subject", "-- اختر مادة التنسيق --")}</option>
+                <option value="" className="dark:bg-baaqoon-800">
+                  {formData.primaryRole === 'teacher' 
+                    ? t("auth.choose_teaching_subject", "-- اختر مادة التدريس الأساسية --")
+                    : t("auth.choose_coordination_subject", "-- اختر مادة التنسيق والإشراف --")}
+                </option>
                 {subjects.map((s: any) => (
                   <option key={s.id} value={s.id} className="dark:bg-baaqoon-800">{s.nameAr}</option>
                 ))}
@@ -360,15 +388,16 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.nationality', 'الجنسية')}
+              {t('auth.nationality', 'الجنسية')} <span className="text-rose-500 font-bold">* (إجباري)</span>
             </label>
             <select 
               name="nationality" 
+              required
               value={formData.nationality} 
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
             >
-              <option value="">{t('auth.unspecified', '-- غير محدد --')}</option>
+              <option value="">{t('auth.unspecified', '-- اختر الجنسية --')}</option>
               <option value="فلسطيني">فلسطيني</option>
               <option value="أردني">أردني</option>
               <option value="مصري">مصري</option>

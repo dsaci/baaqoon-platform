@@ -84,9 +84,21 @@ export default function AdminDatabasePage() {
                   <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                     <td className="p-4 font-medium text-slate-900 dark:text-white">{u.firstName} {u.lastName}</td>
                     <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-xs" dir="ltr">{u.email || '-'}</td>
-                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono text-xs" dir="ltr">{u.phone || '-'}</td>
-                    <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
-                      {u.nationality || (u.academicBranch === 'scientific' ? 'علمي' : u.academicBranch === 'literary' ? 'أدبي' : '-')}
+                    <td className="p-4 text-xs text-slate-600 dark:text-slate-300">
+                      <div className="font-bold">{u.nationality || 'غير محدد'}</div>
+                      {u.supervisedSubject?.nameAr ? (
+                        <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-0.5">
+                          مادة: {u.supervisedSubject.nameAr}
+                        </div>
+                      ) : (u.primaryRole === 'teacher' || u.primaryRole === 'subject_supervisor') ? (
+                        <div className="text-[10px] font-black text-rose-500 mt-0.5">
+                          ⚠️ يحتاج تحديد مادة
+                        </div>
+                      ) : (u.academicBranch ? (
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {u.academicBranch === 'scientific' ? 'علمي' : u.academicBranch === 'literary' ? 'أدبي' : u.academicBranch}
+                        </div>
+                      ) : null)}
                     </td>
                     <td className="p-4">
                       <span className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg text-xs font-bold">

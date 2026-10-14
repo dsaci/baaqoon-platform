@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, ShieldAlert, Mail, Phone, Loader2, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShieldAlert, Mail, Phone, Loader2, CheckCircle2, BookOpen, MapPin } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -8,27 +8,61 @@ interface CompleteContactModalProps {
   onClose: () => void;
   isMissingEmail: boolean;
   isMissingPhone: boolean;
+  isMissingSubject?: boolean;
+  isMissingNationality?: boolean;
 }
 
 export default function CompleteContactModal({
   isOpen,
   onClose,
   isMissingEmail,
-  isMissingPhone
+  isMissingPhone,
+  isMissingSubject = false,
+  isMissingNationality = false
 }: CompleteContactModalProps) {
   const { user, initialize } = useAuthStore();
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [countryCode, setCountryCode] = useState('+970');
+  const [supervisedSubjectId, setSupervisedSubjectId] = useState(user?.supervisedSubjectId || '');
+  const [nationality, setNationality] = useState(user?.nationality || '');
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      api.get('/curriculum/subjects')
+        .then((res) => {
+          if (res.data) setSubjects(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (user?.supervisedSubjectId) setSupervisedSubjectId(user.supervisedSubjectId);
+    if (user?.nationality) setNationality(user.nationality);
+    if (user?.email) setEmail(user.email);
+    if (user?.phone) setPhone(user.phone);
+  }, [user]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (isMissingSubject && !supervisedSubjectId) {
+      setError(user?.primaryRole === 'teacher' ? 'تحديد مادة التدريس إجباري لتفويجك وإسناد الأفواج والطلاب إليك' : 'تحديد مادة التنسيق والإشراف إجباري');
+      return;
+    }
+
+    if (isMissingNationality && !nationality) {
+      setError('تحديد الجنسية إجباري لاستكمال البيانات');
+      return;
+    }
 
     if (isMissingEmail && !email.trim()) {
       setError('يرجى إدخال عنوان البريد الإلكتروني');
@@ -52,6 +86,8 @@ export default function CompleteContactModal({
       const payload: any = {};
       if (email.trim()) payload.email = email.trim();
       if (formattedPhone) payload.phone = formattedPhone;
+      if (supervisedSubjectId) payload.supervisedSubjectId = supervisedSubjectId;
+      if (nationality) payload.nationality = nationality;
 
       await api.patch('/users/me/profile', payload);
       
@@ -84,9 +120,13 @@ export default function CompleteContactModal({
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-white">استكمال بيانات الحساب الإلزامية</h3>
+              <h3 className="text-lg font-black text-white">
+                {isMissingSubject ? 'استكمال البيانات وتحديد مادة التدريس' : 'استكمال بيانات الحساب الإلزامية'}
+              </h3>
               <p className="text-xs text-amber-100 font-medium mt-0.5">
-                تأمين الحساب واستكمال معلومات التواصل
+                {isMissingSubject 
+                  ? 'إلزامي لتفويج المعلمين وإسناد الطلاب وتأمين الحساب'
+                  : 'تأمين الحساب واستكمال معلومات التواصل'}
               </p>
             </div>
           </div>
@@ -101,7 +141,11 @@ export default function CompleteContactModal({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
-            🔒 وفقاً لمعايير أمان منصة باقون، يلزم توفر البريد الإلكتروني ورقم الهاتف معاً لكل مستخدم لضمان استرجاع الحساب، وتلقي إشعارات الحصص والتحديثات الهامة.
+            {isMissingSubject ? (
+              <span>⚠️ <strong>تنبيه هام للأساتذة:</strong> لا يمكن للمشرفين الأكاديميين أو الإدارة إسناد الأفواج والطلاب إليك حتى تقوم بتحديد مادتك الدراسية الأساسية. يرجى اختيارها أدناه لتثبيتها فوراً.</span>
+            ) : (
+              <span>🔒 وفقاً لمعايير منصة باقون، يلزم توفر البريد الإلكتروني ورقم الهاتف والجنسية لضمان أمان الحساب وتلقي الإشعارات الهامة.</span>
+            )}
           </div>
 
           {error && (
@@ -113,7 +157,77 @@ export default function CompleteContactModal({
           {success && (
             <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              <span>تم تحديث بياناتك بنجاح! شكراً لك.</span>
+              <span>تم تحديث وتثبيت بياناتك ومادتك بنجاح! شكراً لك.</span>
+            </div>
+          )}
+
+          {/* Missing Subject Field - Crucial for Teachers / Supervisors */}
+          {isMissingSubject && (
+            <div className="space-y-1.5 p-3.5 bg-purple-50/80 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-800">
+              <label className="block text-xs font-black text-purple-900 dark:text-purple-200 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-purple-600" />
+                  {user?.primaryRole === 'teacher' ? 'مادة التدريس والتخصص الدراسي' : 'مادة التنسيق والإشراف'}
+                </span>
+                <span className="text-rose-500 font-bold">* إجباري للتفويج</span>
+              </label>
+              <select
+                required
+                value={supervisedSubjectId}
+                onChange={(e) => setSupervisedSubjectId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-black focus:ring-2 focus:ring-purple-500 outline-none transition-all shadow-xs"
+              >
+                <option value="">-- اختر مادتك الدراسية الأساسية للتفويج --</option>
+                {subjects.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.nameAr}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Missing Nationality Field */}
+          {isMissingNationality && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <MapPin className="w-4 h-4 text-slate-400" />
+                الجنسية <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                value={nationality}
+                onChange={(e) => setNationality(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+              >
+                <option value="">-- اختر الجنسية --</option>
+                <option value="فلسطيني">فلسطيني</option>
+                <option value="أردني">أردني</option>
+                <option value="مصري">مصري</option>
+                <option value="سعودي">سعودي</option>
+                <option value="إماراتي">إماراتي</option>
+                <option value="كويتي">كويتي</option>
+                <option value="عماني">عماني</option>
+                <option value="قطري">قطري</option>
+                <option value="بحريني">بحريني</option>
+                <option value="يمني">يمني</option>
+                <option value="عراقي">عراقي</option>
+                <option value="سوري">سوري</option>
+                <option value="لبناني">لبناني</option>
+                <option value="سوداني">سوداني</option>
+                <option value="ليبي">ليبي</option>
+                <option value="تونسي">تونسي</option>
+                <option value="جزائري">جزائري</option>
+                <option value="مغربي">مغربي</option>
+                <option value="موريتاني">موريتاني</option>
+                <option value="بريطاني">بريطاني</option>
+                <option value="كندي">كندي</option>
+                <option value="أمريكي">أمريكي</option>
+                <option value="تركي">تركي</option>
+                <option value="ألماني">ألماني</option>
+                <option value="فرنسي">فرنسي</option>
+                <option value="سويدي">سويدي</option>
+                <option value="هولندي">هولندي</option>
+                <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
+              </select>
             </div>
           )}
 

@@ -489,6 +489,7 @@ export class GroupsController {
         status: true, 
         createdAt: true, 
         supervisedSubjectId: true, 
+        supervisedSubject: { select: { id: true, nameAr: true, code: true } },
         academicBranch: true, 
         curriculumType: true, 
         gradeLevel: true,
