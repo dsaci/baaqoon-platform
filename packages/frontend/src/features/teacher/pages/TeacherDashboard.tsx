@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Medal, BellRing } from 'lucide-react';
@@ -8,12 +8,16 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAccountabilityWidget';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
+import AttendanceModal from '../../scheduling/components/AttendanceModal';
 import { useTranslation } from 'react-i18next';
 
 export default function TeacherDashboard() {
   const { user } = useAuthStore();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
+
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['teacher_sessions_dashboard'],
@@ -126,13 +130,26 @@ export default function TeacherDashboard() {
                 </p>
               </div>
               
-              <Link 
-                to={`/sessions/${upcomingSession.id}/room`} 
-                className="w-full md:w-auto px-8 py-4 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1 flex items-center justify-center gap-3 text-lg"
-              >
-                <Video className="w-6 h-6 animate-pulse" />
-                بدء الحصة (Jitsi)
-              </Link>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSessionId(upcomingSession.id);
+                    setIsAttendanceModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl transition-all shadow-lg shadow-emerald-600/30 hover:-translate-y-0.5 flex items-center justify-center gap-2.5 text-base cursor-pointer"
+                >
+                  <Users className="w-5 h-5" />
+                  رصد الغياب والحضور
+                </button>
+                <Link 
+                  to={`/sessions/${upcomingSession.id}/room`} 
+                  className="w-full sm:w-auto px-7 py-4 bg-gradient-to-l from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1 flex items-center justify-center gap-3 text-base"
+                >
+                  <Video className="w-5 h-5 animate-pulse" />
+                  بدء الحصة (Jitsi)
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] border border-dashed border-slate-300 dark:border-slate-700">
@@ -147,6 +164,26 @@ export default function TeacherDashboard() {
             <span className="w-2 h-6 bg-baaqoon-accent rounded-full"></span>
             الوصول السريع (Quick Actions)
           </h2>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSessionId(upcomingSession?.id);
+              setIsAttendanceModalOpen(true);
+            }}
+            className="w-full flex items-center justify-between p-3.5 mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl transition-all shadow-md shadow-emerald-600/20 font-black text-sm group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                <Users className="w-5 h-5 text-white" />
+              </div>
+              <div className="text-right">
+                <span className="block leading-tight text-sm font-black">رصد الغياب والحضور للطلبة</span>
+                <span className="text-[11px] opacity-85 font-bold">تسجيل الحضور اليومي وتوثيق الحصص</span>
+              </div>
+            </div>
+            <span className="text-xs bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors">فتح السجل ←</span>
+          </button>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Link 
@@ -291,6 +328,12 @@ export default function TeacherDashboard() {
           </p>
         </div>
       </div>
+
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        sessionId={selectedSessionId}
+      />
     </div>
   );
 }

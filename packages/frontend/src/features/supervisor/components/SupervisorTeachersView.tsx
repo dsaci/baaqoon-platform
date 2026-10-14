@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -6,8 +7,9 @@ import {
   Users, User, BookOpen, CheckCircle, Clock, AlertTriangle, 
   MessageSquare, Star, Award, Shield, FileText, Send, X, 
   Mail, Phone, Calendar, Search, Filter, RefreshCw, ChevronRight,
-  TrendingUp, Sparkles, ExternalLink, HelpCircle
+  TrendingUp, Sparkles, ExternalLink, HelpCircle, Bell
 } from 'lucide-react';
+import { getUserActivityStatus } from '../../../utils/activityStatus';
 
 export default function SupervisorTeachersView() {
   const { user } = useAuthStore();
@@ -16,7 +18,7 @@ export default function SupervisorTeachersView() {
   // State
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'unassigned' | 'active'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'unassigned' | 'active' | 'idle'>('all');
   
   // Modals state
   const [selectedTeacherForDossier, setSelectedTeacherForDossier] = useState<any>(null);
@@ -124,9 +126,17 @@ export default function SupervisorTeachersView() {
     }
   });
 
-  const teachersList = data?.teachers || [];
+  const rawTeachersList = data?.teachers || [];
   const activeSubject = data?.activeSubject || null;
   const allSubjects = data?.allSubjects || [];
+
+  // Exclude any teacher explicitly specialized in a different subject
+  const teachersList = rawTeachersList.filter((t: any) => {
+    if (activeSubject?.id && t.supervisedSubjectId && t.supervisedSubjectId !== activeSubject.id) {
+      return false;
+    }
+    return true;
+  });
 
   // Filter teachers
   const filteredTeachers = teachersList.filter((t: any) => {
@@ -143,12 +153,14 @@ export default function SupervisorTeachersView() {
     if (statusFilter === 'assigned') return t.totalCohorts > 0;
     if (statusFilter === 'unassigned') return t.totalCohorts === 0;
     if (statusFilter === 'active') return t.status === 'active';
+    if (statusFilter === 'idle') return getUserActivityStatus(t.lastLoginAt, t.createdAt).isIdle;
 
     return true;
   });
 
   // Aggregate Subject Metrics
   const totalTeachers = teachersList.length;
+  const idleTeachersCount = teachersList.filter((t: any) => getUserActivityStatus(t.lastLoginAt, t.createdAt).isIdle).length;
   const totalAssignedCohorts = teachersList.reduce((acc: number, t: any) => acc + (t.totalCohorts || 0), 0);
   const totalSessionsTaught = teachersList.reduce((acc: number, t: any) => acc + (t.metrics?.completedSessions || 0), 0);
   const avgAttendance = teachersList.length > 0 
@@ -235,7 +247,7 @@ export default function SupervisorTeachersView() {
         </div>
 
         {/* 2. Top Summary KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mt-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mt-6">
           <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-800/50">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">أساتذة المادة</span>
@@ -272,15 +284,24 @@ export default function SupervisorTeachersView() {
             <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mt-0.5">متوسط نسبة الحضور</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-800/50 col-span-2 sm:col-span-1">
+          <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800/50">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-rose-800 dark:text-rose-300">التقييم الإشرافي</span>
-              <Star className="w-4 h-4 text-rose-600" />
+              <span className="text-xs font-bold text-indigo-800 dark:text-indigo-300">التقييم الإشرافي</span>
+              <Star className="w-4 h-4 text-indigo-600" />
             </div>
-            <div className="text-2xl font-black text-rose-950 dark:text-rose-100">
+            <div className="text-2xl font-black text-indigo-950 dark:text-indigo-100">
               {overallAvgRating ? `${overallAvgRating}%` : 'قيد الرصد'}
             </div>
-            <div className="text-[11px] text-rose-700 dark:text-rose-400 font-semibold mt-0.5">متوسط استبيانات المشرف</div>
+            <div className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold mt-0.5">متوسط استبيانات المشرف</div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-800/50">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-rose-800 dark:text-rose-300">الأساتذة الخاملون</span>
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+            </div>
+            <div className="text-2xl font-black text-rose-950 dark:text-rose-100">{idleTeachersCount}</div>
+            <div className="text-[11px] text-rose-700 dark:text-rose-400 font-semibold mt-0.5">انقطاع لأكثر من أسبوع</div>
           </div>
         </div>
       </div>
@@ -330,6 +351,17 @@ export default function SupervisorTeachersView() {
           >
             بانتظار التفويج ({teachersList.filter((t: any) => t.totalCohorts === 0).length})
           </button>
+          <button
+            onClick={() => setStatusFilter('idle')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 ${
+              statusFilter === 'idle'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+            الأساتذة الخاملون ({idleTeachersCount})
+          </button>
         </div>
       </div>
 
@@ -355,6 +387,7 @@ export default function SupervisorTeachersView() {
             const initial = teacher.firstName?.[0] || 'أ';
             const hasCohorts = teacher.totalCohorts > 0;
             const evalScore = teacher.metrics?.evaluationScore;
+            const act = getUserActivityStatus(teacher.lastLoginAt, teacher.createdAt);
 
             return (
               <div
@@ -369,7 +402,7 @@ export default function SupervisorTeachersView() {
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-black text-xl flex items-center justify-center shadow-md shadow-emerald-500/20">
                           {initial}
                         </div>
-                        <span className="absolute -bottom-1 -left-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" title="نشط"></span>
+                        <span className={`absolute -bottom-1 -left-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${act.dotClass}`} title={act.label}></span>
                       </div>
 
                       <div>
@@ -379,6 +412,9 @@ export default function SupervisorTeachersView() {
                           </h3>
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             أستاذ مادة
+                          </span>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${act.badgeClass}`}>
+                            {act.label}
                           </span>
                           {teacher.nationality && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -419,7 +455,7 @@ export default function SupervisorTeachersView() {
                   </div>
 
                   {/* Contact details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-xs mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-xs mb-2.5">
                     <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 truncate">
                       <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span className="truncate" dir="ltr">{teacher.email || 'لا يوجد بريد'}</span>
@@ -428,6 +464,20 @@ export default function SupervisorTeachersView() {
                       <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span dir="ltr">{teacher.phone || 'لا يوجد هاتف'}</span>
                     </div>
+                  </div>
+
+                  {/* Activity and Last Login Strip */}
+                  <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl mb-4 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800/60">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>آخر دخول للمنصة: <strong className="text-slate-700 dark:text-slate-200">{act.formattedLastLogin}</strong></span>
+                    </div>
+                    {act.isIdle && (
+                      <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-100/80 dark:bg-rose-950/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        منقطع - بحاجة لمتابعة
+                      </span>
+                    )}
                   </div>
 
                   {/* Cohorts assigned banner */}
@@ -516,15 +566,23 @@ export default function SupervisorTeachersView() {
                       setSelectedTeacherForClarification(teacher);
                       setClarificationForm({
                         type: 'clarification',
-                        title: `توجيه إشرافي بخصوص سير مادة ${activeSubject?.nameAr || ''}`,
-                        content: '',
-                        isUrgent: false
+                        title: act.isIdle 
+                          ? `استفسار عن سبب الانقطاع والغياب: أ. ${teacher.firstName} ${teacher.lastName}` 
+                          : `توجيه إشرافي بخصوص سير مادة ${activeSubject?.nameAr || ''}`,
+                        content: act.isIdle 
+                          ? `السلام عليكم أستاذ ${teacher.firstName}،\nنود الاطمئنان عليكم ومتابعة سير عملكم؛ نلاحظ عدم دخولكم للمنصة منذ فترة (${act.formattedLastLogin}). نرجو إفادتنا وموافاتنا بوضعكم وسير الحصص.` 
+                          : '',
+                        isUrgent: act.isIdle
                       });
                     }}
-                    className="px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition-all shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-1.5"
+                    className={`px-3 py-2.5 rounded-xl text-white text-xs font-black transition-all shadow-sm flex items-center justify-center gap-1.5 ${
+                      act.isIdle 
+                        ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' 
+                        : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                    }`}
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    توضيح ورسالة
+                    {act.isIdle ? <AlertTriangle className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                    {act.isIdle ? 'متابعة وتنبيه غياب' : 'توضيح ورسالة'}
                   </button>
                 </div>
               </div>
@@ -536,9 +594,9 @@ export default function SupervisorTeachersView() {
       {/* ========================================================================= */}
       {/* MODAL 1: Full Teacher Dossier & Complete Details (الملف الشامل للأستاذ) */}
       {/* ========================================================================= */}
-      {selectedTeacherForDossier && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      {selectedTeacherForDossier && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[90vh]">
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -592,8 +650,17 @@ export default function SupervisorTeachersView() {
                     <span className="font-bold text-slate-800 dark:text-white block">{selectedTeacherForDossier.curriculumType || 'حكومي فلسطيني'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-bold block mb-1">حالة الحساب:</span>
-                    <span className="font-bold text-emerald-600 block">نشط ومعتمد</span>
+                    <span className="text-slate-400 font-bold block mb-1">حالة الحساب والنشاط:</span>
+                    {(() => {
+                      const act = getUserActivityStatus(selectedTeacherForDossier.lastLoginAt, selectedTeacherForDossier.createdAt);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[11px] font-black px-2 py-0.5 rounded-md ${act.badgeClass}`}>
+                            {act.label}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div>
                     <span className="text-slate-400 font-bold block mb-1">تاريخ الانضمام:</span>
@@ -601,9 +668,14 @@ export default function SupervisorTeachersView() {
                   </div>
                   <div>
                     <span className="text-slate-400 font-bold block mb-1">آخر تسجيل دخول:</span>
-                    <span className="font-bold text-slate-800 dark:text-white block">
-                      {selectedTeacherForDossier.lastLoginAt ? new Date(selectedTeacherForDossier.lastLoginAt).toLocaleDateString('ar-EG') : 'نشط مؤخراً'}
-                    </span>
+                    {(() => {
+                      const act = getUserActivityStatus(selectedTeacherForDossier.lastLoginAt, selectedTeacherForDossier.createdAt);
+                      return (
+                        <span className="font-bold text-slate-800 dark:text-white block text-xs">
+                          {act.formattedLastLogin}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -724,15 +796,16 @@ export default function SupervisorTeachersView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL 2: Supervisory Survey & Evaluation (استبيان وتقييم المشرف للأستاذ) */}
       {/* ========================================================================= */}
-      {selectedTeacherForSurvey && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh]">
+      {selectedTeacherForSurvey && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[92vh]">
             <div className="p-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-xl text-white">
@@ -872,15 +945,16 @@ export default function SupervisorTeachersView() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL 3: Direct Supervisory Clarification & Messaging (توضيح ورسالة للأستاذ) */}
       {/* ========================================================================= */}
-      {selectedTeacherForClarification && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      {selectedTeacherForClarification && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[90vh]">
             <div className="p-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-xl text-white">
@@ -989,7 +1063,8 @@ export default function SupervisorTeachersView() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

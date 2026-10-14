@@ -63,8 +63,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      if (!formData.email && !formData.phone) {
-        setError('يجب إدخال البريد الإلكتروني أو رقم الهاتف');
+      if (!formData.email?.trim() || !formData.phone?.trim()) {
+        setError('البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل');
         setIsLoading(false);
         return;
       }
@@ -266,11 +266,13 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.email_optional', 'البريد الإلكتروني (اختياري إذا أدخلت الهاتف)')}
+              {t('auth.email', 'البريد الإلكتروني')} <span className="text-rose-500 font-bold">* (إجباري لاستكمال التسجيل)</span>
             </label>
             <input 
               type="email" 
               name="email"
+              required
+              placeholder="name@example.com"
               value={formData.email}
               onChange={handleChange}
               className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
@@ -279,7 +281,7 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.phone_optional', 'رقم الهاتف (اختياري إذا أدخلت البريد)')}
+              {t('auth.phone', 'رقم الهاتف (الواتساب)')} <span className="text-rose-500 font-bold">* (إجباري لاستكمال التسجيل)</span>
             </label>
             <div className="flex gap-2" dir="ltr">
               <select
@@ -336,6 +338,7 @@ export default function RegisterPage() {
               <input 
                 type="tel" 
                 name="phone"
+                required
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder={
@@ -347,6 +350,9 @@ export default function RegisterPage() {
                 className="flex-1 px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left font-mono"
               />
             </div>
+            <p className="text-[11px] text-baaqoon-500 dark:text-baaqoon-400 mt-1">
+              🔒 يُشترط إدخال البريد الإلكتروني ورقم الهاتف معاً لتوثيق الحساب وضمان استرجاعه عند الحاجة.
+            </p>
           </div>
 
           <div className="space-y-1.5">

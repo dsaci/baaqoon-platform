@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards, BadRequestException } from '@nestjs/common';
 import { RapidGenerationService } from '../../application/rapid-generation.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
@@ -53,33 +53,14 @@ export class AssessmentsController {
         if (!cohortExists) cohortId = undefined;
       }
       if (!cohortId) {
-        const firstCohort = await this.prisma.cohort.findFirst();
-        cohortId = firstCohort?.id;
+        const teacherCohort = await this.prisma.cohort.findFirst({
+          where: { instructors: { some: { teacherId } } }
+        });
+        cohortId = teacherCohort?.id;
       }
 
-      // If database has no cohorts at all, create an initial cohort
       if (!cohortId) {
-        const subject = await this.prisma.subject.findFirst() || await this.prisma.subject.create({ 
-          data: { code: 'DEF-SUB', nameAr: 'عام', curriculumType: 'governmental' } 
-        });
-        const course = await this.prisma.course.findFirst() || await this.prisma.course.create({ 
-          data: { subjectId: subject.id, code: 'DEF-CRS', title: 'مقرر عام', slug: 'def-crs', curriculumType: 'governmental', academicBranch: 'scientific', gradeLevel: 'grade_12', academicYear: '2025' } 
-        });
-        const version = await this.prisma.curriculumVersion.findFirst() || await this.prisma.curriculumVersion.create({ 
-          data: { courseId: course.id, versionTag: 'v1', status: 'published' } 
-        });
-        const emergencyCohort = await this.prisma.cohort.create({
-          data: {
-            courseId: course.id,
-            curriculumVersionId: version.id,
-            name: 'فوج غزة 1',
-            code: 'DEF-COHORT-' + Date.now(),
-            maxStudents: 30,
-            startDate: new Date(),
-            endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
-          }
-        });
-        cohortId = emergencyCohort.id;
+        throw new BadRequestException('يرجى اختيار الفوج الدراسي المعتمد لإنشاء التقييم');
       }
 
       // 3. Map type to valid Postgres AssessmentType enum ('quiz', 'assignment', 'exam', 'project')

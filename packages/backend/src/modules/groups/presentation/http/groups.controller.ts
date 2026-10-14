@@ -1,6 +1,20 @@
-import { Controller, Get, Req, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Req, Res, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
+import * as XLSX from 'xlsx';
+
+function getActivityStatusText(lastLogin?: Date | null, created?: Date | null) {
+  const now = Date.now();
+  if (lastLogin) {
+    const diffDays = Math.floor((now - new Date(lastLogin).getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) return `نشط (منذ ${diffDays === 0 ? 'اليوم' : diffDays + ' أيام'})`;
+    if (diffDays <= 14) return `غائب منذ ${diffDays} يوماً (خمول نسبي)`;
+    return `خامل ومنقطع منذ ${diffDays} يوماً`;
+  }
+  const diffDays = created ? Math.floor((now - new Date(created).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  if (diffDays < 7) return 'جديد (لم يدخل بعد)';
+  return `خامل (لم يسجل دخوله قط منذ ${diffDays} يوماً)`;
+}
 
 @Controller('groups')
 @UseGuards(JwtAuthGuard)
@@ -24,6 +38,29 @@ export class GroupsController {
 
   @Get('admin/distribution')
   async getAdminDistribution() {
+    // Ensure table users.supervisor_subjects exists
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS users.supervisor_subjects (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          subject_id UUID NOT NULL REFERENCES curriculum.subjects(id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now(),
+          UNIQUE(user_id, subject_id)
+        );
+      `);
+    } catch (_) {}
+
+    let extraSupervisorRows: any[] = [];
+    try {
+      extraSupervisorRows = await this.prisma.$queryRawUnsafe(`
+        SELECT ss.subject_id, u.id, u."firstName", u."lastName", u.email, u.phone, u."primaryRole"
+        FROM users.supervisor_subjects ss
+        JOIN users.users u ON u.id = ss.user_id
+        WHERE u.status IN ('active', 'pending')
+      `);
+    } catch (_) {}
+
     const subjects = await this.prisma.subject.findMany({
       orderBy: { nameAr: 'asc' },
       include: {
@@ -91,7 +128,24 @@ export class GroupsController {
         }
       });
 
-      const formattedSupervisors = ((subject.supervisors as any[]) || []).map((sup: any) => {
+      // Merge direct supervisors with extra assignments from supervisor_subjects
+      const directSupervisors = (subject.supervisors as any[]) || [];
+      const directSupIds = new Set(directSupervisors.map((s: any) => s.id));
+      const extraSups = extraSupervisorRows
+        .filter(r => r.subject_id === subject.id && !directSupIds.has(r.id))
+        .map(r => ({
+          id: r.id,
+          firstName: r.firstName,
+          lastName: r.lastName,
+          email: r.email,
+          phone: r.phone,
+          primaryRole: r.primaryRole,
+          roles: [{ role: 'subject_supervisor' }]
+        }));
+
+      const allSupervisorsForSubject = [...directSupervisors, ...extraSups];
+
+      const formattedSupervisors = allSupervisorsForSubject.map((sup: any) => {
         const rawRoles = sup.roles?.map((r: any) => r.role as string) || [];
         const roleList: string[] = Array.from(new Set([sup.primaryRole as string, ...rawRoles]));
         const taughtCount = instructors.filter(inst => inst.teacherId === sup.id).length;
@@ -148,8 +202,17 @@ export class GroupsController {
     return { subjects: formattedSubjects, supervisors };
   }
 
-  @Patch('admin/distribution/:subjectId/supervisor/:userId')
   @Post('admin/distribution/:subjectId/supervisor/:userId')
+  async assignSupervisorPost(
+    @Req() req: any,
+    @Param('subjectId') subjectId: string,
+    @Param('userId') userId: string,
+    @Body() body?: { keepTeaching?: boolean }
+  ) {
+    return this.assignSupervisor(req, subjectId, userId, body);
+  }
+
+  @Patch('admin/distribution/:subjectId/supervisor/:userId')
   async assignSupervisor(
     @Req() req: any,
     @Param('subjectId') subjectId: string,
@@ -169,6 +232,11 @@ export class GroupsController {
         },
         data: { supervisedSubjectId: null }
       });
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          DELETE FROM users.supervisor_subjects WHERE subject_id = '${subjectId}';
+        `);
+      } catch (_) {}
       try {
         await this.prisma.activityLog.create({
           data: {
@@ -194,10 +262,31 @@ export class GroupsController {
     const wasTeacher = targetUser.primaryRole === 'teacher' || existingRoles.includes('teacher');
     const enableDual = body?.keepTeaching !== undefined ? body.keepTeaching : true;
 
+    // 1. Ensure supervisor_subjects table exists and insert multi-subject link
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS users.supervisor_subjects (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users.users(id) ON DELETE CASCADE,
+          subject_id UUID NOT NULL REFERENCES curriculum.subjects(id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ(6) NOT NULL DEFAULT now(),
+          UNIQUE(user_id, subject_id)
+        );
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        INSERT INTO users.supervisor_subjects (user_id, subject_id)
+        VALUES ('${userId}', '${subjectId}')
+        ON CONFLICT (user_id, subject_id) DO NOTHING;
+      `);
+    } catch (_) {}
+
+    // 2. Set primaryRole to subject_supervisor, and if supervisedSubjectId is null set it to this subject
     const updateData: any = {
-      supervisedSubjectId: subjectId,
       primaryRole: 'subject_supervisor'
     };
+    if (!targetUser.supervisedSubjectId) {
+      updateData.supervisedSubjectId = subjectId;
+    }
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -224,8 +313,8 @@ export class GroupsController {
       await this.prisma.notification.create({
         data: {
           userId,
-          title: 'ترقية وتكليف إشرافي (صفة ثنائية: تدريس + إشراف)',
-          body: 'تم تعيينك مشرفاً منسقاً للمادة مع الاحتفاظ الكامل بصلاحيات التدريس وأفواجك. يمكنك التبديل بين فضاء الإشراف وفضاء التدريس بنقرة واحدة من القائمة الجانبية أو العلوية.',
+          title: 'ترقية وتكليف إشرافي (تنسيق مادة دراسية)',
+          body: 'تم تكليفك مشرفاً منسقاً للمادة مع الاحتفاظ بكافة صلاحياتك التعليمية والإشرافية وأفواجك.',
           actionUrl: '/supervisor/dashboard',
           type: 'system'
         }
@@ -237,14 +326,14 @@ export class GroupsController {
         data: {
           userId: req.user.id,
           action: 'ASSIGN_SUPERVISOR_DUAL',
-          details: `ترقية وتعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً منسقاً للمادة بصفة ثنائية (تدريس + إشراف)`
+          details: `ترقية وتعيين ${targetUser.firstName} ${targetUser.lastName} مشرفاً منسقاً للمادة`
         }
       });
     } catch (e) {}
 
     return {
       success: true,
-      message: `تم تعيين وترقية ${targetUser.firstName} ${targetUser.lastName} كمشرف منسق للمادة بصفة ثنائية (تدريس + إشراف معاً) بنجاح!`
+      message: `تم إلحاق وتعيين ${targetUser.firstName} ${targetUser.lastName} كمشرف منسق للمادة بنجاح!`
     };
   }
 
@@ -263,36 +352,65 @@ export class GroupsController {
         },
         data: { supervisedSubjectId: null }
       });
+      try {
+        await this.prisma.$executeRawUnsafe(`
+          DELETE FROM users.supervisor_subjects WHERE subject_id = '${subjectId}';
+        `);
+      } catch (_) {}
       return { success: true, message: 'تم إزالة جميع المشرفين من المادة' };
     }
+
+    // 1. Remove from supervisor_subjects
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        DELETE FROM users.supervisor_subjects WHERE user_id = '${userId}' AND subject_id = '${subjectId}';
+      `);
+    } catch (_) {}
 
     const targetUser = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { roles: true }
     });
 
-    const hasTeacherRole = targetUser?.roles?.some(r => r.role === 'teacher');
-    const taughtCohortsCount = await this.prisma.cohortInstructor.count({ where: { teacherId: userId } });
+    // Check if user still supervises other subjects
+    let otherSubjectId: string | null = null;
+    try {
+      const remaining: any[] = await this.prisma.$queryRawUnsafe(`
+        SELECT subject_id FROM users.supervisor_subjects WHERE user_id = '${userId}' LIMIT 1
+      `);
+      if (remaining && remaining.length > 0) {
+        otherSubjectId = remaining[0].subject_id;
+      }
+    } catch (_) {}
 
-    if (hasTeacherRole || taughtCohortsCount > 0) {
-      // Revert to teacher role while keeping their subject specialization
+    let message = 'تم إزالة المشرف من المادة بنجاح';
+    if (otherSubjectId) {
+      // User still supervises another subject! Keep them as subject_supervisor with the other subject
       await this.prisma.user.update({
         where: { id: userId },
-        data: { primaryRole: 'teacher', supervisedSubjectId: subjectId }
+        data: { supervisedSubjectId: otherSubjectId }
       });
-      await this.prisma.userRoleAssignment.deleteMany({
-        where: { userId, role: 'subject_supervisor' }
-      });
-      await this.prisma.userRoleAssignment.upsert({
-        where: { userId_role: { userId, role: 'teacher' } },
-        update: {},
-        create: { userId, role: 'teacher' }
-      });
+      message = 'تم إزالة المشرف من هذه المادة مع استمرار تكليفه الإشرافي للمواد الأخرى';
     } else {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { supervisedSubjectId: null }
-      });
+      // No remaining subjects
+      const hasTeacherRole = targetUser?.roles?.some(r => r.role === 'teacher');
+      const taughtCohortsCount = await this.prisma.cohortInstructor.count({ where: { teacherId: userId } });
+
+      if (hasTeacherRole || taughtCohortsCount > 0) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { primaryRole: 'teacher', supervisedSubjectId: null }
+        });
+        await this.prisma.userRoleAssignment.deleteMany({
+          where: { userId, role: 'subject_supervisor' }
+        });
+        message = 'تم إلغاء التكليف الإشرافي مع إبقاء الحساب كأستاذ مدرّس للمادة';
+      } else {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { supervisedSubjectId: null }
+        });
+      }
     }
 
     try {
@@ -307,13 +425,30 @@ export class GroupsController {
 
     return {
       success: true,
-      message: hasTeacherRole || taughtCohortsCount > 0
-        ? 'تم إلغاء التكليف الإشرافي مع إبقاء الحساب كأستاذ مدرّس للمادة'
-        : 'تم إزالة المشرف من المادة بنجاح'
+      message
     };
   }
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private async getSupervisorSubjectIds(userId?: string, supervisedSubjectId?: string | null): Promise<string[]> {
+    const ids = new Set<string>();
+    if (supervisedSubjectId) {
+      ids.add(supervisedSubjectId);
+    }
+    if (userId) {
+      try {
+        const rows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT subject_id FROM users.supervisor_subjects WHERE user_id = $1::uuid`,
+          userId
+        );
+        for (const r of rows) {
+          if (r.subject_id) ids.add(r.subject_id);
+        }
+      } catch (_) {}
+    }
+    return Array.from(ids);
+  }
 
   @Get('admin/data')
   async getAdminData() {
@@ -343,7 +478,22 @@ export class GroupsController {
   async getAdminDatabase() {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, firstName: true, lastName: true, email: true, primaryRole: true, status: true, createdAt: true, supervisedSubjectId: true, academicBranch: true, curriculumType: true, gradeLevel: true }
+      select: { 
+        id: true, 
+        firstName: true, 
+        lastName: true, 
+        email: true, 
+        phone: true,
+        nationality: true,
+        primaryRole: true, 
+        status: true, 
+        createdAt: true, 
+        supervisedSubjectId: true, 
+        academicBranch: true, 
+        curriculumType: true, 
+        gradeLevel: true,
+        lastLoginAt: true
+      }
     });
     const subjects = await this.prisma.subject.findMany({
       include: { courses: true }
@@ -354,10 +504,308 @@ export class GroupsController {
         enrollments: true
       }
     });
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const cohortsWithDetails = cohorts.map(c => {
+      const teacher = c.instructors?.[0] ? userMap.get(c.instructors[0].teacherId) : null;
+      return {
+        ...c,
+        instructors: c.instructors.map(i => ({
+          ...i,
+          teacher: userMap.get(i.teacherId) || null
+        })),
+        teacher
+      };
+    });
     const courses = await this.prisma.course.findMany({
       include: { subject: { select: { nameAr: true } } }
     });
-    return { users, subjects, cohorts, courses };
+    return { users, subjects, cohorts: cohortsWithDetails, courses };
+  }
+
+  @Get('admin/export-database')
+  async exportAdminDatabase(@Req() req: any, @Res() res: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const [users, cohorts, enrollments, subjects, courses, sessions] = await Promise.all([
+      this.prisma.user.findMany({
+        orderBy: { createdAt: 'desc' }
+      }),
+      this.prisma.cohort.findMany({
+        include: {
+          instructors: true,
+          enrollments: true
+        }
+      }),
+      this.prisma.cohortEnrollment.findMany(),
+      this.prisma.subject.findMany({
+        include: { courses: true }
+      }),
+      this.prisma.course.findMany({
+        include: { subject: true }
+      }),
+      this.prisma.session.findMany({
+        include: {
+          teacher: true,
+          cohort: true
+        }
+      })
+    ]);
+
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+    const cohortMap = new Map(cohorts.map(c => [c.id, c]));
+
+    const wb = XLSX.utils.book_new();
+
+    // 1. Sheet: Users
+    const usersRows = users.map(u => ({
+      'معرف المستخدم (ID)': u.id,
+      'الاسم الأول': u.firstName,
+      'اسم العائلة': u.lastName,
+      'البريد الإلكتروني': u.email || '',
+      'رقم الهاتف': u.phone || '',
+      'الجنسية': u.nationality || '',
+      'نوع الحساب (الدور)': u.primaryRole === 'student' ? 'طالب' : u.primaryRole === 'teacher' ? 'أستاذ' : u.primaryRole === 'subject_supervisor' ? 'مشرف مادة' : 'إدارة',
+      'الفرع الدراسي': u.academicBranch === 'scientific' ? 'علمي' : u.academicBranch === 'literary' ? 'أدبي' : u.academicBranch || '',
+      'المنهاج': u.curriculumType === 'governmental' ? 'حكومي' : u.curriculumType === 'azhari' ? 'أزهري' : ((u.curriculumType as any) || ''),
+      'الصف الدراسي': u.gradeLevel || '',
+      'حالة الحساب': u.status === 'active' ? 'نشط' : u.status === 'pending' ? 'قيد المراجعة' : u.status,
+      'آخر تسجيل دخول': u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : 'لم يسجل الدخول بعد',
+      'حالة النشاط / الخمول': getActivityStatusText(u.lastLoginAt, u.createdAt),
+      'تاريخ التسجيل': u.createdAt ? new Date(u.createdAt).toISOString() : ''
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usersRows), 'المستخدمون');
+
+    // 2. Sheet: Cohorts
+    const cohortsRows = cohorts.map(c => {
+      const crs = courseMap.get(c.courseId);
+      const teacher = c.instructors?.[0] ? userMap.get(c.instructors[0].teacherId) : null;
+      return {
+        'معرف الفوج (ID)': c.id,
+        'اسم الفوج الدراسي': c.name,
+        'الكود الأكاديمي': c.code,
+        'المقرر الدراسي': crs?.title || '',
+        'المادة الدراسية': crs?.subject?.nameAr || '',
+        'الأستاذ المسند': teacher ? `أ. ${teacher.firstName} ${teacher.lastName}` : 'شاغر',
+        'بريد الأستاذ': teacher?.email || '',
+        'هاتف الأستاذ': teacher?.phone || '',
+        'الطاقة الاستيعابية': c.maxStudents || 25,
+        'عدد الطلبة المسجلين': c.enrollments?.length || 0,
+        'المقاعد المتاحة': Math.max(0, (c.maxStudents || 25) - (c.enrollments?.length || 0)),
+        'الحالة': c.status,
+        'تاريخ الإنشاء': c.createdAt ? new Date(c.createdAt).toISOString() : ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cohortsRows), 'الأفواج الدراسية');
+
+    // 3. Sheet: Enrollments
+    const enrollmentsRows = enrollments.map(e => {
+      const coh = cohortMap.get(e.cohortId);
+      const st = userMap.get(e.studentId);
+      return {
+        'معرف التسجيل': e.id,
+        'معرف الفوج': e.cohortId,
+        'اسم الفوج': coh?.name || '',
+        'كود الفوج': coh?.code || '',
+        'معرف الطالب': e.studentId,
+        'اسم الطالب': st ? `${st.firstName} ${st.lastName}` : '',
+        'بريد الطالب': st?.email || '',
+        'هاتف الطالب': st?.phone || '',
+        'جنسية الطالب': st?.nationality || '',
+        'فرع الطالب': st?.academicBranch === 'scientific' ? 'علمي' : 'أدبي',
+        'حالة التسجيل': e.status,
+        'تاريخ التسجيل بالفوج': e.enrolledAt ? new Date(e.enrolledAt).toISOString() : ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(enrollmentsRows), 'تسجيلات الطلبة بالأفواج');
+
+    // 4. Sheet: Subjects & Courses
+    const subjectsRows: any[] = [];
+    subjects.forEach(s => {
+      s.courses?.forEach(crs => {
+        subjectsRows.push({
+          'معرف المادة': s.id,
+          'اسم المادة الأساسية': s.nameAr,
+          'كود المادة': s.code,
+          'معرف المقرر': crs.id,
+          'اسم المقرر الدراسي': crs.title,
+          'الفرع الدراسي': crs.academicBranch === 'scientific' ? 'علمي' : 'أدبي',
+          'نوع المنهاج': crs.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(subjectsRows), 'المواد والمناهج');
+
+    // 5. Sheet: Sessions
+    const sessionsRows = sessions.map(s => {
+      const durationMins = s.scheduledStartTime && s.scheduledEndTime 
+        ? Math.round((new Date(s.scheduledEndTime).getTime() - new Date(s.scheduledStartTime).getTime()) / 60000)
+        : 45;
+      return {
+        'معرف الحصة': s.id,
+        'عنوان الحصة': s.title,
+        'اسم الفوج': s.cohort?.name || '',
+        'الأستاذ': s.teacher ? `أ. ${s.teacher.firstName} ${s.teacher.lastName}` : '',
+        'وقت البدء': s.scheduledStartTime ? new Date(s.scheduledStartTime).toISOString() : '',
+        'وقت الانتهاء': s.scheduledEndTime ? new Date(s.scheduledEndTime).toISOString() : '',
+        'الحالة': s.status,
+        'المدة (دقيقة)': durationMins
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sessionsRows), 'الحصص والجداول');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="baaqoon_database_full_backup_${Date.now()}.xlsx"`);
+    res.end(buffer);
+  }
+
+  @Get('supervisor/export-database')
+  async exportSupervisorDatabase(@Req() req: any, @Res() res: any, @Query('subjectId') querySubjectId?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
+    if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user.id, user.supervisedSubjectId) : [];
+
+    let activeSubjectId: string | null = null;
+    if (isSupervisor) {
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        activeSubjectId = querySubjectId;
+      } else if (user.supervisedSubjectId && supervisorSubjectIds.includes(user.supervisedSubjectId)) {
+        activeSubjectId = user.supervisedSubjectId;
+      } else {
+        activeSubjectId = supervisorSubjectIds[0] || null;
+      }
+    } else {
+      activeSubjectId = querySubjectId || user.supervisedSubjectId || null;
+    }
+
+    const subject = activeSubjectId ? await this.prisma.subject.findUnique({ where: { id: activeSubjectId } }) : null;
+
+    const courses = activeSubjectId ? await this.prisma.course.findMany({ where: { subjectId: activeSubjectId }, select: { id: true, title: true } }) : [];
+    const courseIds = courses.map(c => c.id);
+
+    const cohorts = await this.prisma.cohort.findMany({
+      where: courseIds.length > 0 ? { courseId: { in: courseIds } } : {},
+      include: {
+        instructors: true,
+        enrollments: true
+      }
+    });
+
+    const cohortIds = cohorts.map(c => c.id);
+
+    // Fetch instructors & students users
+    const allCohortUserIds = new Set<string>();
+    cohorts.forEach(c => {
+      c.instructors.forEach(i => allCohortUserIds.add(i.teacherId));
+      c.enrollments.forEach(e => allCohortUserIds.add(e.studentId));
+    });
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(allCohortUserIds) } }
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    const teachers = await this.prisma.user.findMany({
+      where: {
+        primaryRole: 'teacher',
+        ...(activeSubjectId ? { supervisedSubjectId: activeSubjectId } : {})
+      }
+    });
+
+    const sessions = await this.prisma.session.findMany({
+      where: cohortIds.length > 0 ? { cohortId: { in: cohortIds } } : {},
+      include: {
+        teacher: true,
+        cohort: true
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Cohorts
+    const cohortsRows = cohorts.map(c => {
+      const teacher = c.instructors?.[0] ? userMap.get(c.instructors[0].teacherId) : null;
+      return {
+        'معرف الفوج': c.id,
+        'اسم الفوج الدراسي': c.name,
+        'الكود الأكاديمي': c.code,
+        'الأستاذ المسند': teacher ? `أ. ${teacher.firstName} ${teacher.lastName}` : 'شاغر',
+        'بريد الأستاذ': teacher?.email || '',
+        'هاتف الأستاذ': teacher?.phone || '',
+        'الطاقة الاستيعابية': c.maxStudents || 25,
+        'الطلبة المسجلين': c.enrollments?.length || 0,
+        'المقاعد الشاغرة': Math.max(0, (c.maxStudents || 25) - (c.enrollments?.length || 0)),
+        'الحالة': c.status,
+        'تاريخ الإنشاء': c.createdAt ? new Date(c.createdAt).toISOString() : ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cohortsRows), 'أفواج مادة التخصص');
+
+    // Sheet 2: Enrolled Students
+    const studentRows: any[] = [];
+    cohorts.forEach(c => {
+      c.enrollments?.forEach(e => {
+        const student = userMap.get(e.studentId);
+        if (student) {
+          studentRows.push({
+            'معرف الطالب': student.id,
+            'اسم الطالب': `${student.firstName} ${student.lastName}`,
+            'البريد الإلكتروني': student.email || '',
+            'رقم الهاتف': student.phone || '',
+            'الجنسية': student.nationality || '',
+            'الفرع الدراسي': student.academicBranch === 'scientific' ? 'علمي' : 'أدبي',
+            'المنهاج': student.curriculumType === 'governmental' ? 'حكومي' : 'أزهري',
+            'الفوج المسجل به': c.name,
+            'كود الفوج': c.code,
+            'حالة التسجيل': e.status,
+            'آخر تسجيل دخول': student.lastLoginAt ? new Date(student.lastLoginAt).toISOString() : 'لم يسجل الدخول بعد',
+            'حالة النشاط / الخمول': getActivityStatusText(student.lastLoginAt, student.createdAt),
+            'تاريخ التسجيل': e.enrolledAt ? new Date(e.enrolledAt).toISOString() : ''
+          });
+        }
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), 'طلبة مادة التخصص');
+
+    // Sheet 3: Teachers
+    const teachersRows = teachers.map(t => ({
+      'معرف الأستاذ': t.id,
+      'الاسم الكامل': `أ. ${t.firstName} ${t.lastName}`,
+      'البريد الإلكتروني': t.email || '',
+      'رقم الهاتف': t.phone || '',
+      'الجنسية': t.nationality || '',
+      'الحالة': t.status,
+      'آخر تسجيل دخول': t.lastLoginAt ? new Date(t.lastLoginAt).toISOString() : 'لم يسجل الدخول بعد',
+      'حالة النشاط / الخمول': getActivityStatusText(t.lastLoginAt, t.createdAt),
+      'تاريخ الانضمام': t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : ''
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(teachersRows), 'كادر أساتذة المادة');
+
+    // Sheet 4: Sessions
+    const sessionsRows = sessions.map(s => ({
+      'معرف الحصة': s.id,
+      'عنوان الحصة': s.title,
+      'الفوج الدراسي': s.cohort?.name || '',
+      'الأستاذ': s.teacher ? `أ. ${s.teacher.firstName} ${s.teacher.lastName}` : '',
+      'وقت البدء': s.scheduledStartTime ? new Date(s.scheduledStartTime).toISOString() : '',
+      'وقت الانتهاء': s.scheduledEndTime ? new Date(s.scheduledEndTime).toISOString() : '',
+      'الحالة': s.status
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sessionsRows), 'حصص وجدول المادة');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const subCode = subject?.code || 'SUBJECT';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="baaqoon_${subCode}_backup_${Date.now()}.xlsx"`);
+    res.end(buffer);
   }
 
   @Get('admin/stats')
@@ -412,9 +860,11 @@ export class GroupsController {
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role || '');
     
     let subjectFilter: any = {};
+    let supervisorSubjectIds: string[] = [];
     if (isSupervisor) {
-      if (user?.supervisedSubjectId) {
-        subjectFilter = { subjectId: user.supervisedSubjectId };
+      supervisorSubjectIds = await this.getSupervisorSubjectIds(user?.id, user?.supervisedSubjectId);
+      if (supervisorSubjectIds.length > 0) {
+        subjectFilter = { subjectId: { in: supervisorSubjectIds } };
       } else {
         return { teachers: [], students: [] };
       }
@@ -441,14 +891,19 @@ export class GroupsController {
     let teacherWhere: any = {
       OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
     };
-    if (isSupervisor && user?.supervisedSubjectId) {
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
       teacherWhere = {
         AND: [
           { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
           {
             OR: [
-              { supervisedSubjectId: user.supervisedSubjectId },
-              { id: { in: cohortTeacherIds } }
+              { supervisedSubjectId: { in: supervisorSubjectIds } },
+              {
+                AND: [
+                  { id: { in: cohortTeacherIds } },
+                  { supervisedSubjectId: null }
+                ]
+              }
             ]
           }
         ]
@@ -470,20 +925,18 @@ export class GroupsController {
   }
 
   @Get('supervisor/stats')
-  async getSupervisorStats(@Req() req: any) {
+  async getSupervisorStats(@Req() req: any, @Query('subjectId') querySubjectId?: string) {
     const userId = req.user.id || req.user.userId;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const role = user?.primaryRole;
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role || '');
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user?.id, user?.supervisedSubjectId) : [];
     
     let subjectFilter: any = {};
     let supervisedSubject = null;
 
     if (isSupervisor) {
-      if (user?.supervisedSubjectId) {
-        subjectFilter = { subjectId: user.supervisedSubjectId };
-        supervisedSubject = await this.prisma.subject.findUnique({ where: { id: user.supervisedSubjectId } });
-      } else {
+      if (supervisorSubjectIds.length === 0) {
         return {
           supervisedSubject: null,
           totalCohorts: 0,
@@ -492,6 +945,17 @@ export class GroupsController {
           recentAssessments: []
         };
       }
+
+      const activeSubjectId = (querySubjectId && supervisorSubjectIds.includes(querySubjectId))
+        ? querySubjectId
+        : (user?.supervisedSubjectId || supervisorSubjectIds[0]);
+
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        subjectFilter = { subjectId: querySubjectId };
+      } else {
+        subjectFilter = { subjectId: { in: supervisorSubjectIds } };
+      }
+      supervisedSubject = await this.prisma.subject.findUnique({ where: { id: activeSubjectId } });
     }
 
     const courses = await this.prisma.course.findMany({
@@ -519,12 +983,12 @@ export class GroupsController {
     const cohortTeacherIds = instructors.map(i => i.teacherId);
 
     let totalTeachers = 0;
-    if (user?.supervisedSubjectId) {
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
       const subjectTeachers = await this.prisma.user.findMany({
         where: {
           AND: [
             { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
-            { supervisedSubjectId: user.supervisedSubjectId }
+            { supervisedSubjectId: { in: supervisorSubjectIds } }
           ]
         },
         select: { id: true }
@@ -597,19 +1061,30 @@ export class GroupsController {
       `);
     } catch (_) {}
 
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user.id, user.supervisedSubjectId) : [];
+
     let allSubjects = await this.prisma.subject.findMany({
       where: { isActive: true },
       orderBy: { nameAr: 'asc' },
       select: { id: true, nameAr: true, code: true, iconUrl: true }
     });
 
-    if (isSupervisor && user.supervisedSubjectId) {
-      allSubjects = allSubjects.filter(s => s.id === user.supervisedSubjectId);
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
+      allSubjects = allSubjects.filter(s => supervisorSubjectIds.includes(s.id));
     }
 
-    const activeSubjectId = (isSupervisor && user.supervisedSubjectId)
-      ? user.supervisedSubjectId
-      : (querySubjectId || user.supervisedSubjectId || (allSubjects[0]?.id || null));
+    let activeSubjectId: string | null = null;
+    if (isSupervisor) {
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        activeSubjectId = querySubjectId;
+      } else if (user.supervisedSubjectId && supervisorSubjectIds.includes(user.supervisedSubjectId)) {
+        activeSubjectId = user.supervisedSubjectId;
+      } else {
+        activeSubjectId = supervisorSubjectIds[0] || (allSubjects[0]?.id || null);
+      }
+    } else {
+      activeSubjectId = querySubjectId || user.supervisedSubjectId || (allSubjects[0]?.id || null);
+    }
 
     let subjectInfo = null;
     if (activeSubjectId) {
@@ -648,7 +1123,12 @@ export class GroupsController {
           {
             OR: [
               { supervisedSubjectId: activeSubjectId },
-              { id: { in: instructorTeacherIds } }
+              {
+                AND: [
+                  { id: { in: instructorTeacherIds } },
+                  { supervisedSubjectId: null }
+                ]
+              }
             ]
           }
         ]
@@ -683,7 +1163,10 @@ export class GroupsController {
 
     const teachersWithDetails = await Promise.all(teachers.map(async (t) => {
       const myCohortInstructors = await this.prisma.cohortInstructor.findMany({
-        where: { teacherId: t.id },
+        where: {
+          teacherId: t.id,
+          ...(activeSubjectId && subjectCohortIds.length > 0 ? { cohortId: { in: subjectCohortIds } } : {})
+        },
         include: {
           cohort: {
             select: {
@@ -705,7 +1188,10 @@ export class GroupsController {
       }));
 
       const teacherSessions = await this.prisma.session.findMany({
-        where: { teacherId: t.id },
+        where: {
+          teacherId: t.id,
+          ...(activeSubjectId && subjectCohortIds.length > 0 ? { cohortId: { in: subjectCohortIds } } : {})
+        },
         select: { id: true, status: true, scheduledStartTime: true }
       });
       const totalSessions = teacherSessions.length;
@@ -934,6 +1420,13 @@ export class GroupsController {
   async updateSupervisorSubject(@Req() req: any, @Body() body: { subjectId: string }) {
     const userId = req.user?.id || req.user?.userId;
     const { subjectId } = body;
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        INSERT INTO users.supervisor_subjects (user_id, subject_id)
+        VALUES ($1::uuid, $2::uuid)
+        ON CONFLICT (user_id, subject_id) DO NOTHING
+      `, userId, subjectId);
+    } catch (_) {}
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { supervisedSubjectId: subjectId },
@@ -965,8 +1458,9 @@ export class GroupsController {
           });
         }
       }
+      const supervisorSubjectIds = await this.getSupervisorSubjectIds(userId);
       const courses = await this.prisma.course.findMany({
-        where: {
+        where: supervisorSubjectIds.length > 0 ? { subjectId: { in: supervisorSubjectIds } } : {
           subject: {
             supervisors: { some: { id: userId } }
           }
@@ -981,12 +1475,186 @@ export class GroupsController {
       whereClause = { enrollments: { some: { studentId: userId } } };
     }
 
-    return this.prisma.cohort.findMany({
+    const cohorts = await this.prisma.cohort.findMany({
       where: whereClause,
       include: {
         enrollments: true
       }
     });
+
+    const courseIds = Array.from(new Set(cohorts.map(c => c.courseId).filter(Boolean)));
+    const courses = await this.prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      include: { subject: { select: { id: true, nameAr: true, code: true } } }
+    });
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+
+    return cohorts.map(cohort => ({
+      ...cohort,
+      course: courseMap.get(cohort.courseId) || null,
+      subjectName: courseMap.get(cohort.courseId)?.subject?.nameAr || null
+    }));
+  }
+
+  @Get('student/subjects-and-cohorts')
+  async getStudentSubjectsAndCohorts(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, academicBranch: true, gradeLevel: true, curriculumType: true }
+    });
+
+    if (!user) throw new UnauthorizedException();
+
+    const branch = user.academicBranch || 'scientific';
+    const grade = user.gradeLevel || 'grade_11';
+    const curriculum = user.curriculumType || 'governmental';
+
+    const courses = await this.prisma.course.findMany({
+      where: {
+        academicBranch: branch as any,
+        gradeLevel: grade as any,
+        curriculumType: curriculum as any,
+        isActive: true
+      },
+      include: {
+        subject: {
+          select: { id: true, nameAr: true, code: true, iconUrl: true }
+        }
+      }
+    });
+
+    const courseIds = courses.map(c => c.id);
+    const cohorts = await this.prisma.cohort.findMany({
+      where: {
+        courseId: { in: courseIds },
+        status: 'active'
+      },
+      include: {
+        instructors: true,
+        enrollments: {
+          select: { studentId: true, status: true }
+        }
+      }
+    });
+
+    const subjectMap = new Map();
+    for (const course of courses) {
+      const subject = course.subject;
+      if (!subjectMap.has(subject.id)) {
+        subjectMap.set(subject.id, {
+          subjectId: subject.id,
+          subjectName: subject.nameAr,
+          subjectCode: subject.code,
+          courseId: course.id,
+          courseTitle: course.title,
+          cohorts: []
+        });
+      }
+    }
+
+    for (const cohort of cohorts) {
+      const course = courses.find(c => c.id === cohort.courseId);
+      if (!course) continue;
+      const sub = subjectMap.get(course.subjectId);
+      if (sub) {
+        const isEnrolled = cohort.enrollments.some(e => e.studentId === userId);
+        const enrolledCount = cohort.enrollments.length;
+        const maxCapacity = cohort.maxStudents || 25;
+        const isFull = enrolledCount >= maxCapacity;
+
+        sub.cohorts.push({
+          id: cohort.id,
+          name: cohort.name,
+          code: cohort.code,
+          enrolledCount,
+          maxCapacity,
+          availableSeats: Math.max(0, maxCapacity - enrolledCount),
+          isFull,
+          isEnrolled
+        });
+      }
+    }
+
+    return Array.from(subjectMap.values()).map(sub => {
+      const enrolledCohort = sub.cohorts.find((c: any) => c.isEnrolled);
+      const vacantCohort = sub.cohorts.find((c: any) => !c.isFull);
+      return {
+        ...sub,
+        isEnrolledInSubject: !!enrolledCohort,
+        enrolledCohortName: enrolledCohort?.name || null,
+        enrolledCohortId: enrolledCohort?.id || null,
+        suggestedCohortId: vacantCohort?.id || (sub.cohorts[0]?.id || null)
+      };
+    });
+  }
+
+  @Post('student/enroll-all-branch-cohorts')
+  async enrollAllBranchCohorts(@Req() req: any, @Body() body?: { studentId?: string }) {
+    const targetUserId = body?.studentId || req.user?.id || req.user?.userId;
+    const student = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, academicBranch: true, gradeLevel: true, curriculumType: true, firstName: true }
+    });
+    if (!student) throw new BadRequestException('المستخدم غير موجود');
+
+    const branch = student.academicBranch || 'scientific';
+    const grade = student.gradeLevel || 'grade_11';
+    const curriculum = student.curriculumType || 'governmental';
+
+    const courses = await this.prisma.course.findMany({
+      where: {
+        academicBranch: branch as any,
+        gradeLevel: grade as any,
+        curriculumType: curriculum as any,
+        isActive: true
+      },
+      select: { id: true, subjectId: true, title: true }
+    });
+
+    let enrolledCount = 0;
+    const enrolledSubjects: string[] = [];
+
+    for (const course of courses) {
+      const existingEnrollment = await this.prisma.cohortEnrollment.findFirst({
+        where: {
+          studentId: targetUserId,
+          cohort: { courseId: course.id }
+        }
+      });
+
+      if (!existingEnrollment) {
+        const availableCohort = await this.prisma.cohort.findFirst({
+          where: {
+            courseId: course.id,
+            status: 'active'
+          },
+          include: { enrollments: true },
+          orderBy: { createdAt: 'asc' }
+        });
+
+        if (availableCohort && availableCohort.enrollments.length < (availableCohort.maxStudents || 30)) {
+          await this.prisma.cohortEnrollment.create({
+            data: {
+              cohortId: availableCohort.id,
+              studentId: targetUserId,
+              status: 'enrolled' as any
+            }
+          });
+          enrolledCount++;
+          enrolledSubjects.push(course.title);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      enrolledCount,
+      enrolledSubjects,
+      message: enrolledCount > 0 
+        ? `تم تفويج الطالب بنجاح في ${enrolledCount} مادة دراسية جديدة (${enrolledSubjects.join('، ')})` 
+        : 'أنت مفوّج بالفعل في جميع المواد الدراسية المتاحة لفرعك الدراسي.'
+    };
   }
 
   @Get('supervisor/progress')
@@ -998,8 +1666,9 @@ export class GroupsController {
       
       let subjectFilter: any = {};
       if (isSupervisor) {
-        if (!user?.supervisedSubjectId) return [];
-        subjectFilter = { subjectId: user.supervisedSubjectId };
+        const supervisorSubjectIds = await this.getSupervisorSubjectIds(user?.id, user?.supervisedSubjectId);
+        if (supervisorSubjectIds.length === 0) return [];
+        subjectFilter = { subjectId: { in: supervisorSubjectIds } };
       } else if (role !== 'admin' && role !== 'super_admin') {
         return { error: 'Unauthorized' };
       }
@@ -1184,23 +1853,7 @@ export class GroupsController {
     }) : null;
 
     if (!cohort) {
-      cohort = await this.prisma.cohort.findFirst({
-        include: {
-          enrollments: true,
-          instructors: true,
-          sessions: {
-            orderBy: { scheduledStartTime: 'asc' },
-            include: {
-              attendances: true,
-              lesson: { select: { id: true, title: true } }
-            }
-          }
-        }
-      });
-    }
-
-    if (!cohort) {
-      return { error: 'Cohort not found' };
+      return { error: 'Cohort not found', cohort: null, students: [], sessions: [], assessments: [] };
     }
 
     const course = await this.prisma.course.findUnique({
@@ -1377,12 +2030,13 @@ export class GroupsController {
     });
     const rawRoles = caller?.roles?.map(r => r.role as string) || [];
     const isSupervisor = role === 'subject_supervisor' || rawRoles.includes('subject_supervisor');
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(caller?.id, caller?.supervisedSubjectId) : [];
 
-    if (isSupervisor && caller?.supervisedSubjectId) {
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
       return this.prisma.cohortRequest.findMany({
         where: {
           OR: [
-            { subjectId: caller.supervisedSubjectId },
+            { subjectId: { in: supervisorSubjectIds } },
             { teacherId: userId }
           ]
         },
@@ -1626,6 +2280,25 @@ export class GroupsController {
     });
 
     if (teacherId) {
+      const cohortData = await this.prisma.cohort.findUnique({
+        where: { id },
+        select: { courseId: true }
+      });
+      if (cohortData?.courseId) {
+        const course = await this.prisma.course.findUnique({
+          where: { id: cohortData.courseId },
+          select: { subjectId: true }
+        });
+        const teacher = await this.prisma.user.findUnique({
+          where: { id: teacherId },
+          select: { supervisedSubjectId: true }
+        });
+        const teacherSubjects = await this.getSupervisorSubjectIds(teacherId, teacher?.supervisedSubjectId);
+        if (course?.subjectId && teacherSubjects.length > 0 && !teacherSubjects.includes(course.subjectId)) {
+          throw new BadRequestException('لا يمكن إسناد أستاذ لمادة مختلفة عن مادة هذا الفوج الدراسي');
+        }
+      }
+
       await this.prisma.cohortInstructor.deleteMany({ where: { cohortId: id } });
       await this.prisma.cohortInstructor.create({
         data: {
@@ -1679,12 +2352,30 @@ export class GroupsController {
     }
 
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
-    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user.id, user.supervisedSubjectId) : [];
+
+    let activeSubjectId: string | null = null;
+    if (isSupervisor) {
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        activeSubjectId = querySubjectId;
+      } else if (user.supervisedSubjectId && supervisorSubjectIds.includes(user.supervisedSubjectId)) {
+        activeSubjectId = user.supervisedSubjectId;
+      } else {
+        activeSubjectId = supervisorSubjectIds[0] || null;
+      }
+    } else {
+      activeSubjectId = querySubjectId || user.supervisedSubjectId || null;
+    }
+
     let whereClause: any = {};
     if (activeSubjectId) {
       whereClause = { subjectId: activeSubjectId };
     } else if (isSupervisor) {
-      return [];
+      if (supervisorSubjectIds.length > 0) {
+        whereClause = { subjectId: { in: supervisorSubjectIds } };
+      } else {
+        return [];
+      }
     }
 
     return this.prisma.course.findMany({
@@ -1704,7 +2395,21 @@ export class GroupsController {
     }
 
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
-    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user.id, user.supervisedSubjectId) : [];
+
+    let activeSubjectId: string | null = null;
+    if (isSupervisor) {
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        activeSubjectId = querySubjectId;
+      } else if (user.supervisedSubjectId && supervisorSubjectIds.includes(user.supervisedSubjectId)) {
+        activeSubjectId = user.supervisedSubjectId;
+      } else {
+        activeSubjectId = supervisorSubjectIds[0] || null;
+      }
+    } else {
+      activeSubjectId = querySubjectId || user.supervisedSubjectId || null;
+    }
+
     let whereClause: any = {
       status: 'active',
       OR: [
@@ -1715,7 +2420,11 @@ export class GroupsController {
     if (activeSubjectId) {
       whereClause.supervisedSubjectId = activeSubjectId;
     } else if (isSupervisor) {
-      return [];
+      if (supervisorSubjectIds.length > 0) {
+        whereClause.supervisedSubjectId = { in: supervisorSubjectIds };
+      } else {
+        return [];
+      }
     }
 
     return this.prisma.user.findMany({
@@ -1736,7 +2445,7 @@ export class GroupsController {
       orderBy: [
         { firstName: 'asc' }
       ],
-      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, email: true, phone: true }
+      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, email: true, phone: true, lastLoginAt: true, createdAt: true }
     });
   }
 
@@ -1748,13 +2457,30 @@ export class GroupsController {
     }
 
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
-    const activeSubjectId = (isSupervisor && user.supervisedSubjectId) ? user.supervisedSubjectId : (querySubjectId || user.supervisedSubjectId);
+    const supervisorSubjectIds = isSupervisor ? await this.getSupervisorSubjectIds(user.id, user.supervisedSubjectId) : [];
+
+    let activeSubjectId: string | null = null;
+    if (isSupervisor) {
+      if (querySubjectId && supervisorSubjectIds.includes(querySubjectId)) {
+        activeSubjectId = querySubjectId;
+      } else if (user.supervisedSubjectId && supervisorSubjectIds.includes(user.supervisedSubjectId)) {
+        activeSubjectId = user.supervisedSubjectId;
+      } else {
+        activeSubjectId = supervisorSubjectIds[0] || null;
+      }
+    } else {
+      activeSubjectId = querySubjectId || user.supervisedSubjectId || null;
+    }
 
     let courseFilter: any = {};
     if (activeSubjectId) {
       courseFilter = { subjectId: activeSubjectId };
     } else if (isSupervisor) {
-      return [];
+      if (supervisorSubjectIds.length > 0) {
+        courseFilter = { subjectId: { in: supervisorSubjectIds } };
+      } else {
+        return [];
+      }
     }
 
     const courses = await this.prisma.course.findMany({
@@ -1785,11 +2511,11 @@ export class GroupsController {
     const [teachers, students] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: teacherIds } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, avatarUrl: true }
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, avatarUrl: true, lastLoginAt: true, createdAt: true }
       }),
       this.prisma.user.findMany({
         where: { id: { in: studentIds } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true }
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true, lastLoginAt: true, createdAt: true }
       })
     ]);
 
@@ -1850,7 +2576,7 @@ export class GroupsController {
 
     const allActiveStudents = await this.prisma.user.findMany({
       where: { primaryRole: 'student', status: 'active' },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true }
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true, lastLoginAt: true, createdAt: true }
     });
 
     const enrolledStudentIdSet = new Set(studentIds);
@@ -1992,6 +2718,22 @@ export class GroupsController {
     }
 
     const { teacherId } = body;
+    const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+    if (cohort?.courseId) {
+      const course = await this.prisma.course.findUnique({
+        where: { id: cohort.courseId },
+        select: { subjectId: true }
+      });
+      const teacher = await this.prisma.user.findUnique({
+        where: { id: teacherId },
+        select: { supervisedSubjectId: true }
+      });
+      const teacherSubjects = await this.getSupervisorSubjectIds(teacherId, teacher?.supervisedSubjectId);
+      if (course?.subjectId && teacherSubjects.length > 0 && !teacherSubjects.includes(course.subjectId)) {
+        throw new BadRequestException('لا يمكن إسناد أستاذ لمادة مختلفة عن مادة هذا الفوج الدراسي');
+      }
+    }
+
     await this.prisma.cohortInstructor.deleteMany({ where: { cohortId } });
     await this.prisma.cohortInstructor.create({
       data: {
@@ -2001,7 +2743,6 @@ export class GroupsController {
       }
     });
 
-    const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
     try {
       await this.prisma.notification.create({
         data: {
@@ -2074,7 +2815,7 @@ export class GroupsController {
   }
 
   @Post('supervisor/delegated/cohorts')
-  async createDelegatedCohort(@Req() req: any, @Body() body: { name: string, courseId: string, teacherId: string, studentIds: string[] }) {
+  async createDelegatedCohort(@Req() req: any, @Body() body: { name: string, courseId: string, teacherId?: string, studentIds?: string[], code?: string, maxStudents?: number }) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.id || req.user.userId } });
     if (!user || !['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(user.primaryRole)) {
       throw new UnauthorizedException();
@@ -2094,7 +2835,8 @@ export class GroupsController {
     if (!versionId) throw new Error('Course has no default curriculum version');
 
     // Create Cohort
-    const cohortCode = 'COH-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const cohortCode = body.code?.trim() || ('COH-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+    const maxCapacity = body.maxStudents || 25;
     
     const cohort = await this.prisma.cohort.create({
       data: {
@@ -2103,6 +2845,7 @@ export class GroupsController {
         courseId: body.courseId,
         curriculumVersionId: versionId,
         status: 'active',
+        maxStudents: maxCapacity,
         startDate: new Date(),
         endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         createdById: user.id
@@ -2111,6 +2854,15 @@ export class GroupsController {
 
     // Assign Teacher
     if (body.teacherId) {
+      const teacher = await this.prisma.user.findUnique({
+        where: { id: body.teacherId },
+        select: { supervisedSubjectId: true }
+      });
+      const teacherSubjects = await this.getSupervisorSubjectIds(body.teacherId, teacher?.supervisedSubjectId);
+      if (course?.subjectId && teacherSubjects.length > 0 && !teacherSubjects.includes(course.subjectId)) {
+        throw new BadRequestException('لا يمكن إسناد أستاذ لمادة مختلفة عن مادة هذا الفوج الدراسي');
+      }
+
       await this.prisma.cohortInstructor.create({
         data: {
           cohortId: cohort.id,

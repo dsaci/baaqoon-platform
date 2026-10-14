@@ -34,6 +34,9 @@ export class AuthController {
   getProfile(@Request() req: any) {
     // req.user is populated by JwtStrategy
     const user = req.user;
+    if (user?.id) {
+      this.authService.touchLastLogin(user.id);
+    }
     const rawRoles = user.roles?.map((r: any) => (typeof r === 'string' ? r : r.role)) || [];
     const roles = Array.from(new Set([user.primaryRole, ...rawRoles]));
     const isDualRole =

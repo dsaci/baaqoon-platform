@@ -19,10 +19,12 @@ import {
   Phone,
   Mail,
   CheckCircle2,
-  CalendarDays
+  CalendarDays,
+  X
 } from 'lucide-react';
 import RapidGeneratorModal from '../../assessments/components/RapidGeneratorModal';
 import CreateAssignmentModal from '../../assessments/components/CreateAssignmentModal';
+import AttendanceModal from '../../scheduling/components/AttendanceModal';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +45,9 @@ export const CohortDetailPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<string | null>(null);
+  const [selectedStudentForProgress, setSelectedStudentForProgress] = useState<any | null>(null);
 
   // Fetch real cohort details and student roster
   const { data, isLoading, error } = useQuery({
@@ -135,6 +140,17 @@ export const CohortDetailPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2.5">
+          <button 
+            type="button"
+            onClick={() => {
+              setSelectedSessionForAttendance(sessions[0]?.id || null);
+              setIsAttendanceModalOpen(true);
+            }}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all shadow-md shadow-emerald-500/25 cursor-pointer"
+          >
+            <Users className="w-4 h-4" />
+            <span>{t("cohorts.record_attendance", "رصد الغياب والحضور")}</span>
+          </button>
           <button 
             onClick={() => setIsGeneratorOpen(true)}
             className="flex items-center justify-center gap-2 bg-white hover:bg-baaqoon-50 dark:bg-baaqoon-900 dark:hover:bg-baaqoon-800 text-baaqoon-accentDark border border-baaqoon-200 dark:border-baaqoon-700 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
@@ -321,13 +337,24 @@ export const CohortDetailPage: React.FC = () => {
                         {student.lastActivity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <Link 
-                          to="/teacher/chat" 
-                          className="inline-flex items-center gap-1.5 text-violet-600 hover:text-violet-700 font-bold text-xs bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 px-3.5 py-1.5 rounded-lg transition-colors border border-violet-100 dark:border-violet-800"
-                        >
-                          <Mail size={13} />
-                          مراسلة الطالب
-                        </Link>
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            onClick={() => setSelectedStudentForProgress(student)}
+                            className="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-200 hover:text-violet-600 dark:hover:text-violet-400 font-bold text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title="عرض تفاصيل الحضور والتقدم"
+                          >
+                            <Eye size={13} />
+                            {t("cohorts.view_progress", "عرض التقدم")}
+                          </button>
+                          <Link 
+                            to="/teacher/chat" 
+                            className="inline-flex items-center gap-1.5 text-violet-600 hover:text-violet-700 font-bold text-xs bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 px-3 py-1.5 rounded-lg transition-colors border border-violet-100 dark:border-violet-800"
+                            title="مراسلة في الدردشة"
+                          >
+                            <Mail size={13} />
+                            {t("cohorts.message_student", "مراسلة")}
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -430,14 +457,27 @@ export const CohortDetailPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <Link
-                        to={`/sessions/${session.id}/room`}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        {isPast ? 'مراجعة قاعة الحصة' : 'دخول الحصة الآن (Jitsi)'}
-                      </Link>
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/sessions/${session.id}/room`}
+                          className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          {isPast ? 'مراجعة قاعة الحصة' : 'دخول الحصة الآن (Jitsi)'}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSessionForAttendance(session.id);
+                            setIsAttendanceModalOpen(true);
+                          }}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+                        >
+                          <Users className="w-3.5 h-3.5 text-emerald-600" />
+                          رصد الحضور
+                        </button>
+                      </div>
                       <button
                         onClick={() => navigate('/teacher/schedule')}
                         className="text-xs font-bold text-slate-500 hover:text-slate-700"
@@ -527,6 +567,98 @@ export const CohortDetailPage: React.FC = () => {
         isOpen={isAssignmentModalOpen}
         onClose={() => setIsAssignmentModalOpen(false)}
         defaultCohortId={cohortId}
+      />
+
+      {/* Student Progress Detail Modal */}
+      {selectedStudentForProgress && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in" dir={isRtl ? 'rtl' : 'ltr'}>
+          <div className="bg-white dark:bg-baaqoon-900 rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-in">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md text-white flex items-center justify-center font-black text-lg border border-white/20">
+                  {getInitials(selectedStudentForProgress.name)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">{selectedStudentForProgress.name}</h3>
+                  <p className="text-violet-100 text-xs font-bold mt-0.5">
+                    {cohort.name} • {selectedStudentForProgress.status === 'active' ? 'طالب نشط ومسجل' : 'معلق'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStudentForProgress(null)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              {/* Contact info cards */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-baaqoon-850 border border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-400 font-bold block mb-1">البريد الإلكتروني</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100 truncate block">
+                    {selectedStudentForProgress.email || 'غير مسجل'}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-baaqoon-850 border border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-400 font-bold block mb-1">رقم الهاتف</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100 font-mono block">
+                    {selectedStudentForProgress.phone || 'غير مسجل'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Attendance KPI */}
+              <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">نسبة الحضور الفعلي في الفوج</span>
+                  <span className="text-xl font-black text-emerald-700 dark:text-emerald-300">
+                    {selectedStudentForProgress.attendance}%
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-emerald-100 dark:bg-emerald-900/50 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(5, selectedStudentForProgress.attendance)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  <span>حضر {selectedStudentForProgress.attendedCount || 0} من إجمالي {selectedStudentForProgress.totalSessionsCount || sessions.length} حصص</span>
+                  <span>آخر نشاط: {selectedStudentForProgress.lastActivity}</span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 pt-2">
+                <Link
+                  to="/teacher/chat"
+                  onClick={() => setSelectedStudentForProgress(null)}
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <Mail size={15} />
+                  مراسلة الطالب في المحادثات
+                </Link>
+                <button
+                  onClick={() => setSelectedStudentForProgress(null)}
+                  className="py-3 px-5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-baaqoon-800 transition-colors cursor-pointer"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        sessionId={selectedSessionForAttendance || undefined}
+        cohortId={cohortId}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -6,9 +7,12 @@ import {
   Users, UserPlus, BookOpen, Search, Filter, Loader2, CheckCircle, 
   GraduationCap, AlertTriangle, ArrowRightLeft, UserCheck, UserX, 
   ShieldAlert, RefreshCw, X, ChevronDown, ChevronUp, Sparkles, 
-  Share2, Plus, ArrowRight, Check, AlertCircle, HelpCircle, Clock
+  Share2, Plus, ArrowRight, Check, AlertCircle, HelpCircle, Clock,
+  Tag, Info, ChevronLeft, ChevronRight, FileSpreadsheet
 } from 'lucide-react';
 import CohortRequestsAdminView from '../../admin/components/CohortRequestsAdminView';
+import AttendanceModal from '../../scheduling/components/AttendanceModal';
+import { getUserActivityStatus } from '../../../utils/activityStatus';
 
 export default function SupervisorCohortsView() {
   const queryClient = useQueryClient();
@@ -21,6 +25,8 @@ export default function SupervisorCohortsView() {
   const [expandedCohortId, setExpandedCohortId] = useState<string | null>(null);
 
   // Modals state
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [selectedCohortForAttendance, setSelectedCohortForAttendance] = useState<string | undefined>(undefined);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
   const [selectedCohortForAddStudent, setSelectedCohortForAddStudent] = useState<any>(null);
@@ -41,12 +47,17 @@ export default function SupervisorCohortsView() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
+    code: '',
     courseId: '',
     teacherId: '',
+    maxStudents: 25,
     curriculumType: '',
     academicBranch: ''
   });
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentBranchFilter, setStudentBranchFilter] = useState<'all' | 'scientific' | 'literary'>('all');
 
   // Transfer Form State
   const [targetCohortId, setTargetCohortId] = useState<string>('');
@@ -104,6 +115,18 @@ export default function SupervisorCohortsView() {
     }
   });
 
+  // Auto-select default course for creation modal if not yet set
+  React.useEffect(() => {
+    if (isCreateModalOpen && !formData.courseId && courses.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        courseId: courses[0].id,
+        curriculumType: courses[0].curriculumType || '',
+        academicBranch: courses[0].academicBranch || ''
+      }));
+    }
+  }, [isCreateModalOpen, courses, formData.courseId]);
+
   // Fetch delegated teachers
   const { data: teachers = [] } = useQuery({
     queryKey: ['supervisor_delegated_teachers', selectedSubjectId],
@@ -129,9 +152,11 @@ export default function SupervisorCohortsView() {
   const createCohortMutation = useMutation({
     mutationFn: async () => {
       const res = await api.post('/groups/supervisor/delegated/cohorts', {
-        name: formData.name,
+        name: formData.name.trim(),
+        code: formData.code.trim() || undefined,
+        maxStudents: Number(formData.maxStudents) || 25,
         courseId: formData.courseId,
-        teacherId: formData.teacherId,
+        teacherId: formData.teacherId || undefined,
         studentIds: selectedStudents
       });
       return res.data;
@@ -141,12 +166,65 @@ export default function SupervisorCohortsView() {
       queryClient.invalidateQueries({ queryKey: ['supervisor_stats'] });
       setIsCreateModalOpen(false);
       setStep(1);
-      setFormData({ name: '', courseId: '', teacherId: '', curriculumType: '', academicBranch: '' });
+      setFormData({ name: '', code: '', courseId: '', teacherId: '', maxStudents: 25, curriculumType: '', academicBranch: '' });
       setSelectedStudents([]);
       alert('تم إنشاء الفوج بنجاح وإسناد الأستاذ والطلبة!');
     },
-    onError: () => alert('حدث خطأ أثناء إنشاء الفوج')
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'حدث خطأ أثناء إنشاء الفوج';
+      alert(msg);
+    }
   });
+
+  const handleOpenCreateModal = () => {
+    const defaultCourse = courses[0];
+    const currentSub = allSubjects.find((s: any) => s.id === selectedSubjectId) || allSubjects[0];
+    const subCode = currentSub?.code ? currentSub.code.toUpperCase() : 'COH';
+    const rndCode = Math.floor(100 + Math.random() * 900);
+    const suggestedCode = `${subCode}-${new Date().getFullYear().toString().slice(-2)}${rndCode}`;
+
+    setFormData({
+      name: '',
+      code: suggestedCode,
+      courseId: defaultCourse?.id || '',
+      teacherId: '',
+      maxStudents: 25,
+      curriculumType: defaultCourse?.curriculumType || '',
+      academicBranch: defaultCourse?.academicBranch || ''
+    });
+    setSelectedStudents([]);
+    setTeacherSearch('');
+    setStudentSearch('');
+    setStudentBranchFilter('all');
+    setStep(1);
+    setIsCreateModalOpen(true);
+  };
+
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportSubjectExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const url = selectedSubjectId 
+        ? `/groups/supervisor/export-database?subjectId=${selectedSubjectId}`
+        : '/groups/supervisor/export-database';
+      const res = await api.get(url, { responseType: 'blob' });
+      const currentSub = allSubjects.find((s: any) => s.id === selectedSubjectId) || allSubjects[0];
+      const subName = currentSub?.code ? currentSub.code : 'subject';
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `baaqoon_${subName}_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      alert('حدث خطأ أثناء تصدير بيانات المادة إلى Excel');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Transfer student mutation
   const transferStudentMutation = useMutation({
@@ -311,11 +389,41 @@ export default function SupervisorCohortsView() {
             </button>
 
             <button 
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => {
+                setSelectedCohortForAttendance(undefined);
+                setIsAttendanceModalOpen(true);
+              }}
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 text-xs flex-shrink-0 cursor-pointer"
+            >
+              <Users className="w-4 h-4" />
+              رصد الغياب والحضور
+            </button>
+
+            <button 
+              onClick={handleOpenCreateModal}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 text-xs flex-shrink-0"
             >
               <UserPlus className="w-4 h-4" />
               تكوين فوج جديد
+            </button>
+
+            <button 
+              onClick={handleExportSubjectExcel}
+              disabled={isExportingExcel}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 text-xs flex-shrink-0 disabled:opacity-50"
+              title="تصدير بيانات وأفواج وطلبة المادة إلى ملف Excel كامل"
+            >
+              {isExportingExcel ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري التصدير...</span>
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>تصدير المادة (Excel)</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -590,19 +698,31 @@ export default function SupervisorCohortsView() {
                             لا يوجد طلاب مقيدون في هذا الفوج حالياً.
                           </p>
                         ) : (
-                          cohort.enrolledStudents.map((st: any) => (
-                            <div
-                              key={st.id}
-                              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2 text-xs"
-                            >
-                              <div>
-                                <div className="font-black text-slate-800 dark:text-white">
-                                  {st.firstName} {st.lastName}
+                          cohort.enrolledStudents.map((st: any) => {
+                            const act = getUserActivityStatus(st.lastLoginAt, st.createdAt);
+                            return (
+                              <div
+                                key={st.id}
+                                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2 text-xs"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${act.dotClass}`} title={act.label} />
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-black text-slate-800 dark:text-white">
+                                        {st.firstName} {st.lastName}
+                                      </span>
+                                      {act.isIdle && (
+                                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400">
+                                          خامل
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} • {st.phone || st.email || 'بدون هاتف'} • آخر دخول: {act.formattedLastLogin}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-slate-400">
-                                  {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} • {st.phone || st.email || 'بدون هاتف'}
-                                </div>
-                              </div>
 
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {/* Transfer Button */}
@@ -631,8 +751,9 @@ export default function SupervisorCohortsView() {
                                 </button>
                               </div>
                             </div>
-                          ))
-                        )}
+                          );
+                        })
+                      )}
                       </div>
                     )}
                   </div>
@@ -669,6 +790,20 @@ export default function SupervisorCohortsView() {
                     <ShieldAlert className="w-4 h-4 text-amber-500" />
                     معالجة الأستاذ / ضم
                   </button>
+
+                  {/* Cohort Attendance Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCohortForAttendance(cohort.id);
+                      setIsAttendanceModalOpen(true);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="رصد الغياب والحضور لهذا الفوج"
+                  >
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    رصد الحضور
+                  </button>
                 </div>
               </div>
             );
@@ -698,11 +833,23 @@ export default function SupervisorCohortsView() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {unassignedStudentsList.slice(0, 6).map((st: any) => (
+            {unassignedStudentsList.slice(0, 6).map((st: any) => {
+              const act = getUserActivityStatus(st.lastLoginAt, st.createdAt);
+              return (
               <div key={st.id} className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200/60 dark:border-amber-900 flex items-center justify-between gap-2 text-xs">
-                <div>
-                  <div className="font-black text-slate-900 dark:text-white">{st.firstName} {st.lastName}</div>
-                  <div className="text-[10px] text-slate-400">{st.academicBranch === 'scientific' ? 'فرع علمي' : 'فرع أدبي'} • {st.phone || 'بدون هاتف'}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${act.dotClass}`} title={act.label} />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-slate-900 dark:text-white">{st.firstName} {st.lastName}</span>
+                      {act.isIdle && (
+                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400">
+                          خامل
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{st.academicBranch === 'scientific' ? 'فرع علمي' : 'فرع أدبي'} • آخر دخول: {act.formattedLastLogin}</div>
+                  </div>
                 </div>
                 <button
                   onClick={() => {
@@ -721,7 +868,8 @@ export default function SupervisorCohortsView() {
                   تسكين بفوج
                 </button>
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}
@@ -729,9 +877,9 @@ export default function SupervisorCohortsView() {
       {/* ========================================================================= */}
       {/* MODAL: Add Student into Specific Cohort (إضافة طالب معين لفوج معين) */}
       {/* ========================================================================= */}
-      {selectedCohortForAddStudent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      {selectedCohortForAddStudent && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[90vh]">
             <div className="p-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black">إضافة طالب لفوج: {selectedCohortForAddStudent.name}</h3>
@@ -739,7 +887,7 @@ export default function SupervisorCohortsView() {
                   المقاعد الشاغرة المتاحة: {selectedCohortForAddStudent.availableSeats} من {selectedCohortForAddStudent.maxStudents}
                 </p>
               </div>
-              <button onClick={() => setSelectedCohortForAddStudent(null)} className="p-2 rounded-xl bg-white/10 text-white">
+              <button onClick={() => setSelectedCohortForAddStudent(null)} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -773,7 +921,7 @@ export default function SupervisorCohortsView() {
                 <button
                   type="button"
                   onClick={() => setSelectedCohortForAddStudent(null)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   إلغاء
                 </button>
@@ -786,22 +934,23 @@ export default function SupervisorCohortsView() {
                       studentId: studentToAddId
                     });
                   }}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/20"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/20 disabled:opacity-50"
                 >
                   {enrollStudentMutation.isPending ? 'جاري الإضافة...' : 'تأكيد إضافة الطالب'}
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL: Transfer Student Between Cohorts (نقل طالب من فوج لآخر) */}
       {/* ========================================================================= */}
-      {selectedStudentForTransfer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      {selectedStudentForTransfer && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[90vh]">
             <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black">
@@ -811,7 +960,7 @@ export default function SupervisorCohortsView() {
                   من الفوج الحالي: «{selectedStudentForTransfer.fromCohort.name}»
                 </p>
               </div>
-              <button onClick={() => setSelectedStudentForTransfer(null)} className="p-2 rounded-xl bg-white/10 text-white">
+              <button onClick={() => setSelectedStudentForTransfer(null)} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -857,7 +1006,7 @@ export default function SupervisorCohortsView() {
                 <button
                   type="button"
                   onClick={() => setSelectedStudentForTransfer(null)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   إلغاء
                 </button>
@@ -872,22 +1021,23 @@ export default function SupervisorCohortsView() {
                       reason: transferReason
                     });
                   }}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-600/20"
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-600/20 disabled:opacity-50"
                 >
                   {transferStudentMutation.isPending ? 'جاري النقل...' : 'تأكيد نقل الطالب'}
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL: Teacher Vacancy Resolution / Bulk Merge (معالجة شغور أستاذ الفوج) */}
       {/* ========================================================================= */}
-      {selectedCohortForTeacherVacancy && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+      {selectedCohortForTeacherVacancy && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col my-auto max-h-[90vh]">
             <div className="p-6 bg-gradient-to-r from-rose-600 to-amber-600 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black">
@@ -897,7 +1047,7 @@ export default function SupervisorCohortsView() {
                   عدد الطلبة المقيدين بهذا الفوج: {selectedCohortForTeacherVacancy.enrolledCount} طالب
                 </p>
               </div>
-              <button onClick={() => setSelectedCohortForTeacherVacancy(null)} className="p-2 rounded-xl bg-white/10 text-white">
+              <button onClick={() => setSelectedCohortForTeacherVacancy(null)} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -957,7 +1107,7 @@ export default function SupervisorCohortsView() {
                     <button
                       type="button"
                       onClick={() => setSelectedCohortForTeacherVacancy(null)}
-                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       إلغاء
                     </button>
@@ -970,7 +1120,7 @@ export default function SupervisorCohortsView() {
                           teacherId: substituteTeacherId
                         });
                       }}
-                      className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-lg shadow-rose-600/20"
+                      className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-lg shadow-rose-600/20 disabled:opacity-50"
                     >
                       {assignTeacherMutation.isPending ? 'جاري الإسناد...' : 'تأكيد إسناد الأستاذ البديل'}
                     </button>
@@ -1006,7 +1156,7 @@ export default function SupervisorCohortsView() {
                     <button
                       type="button"
                       onClick={() => setSelectedCohortForTeacherVacancy(null)}
-                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold"
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                       إلغاء
                     </button>
@@ -1021,7 +1171,7 @@ export default function SupervisorCohortsView() {
                           });
                         }
                       }}
-                      className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-amber-600/20"
+                      className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-amber-600/20 disabled:opacity-50"
                     >
                       {bulkTransferMutation.isPending ? 'جاري الضم والنقل...' : 'تأكيد ضم ونقل الطلبة'}
                     </button>
@@ -1030,179 +1180,569 @@ export default function SupervisorCohortsView() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* MODAL: Create New Cohort Wizard (تكوين فوج جديد) */}
       {/* ========================================================================= */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 bg-indigo-600 text-white flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <UserPlus className="w-6 h-6" />
-                  إنشاء فوج دراسي وإسناد الأستاذ
-                </h3>
-                <p className="text-xs text-indigo-100 mt-1">الخطوة {step} من 3: {step === 1 ? 'بيانات الفوج والمقرر' : step === 2 ? 'إسناد أستاذ المادة' : 'تفويج وإسناد الطلبة'}</p>
+      {isCreateModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 text-right" dir="rtl">
+          <div className="relative w-full max-w-2xl sm:max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto animate-fade-in max-h-[92vh]">
+            
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 text-white flex justify-between items-center relative overflow-hidden">
+              <div className="relative z-10 flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
+                  <UserPlus className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                    إنشاء فوج دراسي وإسناد الأستاذ
+                  </h3>
+                  <p className="text-xs text-indigo-100/90 font-medium mt-0.5">
+                    إعداد بيانات الفوج، تعيين المدرس المعتمد، وتوزيع الطلبة
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
+                className="relative z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                title="إغلاق"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1">
+            {/* Stepper Progress Bar */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between max-w-md mx-auto">
+                {/* Step 1 */}
+                <div 
+                  onClick={() => setStep(1)}
+                  className={`flex items-center gap-2 cursor-pointer transition-all ${
+                    step === 1 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : step > 1 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    step === 1 
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900/50 shadow-md shadow-indigo-600/30' 
+                      : step > 1 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                  }`}>
+                    {step > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : '1'}
+                  </div>
+                  <span className="text-xs font-bold hidden sm:inline">بيانات الفوج</span>
+                </div>
+
+                <div className={`flex-1 h-0.5 mx-2 rounded-full transition-all ${step > 1 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+
+                {/* Step 2 */}
+                <div 
+                  onClick={() => {
+                    if (formData.name.trim() && formData.courseId) setStep(2);
+                  }}
+                  className={`flex items-center gap-2 ${formData.name.trim() && formData.courseId ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} transition-all ${
+                    step === 2 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : step > 2 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    step === 2 
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900/50 shadow-md shadow-indigo-600/30' 
+                      : step > 2 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                  }`}>
+                    {step > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : '2'}
+                  </div>
+                  <span className="text-xs font-bold hidden sm:inline">إسناد الأستاذ</span>
+                </div>
+
+                <div className={`flex-1 h-0.5 mx-2 rounded-full transition-all ${step > 2 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+
+                {/* Step 3 */}
+                <div 
+                  onClick={() => {
+                    if (formData.name.trim() && formData.courseId && formData.teacherId) setStep(3);
+                  }}
+                  className={`flex items-center gap-2 ${formData.name.trim() && formData.courseId && formData.teacherId ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} transition-all ${
+                    step === 3 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    step === 3 
+                      ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900/50 shadow-md shadow-indigo-600/30' 
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                  }`}>
+                    3
+                  </div>
+                  <span className="text-xs font-bold hidden sm:inline">تفويج الطلبة</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-5">
+              {/* STEP 1: بيانات الفوج والمقرر */}
               {step === 1 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اسم الفوج الدراسي</label>
-                    <input 
-                      type="text" 
-                      placeholder="مثال: فوج العلوم الحياتية - غزة 1"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">المقرر الدراسي لمادة التخصص</label>
-                    <select 
-                      value={formData.courseId}
-                      onChange={(e) => setFormData({...formData, courseId: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                    >
-                      <option value="">-- اختر المقرر الدراسي --</option>
-                      {courses.map((course: any) => (
-                        <option key={course.id} value={course.id}>
-                          {course.title || course.nameAr} - {course.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} ({course.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-4">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">إسناد أستاذ المادة للفوج</label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                    {teachers.map((teacher: any) => (
-                      <div 
-                        key={teacher.id}
-                        onClick={() => setFormData({...formData, teacherId: teacher.id})}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                          formData.teacherId === teacher.id 
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200' 
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-bold text-sm">أ. {teacher.firstName} {teacher.lastName}</div>
-                          <div className="text-xs text-slate-500" dir="ltr">{teacher.email}</div>
-                        </div>
-                        {formData.teacherId === teacher.id && (
-                          <Check className="w-5 h-5 text-indigo-600" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      تم اختيار {selectedStudents.length} طالب للفوج
+                <div className="space-y-4 animate-fade-in">
+                  {/* Step 1 Banner */}
+                  <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/60 dark:from-indigo-950/40 dark:to-violet-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-indigo-950 dark:text-indigo-200">الخطوة 1 من 3: بيانات الفوج والمقرر الدراسي</h4>
+                      <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 font-medium mt-0.5">
+                        حدد اسم الفوج ورمزه، واختر المقرر التخصصي المعتمد وحدد الطاقة الاستيعابية
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-600 text-white shadow-xs">
+                      المرحلة الأولى
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedStudents.length === allPlatformStudents.length) {
-                          setSelectedStudents([]);
-                        } else {
-                          setSelectedStudents(allPlatformStudents.map((s: any) => s.id));
-                        }
-                      }}
-                      className="text-xs font-bold text-indigo-600 hover:underline"
-                    >
-                      {selectedStudents.length === allPlatformStudents.length ? 'إلغاء تحديد الكل' : 'تحديد جميع الطلبة'}
-                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-                    {allPlatformStudents.map((st: any) => (
-                      <div 
-                        key={st.id}
-                        onClick={() => {
-                          setSelectedStudents(prev => 
-                            prev.includes(st.id) ? prev.filter(id => id !== st.id) : [...prev, st.id]
-                          );
+                  {/* Two columns for name and code */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Cohort Name */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        اسم الفوج الدراسي <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Users className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input 
+                          type="text" 
+                          placeholder="مثال: فوج الرياضيات التأسيسي - غزة 1"
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          className="w-full pr-10 pl-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cohort Code */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          رمز الفوج الأكاديمي (الكود)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const sub = allSubjects.find((s: any) => s.id === selectedSubjectId) || allSubjects[0];
+                            const pfx = (sub?.code || 'COH').toUpperCase();
+                            const rnd = Math.floor(100 + Math.random() * 900);
+                            setFormData({ ...formData, code: `${pfx}-${new Date().getFullYear().toString().slice(-2)}${rnd}` });
+                          }}
+                          className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          توليد جديد
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Tag className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input 
+                          type="text" 
+                          placeholder="مثال: MATH-26101"
+                          value={formData.code}
+                          onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                          className="w-full pr-10 pl-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-mono font-bold tracking-wider focus:ring-2 focus:ring-indigo-500 outline-none uppercase transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Course Selection */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      المقرر الدراسي لمادة التخصص <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <BookOpen className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select 
+                        value={formData.courseId}
+                        onChange={(e) => {
+                          const cId = e.target.value;
+                          const selectedC = courses.find((c: any) => c.id === cId);
+                          setFormData({
+                            ...formData,
+                            courseId: cId,
+                            curriculumType: selectedC?.curriculumType || '',
+                            academicBranch: selectedC?.academicBranch || ''
+                          });
                         }}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                          selectedStudents.includes(st.id)
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                        }`}
+                        className="w-full pr-10 pl-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
                       >
-                        <div>
-                          <div className="font-bold text-slate-800 dark:text-white">{st.firstName} {st.lastName}</div>
-                          <div className="text-[10px] text-slate-400">{st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} • {st.phone || st.email}</div>
+                        <option value="">-- اضغط لاختيار المقرر الدراسي المعتمد --</option>
+                        {courses.map((course: any) => (
+                          <option key={course.id} value={course.id}>
+                            {course.title || course.nameAr} - {course.academicBranch === 'scientific' ? 'الفرع العلمي' : 'الفرع الأدبي'} ({course.curriculumType === 'governmental' ? 'منهاج حكومي' : 'منهاج أزهري'})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Selected Course Preview Card */}
+                  {(() => {
+                    const selectedC = courses.find((c: any) => c.id === formData.courseId);
+                    if (!selectedC) return null;
+                    const sub = allSubjects.find((s: any) => s.id === selectedSubjectId) || allSubjects[0];
+                    return (
+                      <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between text-xs animate-fade-in">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+                            <BookOpen className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">
+                              {selectedC.title || selectedC.nameAr}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              المادة: {selectedC.subject?.nameAr || sub?.nameAr || 'المادة المعتمدة'}
+                            </div>
+                          </div>
                         </div>
-                        {selectedStudents.includes(st.id) && (
-                          <Check className="w-4 h-4 text-indigo-600" />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                            {selectedC.academicBranch === 'scientific' ? 'الفرع العلمي' : 'الفرع الأدبي'}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                            {selectedC.curriculumType === 'governmental' ? 'منهاج حكومي' : 'منهاج أزهري'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Capacity Selector */}
+                  <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                    <div className="flex justify-between items-center mb-2.5">
+                      <div>
+                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                          الطاقة الاستيعابية القصوى للفوج
+                        </label>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          الحد الأقصى للطلبة المقيدين بهذا الفوج
+                        </span>
+                      </div>
+                      <span className="px-3 py-1 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-xs font-black text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                        {formData.maxStudents} مقعد دراسي
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 sm:gap-2.5">
+                      {[15, 20, 25, 30, 40].map((cap) => (
+                        <button
+                          key={cap}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, maxStudents: cap })}
+                          className={`py-2 px-1 text-xs font-black rounded-xl border transition-all text-center flex flex-col items-center justify-center gap-0.5 ${
+                            formData.maxStudents === cap
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 ring-2 ring-indigo-200 dark:ring-indigo-900 scale-[1.02]'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className="text-xs sm:text-sm font-black">{cap}</span>
+                          <span className="text-[9px] sm:text-[10px] opacity-75">{cap === 25 ? 'الموصى به ⭐' : 'طالب'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Guidance Info Box */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="leading-relaxed text-[11px]">
+                      سيتم ربط هذا الفوج تلقائياً بنسخة المنهاج المعتمدة للمقرر، وتجهيزه لإسناد الأستاذ والطلبة في الخطوتين التاليتين مباشرة.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: إسناد أستاذ المادة */}
+              {step === 2 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        اختر أستاذ المادة المسؤول عن الفوج <span className="text-rose-500">*</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        الأساتذة المعتمدون لمادة التخصص ({teachers.length} أستاذ)
+                      </p>
+                    </div>
+                    {/* Search */}
+                    <div className="relative sm:w-60">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input 
+                        type="text"
+                        placeholder="بحث بالاسم أو البريد..."
+                        value={teacherSearch}
+                        onChange={(e) => setTeacherSearch(e.target.value)}
+                        className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Teachers Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
+                    {teachers
+                      .filter((t: any) => {
+                        if (!teacherSearch.trim()) return true;
+                        const q = teacherSearch.toLowerCase();
+                        const full = `${t.firstName} ${t.lastName}`.toLowerCase();
+                        return full.includes(q) || (t.email && t.email.toLowerCase().includes(q));
+                      })
+                      .map((teacher: any) => {
+                        const isSelected = formData.teacherId === teacher.id;
+                        return (
+                          <div 
+                            key={teacher.id}
+                            onClick={() => setFormData({...formData, teacherId: teacher.id})}
+                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
+                              isSelected 
+                                ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-sm ring-1 ring-indigo-500' 
+                                : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                                isSelected 
+                                   ? 'bg-indigo-600 text-white' 
+                                   : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                              }`}>
+                                أ.
+                              </div>
+                              <div>
+                                <div className="font-bold text-xs text-slate-900 dark:text-white">
+                                  أ. {teacher.firstName} {teacher.lastName}
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate max-w-[150px]" dir="ltr">
+                                  {teacher.email}
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                              isSelected 
+                                ? 'bg-indigo-600 border-indigo-600 text-white' 
+                                : 'border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {teachers.length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      لا يوجد أساتذة مسندون لهذه المادة حالياً
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 3: تفويج وإسناد الطلبة */}
+              {step === 3 && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Controls Header */}
+                  <div className="flex flex-col gap-2.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          تم اختيار <span className="text-indigo-600 dark:text-indigo-400 font-black">{selectedStudents.length}</span> من أصل <span className="font-black">{formData.maxStudents}</span> مقعد
+                        </span>
+                        {selectedStudents.length > formData.maxStudents && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                            تجاوزت السعة المقترحة
+                          </span>
                         )}
                       </div>
-                    ))}
+
+                      {/* Filter branch tabs */}
+                      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setStudentBranchFilter('all')}
+                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                        >
+                          الكل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStudentBranchFilter('scientific')}
+                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'scientific' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                        >
+                          علمي
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStudentBranchFilter('literary')}
+                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'literary' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                        >
+                          أدبي
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                      {/* Search */}
+                      <div className="relative w-full sm:w-60">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input 
+                          type="text"
+                          placeholder="بحث باسم الطالب أو الهاتف..."
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      {/* Select/Deselect All */}
+                      {(() => {
+                        const visibleStudents = allPlatformStudents.filter((st: any) => {
+                          if (studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
+                          if (!studentSearch.trim()) return true;
+                          const q = studentSearch.toLowerCase();
+                          const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                          return full.includes(q) || (st.phone && st.phone.includes(q));
+                        });
+                        const isAllVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((st: any) => selectedStudents.includes(st.id));
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isAllVisibleSelected) {
+                                const visibleIds = visibleStudents.map((s: any) => s.id);
+                                setSelectedStudents(prev => prev.filter(id => !visibleIds.includes(id)));
+                              } else {
+                                const visibleIds = visibleStudents.map((s: any) => s.id);
+                                setSelectedStudents(prev => Array.from(new Set([...prev, ...visibleIds])));
+                              }
+                            }}
+                            className="text-xs font-bold text-indigo-600 hover:underline mr-auto sm:mr-0"
+                          >
+                            {isAllVisibleSelected ? 'إلغاء تحديد الظاهرين' : `تحديد الكل الظاهر (${visibleStudents.length})`}
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Students Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                    {allPlatformStudents
+                      .filter((st: any) => {
+                        if (studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
+                        if (!studentSearch.trim()) return true;
+                        const q = studentSearch.toLowerCase();
+                        const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                        return full.includes(q) || (st.phone && st.phone.includes(q));
+                      })
+                      .map((st: any) => {
+                        const isSelected = selectedStudents.includes(st.id);
+                        return (
+                          <div 
+                            key={st.id}
+                            onClick={() => {
+                              setSelectedStudents(prev => 
+                                prev.includes(st.id) ? prev.filter(id => id !== st.id) : [...prev, st.id]
+                              );
+                            }}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                              isSelected
+                                ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-xs ring-1 ring-indigo-500'
+                                : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                isSelected 
+                                  ? 'bg-indigo-600 border-indigo-600 text-white' 
+                                  : 'border-slate-300 dark:border-slate-600'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-800 dark:text-white leading-tight">
+                                  {st.firstName} {st.lastName}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} {st.curriculumType === 'al_azhar' ? '• أزهري' : ''} {st.phone ? `• ${st.phone}` : ''}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex justify-between">
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
               {step > 1 ? (
                 <button
                   type="button"
                   onClick={() => setStep(step - 1)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-all"
                 >
+                  <ChevronRight className="w-4 h-4" />
                   السابق
                 </button>
-              ) : <div></div>}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 transition-all"
+                >
+                  إلغاء
+                </button>
+              )}
 
               {step < 3 ? (
                 <button
                   type="button"
-                  disabled={step === 1 ? (!formData.name || !formData.courseId) : !formData.teacherId}
+                  disabled={step === 1 ? (!formData.name.trim() || !formData.courseId) : !formData.teacherId}
                   onClick={() => setStep(step + 1)}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  التالي
+                  <span>التالي</span>
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
               ) : (
                 <button
                   type="button"
                   disabled={createCohortMutation.isPending}
                   onClick={() => createCohortMutation.mutate()}
-                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50"
                 >
-                  {createCohortMutation.isPending ? 'جاري الإنشاء...' : 'إتمام إنشاء الفوج'}
+                  {createCohortMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>جاري الإنشاء...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>إتمام إنشاء الفوج وتثبيت الطلبة</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Requests Modal for Supervisor */}
-      {isRequestsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+      {isRequestsModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 my-auto text-right">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold">
@@ -1219,15 +1759,22 @@ export default function SupervisorCohortsView() {
               </div>
               <button
                 onClick={() => setIsRequestsModalOpen(false)}
-                className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500"
+                className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <CohortRequestsAdminView />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        cohortId={selectedCohortForAttendance}
+      />
     </div>
   );
 }

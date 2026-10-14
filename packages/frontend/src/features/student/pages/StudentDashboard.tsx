@@ -1,5 +1,5 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../lib/axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,6 +17,12 @@ import {
   Heart,
   Target,
   Flame,
+  Plus,
+  CheckCircle2,
+  Layers,
+  Loader2,
+  X,
+  AlertCircle
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
@@ -37,6 +43,9 @@ export default function StudentDashboard() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [enrollToast, setEnrollToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   const studentName = user
     ? `${user.firstName} ${user.lastName}`
     : "طالب باقون";
@@ -50,6 +59,50 @@ export default function StudentDashboard() {
       const res = await api.get("/groups/cohorts/me");
       return res.data;
     },
+  });
+
+  const { data: branchSubjects = [], isLoading: isLoadingSubjects } = useQuery({
+    queryKey: ["student_subjects_cohorts"],
+    queryFn: async () => {
+      const res = await api.get("/groups/student/subjects-and-cohorts");
+      return res.data || [];
+    },
+  });
+
+  const enrollAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post("/groups/student/enroll-all-branch-cohorts");
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["studentCohorts"] });
+      queryClient.invalidateQueries({ queryKey: ["student_subjects_cohorts"] });
+      queryClient.invalidateQueries({ queryKey: ["studentSessions"] });
+      setEnrollToast({ message: data?.message || "تم تفويجك بنجاح في جميع مواد فرعك الدراسي!", type: 'success' });
+      setTimeout(() => setEnrollToast(null), 5000);
+    },
+    onError: (err: any) => {
+      setEnrollToast({ message: err?.response?.data?.message || "حدث خطأ أثناء الانضمام للمواد", type: 'error' });
+      setTimeout(() => setEnrollToast(null), 5000);
+    }
+  });
+
+  const enrollSingleMutation = useMutation({
+    mutationFn: async (cohortId: string) => {
+      const res = await api.post(`/groups/student/enroll-cohort/${cohortId}`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["studentCohorts"] });
+      queryClient.invalidateQueries({ queryKey: ["student_subjects_cohorts"] });
+      queryClient.invalidateQueries({ queryKey: ["studentSessions"] });
+      setEnrollToast({ message: data?.message || "تم الانضمام للفوج بنجاح!", type: 'success' });
+      setTimeout(() => setEnrollToast(null), 5000);
+    },
+    onError: (err: any) => {
+      setEnrollToast({ message: err?.response?.data?.message || "تعذر الانضمام للفوج حالياً", type: 'error' });
+      setTimeout(() => setEnrollToast(null), 5000);
+    }
   });
 
   const { data: upcomingSessions = [] } = useQuery({
@@ -176,34 +229,173 @@ export default function StudentDashboard() {
       </div>
 
       
-      {/* مساري الأكاديمي - أفواجي */}
-      <div>
-        <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 mb-4">
-          <BookOpen className="w-6 h-6 text-emerald-500" />
-          مساري الأكاديمي (أفواجي)
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {studentCohorts.length === 0 ? (
-            <div className="col-span-full p-8 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 font-bold">
-              لم يتم تفويجك في أي فوج بعد. ستظهر هنا المواد التي تم تسجيلك بها فور اعتمادك.
-            </div>
+      {/* Toast Alert */}
+      {enrollToast && (
+        <div 
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border text-sm font-black transition-all animate-in fade-in slide-in-from-top-4 ${
+            enrollToast.type === 'success' 
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800' 
+              : 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-200 dark:border-rose-800'
+          }`}
+        >
+          {enrollToast.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : (
-            studentCohorts.map((cohort: any) => (
-              <div key={cohort.id} className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col gap-4">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-black text-lg text-slate-800 dark:text-white leading-tight">{cohort.name}</h3>
-                  <span className="text-xs font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-1 rounded-md shrink-0">
-                    {cohort.code}
-                  </span>
-                </div>
-                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-sm font-bold text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1.5"><CheckSquare className="w-4 h-4 text-emerald-500" /> نشط</span>
-                  <span>{cohort.course?.title || 'مساق معتمد'}</span>
+            <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          )}
+          <span>{enrollToast.message}</span>
+          <button onClick={() => setEnrollToast(null)} className="p-1 hover:bg-black/5 rounded-lg text-slate-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* مساري الأكاديمي - أفواجي ومواد فرعي الدراسي */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-emerald-500" />
+              مساري الأكاديمي ومواد فرعي الدراسي
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5">
+              متابعة المواد الدراسية المقررة لفرعك الدراسي والانضمام إلى أفواجها النشطة
+            </p>
+          </div>
+
+          <button
+            onClick={() => enrollAllMutation.mutate()}
+            disabled={enrollAllMutation.isPending}
+            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white rounded-2xl text-xs font-black transition-all shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {enrollAllMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                جاري الانضمام لكافة المواد...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 text-yellow-300 fill-yellow-300" />
+                الانضمام لكافة مواد فرعي الدراسي (نقرة واحدة)
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Status notice if not all subjects enrolled */}
+        {branchSubjects.length > 0 && (() => {
+          const enrolledSubjectsCount = branchSubjects.filter((s: any) => s.isEnrolledInSubject).length;
+          const missingCount = branchSubjects.length - enrolledSubjectsCount;
+          if (missingCount > 0) {
+            return (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="text-xs font-bold text-amber-900 dark:text-amber-100">
+                    أنت مسجل حالياً في <span className="font-black text-emerald-700 dark:text-emerald-400">{enrolledSubjectsCount}</span> مادة من أصل <span className="font-black">{branchSubjects.length}</span> مادة مقررة لفرعك.
+                    <span className="block text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                      يمكنك الانضمام مباشرة للمواد المتبقية بالضغط على زر "انضمام للفوج" أمام كل مادة أدناه أو زر "الانضمام لكافة المواد".
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Subjects & Cohorts Grid */}
+        {branchSubjects.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {branchSubjects.map((subject: any) => {
+              const isEnrolled = subject.isEnrolledInSubject;
+              const targetCohortId = subject.suggestedCohortId;
+              const isPending = enrollSingleMutation.isPending;
+
+              return (
+                <div
+                  key={subject.subjectId}
+                  className={`p-5 rounded-3xl border transition-all flex flex-col justify-between gap-4 relative overflow-hidden ${
+                    isEnrolled
+                      ? 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 shadow-sm'
+                      : 'bg-emerald-50/30 dark:bg-slate-900/40 border-emerald-200/70 dark:border-emerald-800/40 shadow-xs'
+                  }`}
+                >
+                  <div className="absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b from-emerald-500 to-teal-600"></div>
+
+                  <div>
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <h3 className="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        {subject.subjectName}
+                      </h3>
+                      <span className="text-[11px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg">
+                        {subject.subjectCode}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-bold truncate">
+                      {subject.courseTitle}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs font-bold">
+                    {isEnrolled ? (
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 w-full justify-between">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4" />
+                          مسجل بالفوج:
+                        </span>
+                        <span className="font-black truncate max-w-[140px]">{subject.enrolledCohortName}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span className="text-[11px] text-slate-400 font-bold">لم تنضم بعد</span>
+                        {targetCohortId ? (
+                          <button
+                            onClick={() => enrollSingleMutation.mutate(targetCohortId)}
+                            disabled={isPending}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-sm"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            انضمام للفوج
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg">
+                            بانتظار فتح فوج
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {studentCohorts.length === 0 ? (
+              <div className="col-span-full p-8 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 font-bold">
+                لم يتم تفويجك في أي فوج بعد. اضغط على زر "الانضمام لكافة مواد فرعي الدراسي" أعلاه للتفويج الفوري.
+              </div>
+            ) : (
+              studentCohorts.map((cohort: any) => (
+                <div key={cohort.id} className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-black text-lg text-slate-800 dark:text-white leading-tight">{cohort.name}</h3>
+                    <span className="text-xs font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-1 rounded-md shrink-0">
+                      {cohort.code}
+                    </span>
+                  </div>
+                  <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-sm font-bold text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1.5"><CheckSquare className="w-4 h-4 text-emerald-500" /> نشط</span>
+                    <span>{cohort.course?.title || 'مساق معتمد'}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

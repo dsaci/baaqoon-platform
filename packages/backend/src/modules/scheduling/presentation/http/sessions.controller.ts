@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Get, Param, Delete, Patch, UseGuards, Query } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get, Param, Delete, Patch, UseGuards, Query, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
@@ -20,12 +20,25 @@ export class SessionsController {
       let supervisedSubject = user?.supervisedSubject || null;
 
       if (isSupervisor) {
-        if (user?.supervisedSubjectId) {
-          if (!supervisedSubject) {
+        const supSubjectSet = new Set<string>();
+        if (user?.supervisedSubjectId) supSubjectSet.add(user.supervisedSubjectId);
+        try {
+          const extraRows: any[] = await this.prisma.$queryRawUnsafe(
+            `SELECT subject_id FROM users.supervisor_subjects WHERE user_id = $1::uuid`,
+            user?.id
+          );
+          extraRows.forEach(r => { if (r.subject_id) supSubjectSet.add(r.subject_id); });
+        } catch (_) {}
+        const supervisorSubjectIds = Array.from(supSubjectSet);
+
+        if (supervisorSubjectIds.length > 0) {
+          if (!supervisedSubject && user?.supervisedSubjectId) {
             supervisedSubject = await this.prisma.subject.findUnique({ where: { id: user.supervisedSubjectId } });
+          } else if (!supervisedSubject && supervisorSubjectIds[0]) {
+            supervisedSubject = await this.prisma.subject.findUnique({ where: { id: supervisorSubjectIds[0] } });
           }
           const courses = await this.prisma.course.findMany({ 
-            where: { subjectId: user.supervisedSubjectId }, 
+            where: { subjectId: { in: supervisorSubjectIds } }, 
             select: { id: true, title: true } 
           });
           const courseIds = courses.map(c => c.id);
@@ -130,29 +143,24 @@ export class SessionsController {
 
           // Strictly find teachers assigned to this subject
           const subjectTeachers = await this.prisma.user.findMany({
-            where: { primaryRole: 'teacher', status: 'active', supervisedSubjectId: supervisedSubject.id },
+            where: {
+              status: 'active',
+              supervisedSubjectId: supervisedSubject.id
+            },
             take: 2,
             select: { id: true, firstName: true, lastName: true }
           }).catch(() => []);
 
-          const fallbackTeachers = subjectTeachers.length > 0 
-            ? subjectTeachers 
-            : await this.prisma.user.findMany({
-                where: { primaryRole: 'teacher', status: 'active' },
-                take: 2,
-                select: { id: true, firstName: true, lastName: true }
-              }).catch(() => []);
-
-          const teacher1 = fallbackTeachers[0];
-          const teacher2 = fallbackTeachers[1] || fallbackTeachers[0];
+          const teacher1 = subjectTeachers[0] || null;
+          const teacher2 = subjectTeachers[1] || teacher1;
 
           formattedLive = [
             {
               id: `live-sim-${supervisedSubject.id}-1`,
               courseName: subjectName,
               cohortName: `${subjectName} - ع-1`,
-              teacherId: teacher1?.id || 'teacher-subject-01',
-              teacherName: teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أستاذ المادة',
+              teacherId: teacher1?.id || `teacher-${supervisedSubject.code || 'sub'}-01`,
+              teacherName: teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : `أستاذ ${subjectName}`,
               status: 'in_progress',
               statusDisplay: 'in_progress',
               statusLabel: 'جاري الآن',
@@ -166,8 +174,8 @@ export class SessionsController {
               id: `live-sim-${supervisedSubject.id}-2`,
               courseName: subjectName,
               cohortName: `${subjectName} - ع-2`,
-              teacherId: teacher2?.id || 'teacher-subject-02',
-              teacherName: teacher2 && teacher2.id !== teacher1?.id ? `أ. ${teacher2.firstName} ${teacher2.lastName}` : (teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : 'أستاذ المادة'),
+              teacherId: teacher2?.id || `teacher-${supervisedSubject.code || 'sub'}-02`,
+              teacherName: teacher2 && teacher2.id !== teacher1?.id ? `أ. ${teacher2.firstName} ${teacher2.lastName}` : (teacher1 ? `أ. ${teacher1.firstName} ${teacher1.lastName}` : `أستاذ ${subjectName}`),
               status: 'scheduled',
               statusDisplay: 'delayed',
               statusLabel: 'تأخر الأستاذ',
@@ -271,10 +279,22 @@ export class SessionsController {
   @Get(':id/attendance')
   async getSessionAttendance(@Param('id') sessionId: string) {
     const session = await this.prisma.session.findUnique({
-      where: { id: sessionId }
+      where: { id: sessionId },
+      include: {
+        cohort: true,
+        teacher: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
+          }
+        }
+      }
     });
 
-    if (!session) throw new Error('Session not found');
+    if (!session) throw new BadRequestException('Session not found');
 
     const enrollments = await this.prisma.cohortEnrollment.findMany({
       where: { cohortId: session.cohortId }
@@ -284,49 +304,149 @@ export class SessionsController {
     
     const students = await this.prisma.user.findMany({
       where: { id: { in: studentIds } },
-      select: { id: true, firstName: true, lastName: true }
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true }
     });
 
     const attendances = await this.prisma.sessionAttendance.findMany({
       where: { sessionId }
     });
 
-    return students.map(student => {
+    const studentRecords = students.map(student => {
       const attendance = attendances.find(a => a.studentId === student.id);
       return {
         studentId: student.id,
         firstName: student.firstName,
         lastName: student.lastName,
+        email: student.email,
+        phone: student.phone,
         status: attendance?.status || 'absent_unexcused',
+        notes: attendance?.teacherNotes || '',
         id: attendance?.id
       };
     });
+
+    // Determine teacher status
+    let teacherStatus: 'present' | 'late' | 'absent' | 'excused' = 'absent';
+    if (session.status === 'cancelled') {
+      teacherStatus = 'excused';
+    } else if (session.actualStartTime) {
+      const scheduledTime = new Date(session.scheduledStartTime).getTime();
+      const actualTime = new Date(session.actualStartTime).getTime();
+      if (actualTime > scheduledTime + 10 * 60 * 1000) {
+        teacherStatus = 'late';
+      } else {
+        teacherStatus = 'present';
+      }
+    } else if (session.status === 'completed' || session.status === 'in_progress') {
+      teacherStatus = 'present';
+    } else {
+      teacherStatus = 'absent';
+    }
+
+    return {
+      session: {
+        id: session.id,
+        title: session.title,
+        cohortId: session.cohortId,
+        cohortName: session.cohort?.name,
+        scheduledStartTime: session.scheduledStartTime,
+        scheduledEndTime: session.scheduledEndTime,
+        actualStartTime: session.actualStartTime,
+        status: session.status,
+        cancellationReason: session.cancellationReason,
+        teacherId: session.teacherId,
+        teacher: session.teacher,
+        teacherStatus
+      },
+      students: studentRecords
+    };
   }
 
   @Patch(':id/attendance')
-  async saveSessionAttendance(@Req() req: any, @Param('id') sessionId: string, @Body() body: { records: { studentId: string; status: any }[] }) {
-    const teacherId = req.user?.id || req.user?.userId;
+  async saveSessionAttendance(
+    @Req() req: any, 
+    @Param('id') sessionId: string, 
+    @Body() body: { 
+      records?: { studentId: string; status: any; notes?: string }[];
+      teacherStatus?: 'present' | 'late' | 'absent' | 'excused';
+      teacherNotes?: string;
+    }
+  ) {
+    const currentUserId = req.user?.id || req.user?.userId;
     
-    // Upsert each record
-    for (const record of body.records) {
-      await this.prisma.sessionAttendance.upsert({
-        where: {
-          sessionId_studentId: {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { cohort: true, teacher: true }
+    });
+
+    if (!session) throw new BadRequestException('Session not found');
+
+    // 1. Update Student Attendance records if provided
+    if (body.records && Array.isArray(body.records)) {
+      for (const record of body.records) {
+        await this.prisma.sessionAttendance.upsert({
+          where: {
+            sessionId_studentId: {
+              sessionId: sessionId,
+              studentId: record.studentId
+            }
+          },
+          update: {
+            status: record.status,
+            teacherNotes: record.notes !== undefined ? record.notes : undefined,
+            markedById: currentUserId
+          },
+          create: {
             sessionId: sessionId,
-            studentId: record.studentId
+            studentId: record.studentId,
+            status: record.status,
+            teacherNotes: record.notes || null,
+            markedById: currentUserId
           }
-        },
-        update: {
-          status: record.status,
-          markedById: teacherId
-        },
-        create: {
-          sessionId: sessionId,
-          studentId: record.studentId,
-          status: record.status,
-          markedById: teacherId
-        }
+        });
+      }
+    }
+
+    // 2. Update Teacher Session Attendance (especially by supervisor or admin)
+    if (body.teacherStatus) {
+      const updateData: any = {};
+      if (body.teacherStatus === 'present') {
+        updateData.actualStartTime = session.actualStartTime || session.scheduledStartTime || new Date();
+        if (session.status === 'cancelled') updateData.status = 'completed';
+      } else if (body.teacherStatus === 'late') {
+        const schedTime = new Date(session.scheduledStartTime).getTime();
+        updateData.actualStartTime = new Date(schedTime + 15 * 60 * 1000);
+        if (session.status === 'cancelled') updateData.status = 'completed';
+      } else if (body.teacherStatus === 'absent') {
+        updateData.actualStartTime = null;
+      } else if (body.teacherStatus === 'excused') {
+        updateData.status = 'cancelled';
+        updateData.cancellationReason = body.teacherNotes || 'اعتذار مسبق بعذر معتمد';
+      }
+
+      if (body.teacherNotes) {
+        updateData.cancellationReason = body.teacherNotes;
+      }
+
+      await this.prisma.session.update({
+        where: { id: sessionId },
+        data: updateData
       });
+    }
+
+    // 3. Log activity
+    try {
+      if (currentUserId) {
+        await this.prisma.activityLog.create({
+          data: {
+            userId: currentUserId,
+            action: 'RECORD_ATTENDANCE',
+            details: `تم رصد الغياب والحضور لحصة: ${session.title || 'حصة بدون عنوان'} (${session.cohort?.name || ''})`
+          }
+        });
+      }
+    } catch (e) {
+      // Activity log is optional
     }
 
     return { success: true };
@@ -399,12 +519,7 @@ export class SessionsController {
       if (!cohortExists) cohortId = undefined;
     }
     if (!cohortId) {
-      const cohort = await this.prisma.cohort.findFirst();
-      cohortId = cohort?.id;
-    }
-
-    if (!cohortId) {
-      throw new Error('No cohort available to create session');
+      throw new BadRequestException('يرجى اختيار الفوج الدراسي المعتمد لإنشاء الحصة');
     }
 
     return this.prisma.session.create({
@@ -446,18 +561,35 @@ export class SessionsController {
   }
 
   @Get()
-  async getSessions(@Req() req: any, @Query('mode') mode?: string) {
+  async getSessions(
+    @Req() req: any, 
+    @Query('mode') mode?: string,
+    @Query('cohortId') cohortId?: string
+  ) {
     const userId = req.user?.id || req.user?.userId;
     const role = req.user?.primaryRole || 'teacher';
 
     let whereClause: any = {};
-    if ((mode === 'teacher' || role === 'teacher') && userId) {
+    if (cohortId) {
+      whereClause.cohortId = cohortId;
+    } else if ((mode === 'teacher' || role === 'teacher') && userId) {
       whereClause = { teacherId: userId };
     } else if ((role === 'supervisor' || role === 'subject_supervisor') && userId) {
       const supervisor = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (supervisor?.supervisedSubjectId) {
+      const supSubjectSet = new Set<string>();
+      if (supervisor?.supervisedSubjectId) supSubjectSet.add(supervisor.supervisedSubjectId);
+      try {
+        const extraRows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT subject_id FROM users.supervisor_subjects WHERE user_id = $1::uuid`,
+          userId
+        );
+        extraRows.forEach(r => { if (r.subject_id) supSubjectSet.add(r.subject_id); });
+      } catch (_) {}
+      const supervisorSubjectIds = Array.from(supSubjectSet);
+
+      if (supervisorSubjectIds.length > 0) {
         const courses = await this.prisma.course.findMany({
-          where: { subjectId: supervisor.supervisedSubjectId },
+          where: { subjectId: { in: supervisorSubjectIds } },
           select: { id: true }
         });
         const courseIds = courses.map(c => c.id);
@@ -477,7 +609,7 @@ export class SessionsController {
     return this.prisma.session.findMany({
       where: whereClause,
       orderBy: { scheduledStartTime: 'desc' },
-      include: { cohort: true, teacher: true }
+      include: { cohort: true, teacher: true, attendances: true }
     });
   }
 

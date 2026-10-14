@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3, GraduationCap, UserCheck, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3, GraduationCap, UserCheck, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
+import AttendanceModal from '../../scheduling/components/AttendanceModal';
 import { useTranslation } from 'react-i18next';
 
 export default function SupervisorDashboard() {
@@ -25,6 +27,8 @@ export default function SupervisorDashboard() {
   const [searchParams] = useSearchParams();
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<string | undefined>(undefined);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -32,6 +36,29 @@ export default function SupervisorDashboard() {
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
   const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(initialTab as any);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportSubjectExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const url = user?.supervisedSubjectId 
+        ? `/groups/supervisor/export-database?subjectId=${user.supervisedSubjectId}`
+        : '/groups/supervisor/export-database';
+      const res = await api.get(url, { responseType: 'blob' });
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `baaqoon_subject_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err: any) {
+      alert('حدث خطأ أثناء تصدير بيانات المادة إلى Excel');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   
   const { data: monitoringData } = useQuery({
@@ -132,13 +159,35 @@ export default function SupervisorDashboard() {
             إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
           </p>
         </div>
-        <button
-          onClick={() => navigate('/supervisor/reports')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/20 transition-all flex-shrink-0"
-        >
-          <BarChart3 className="w-4 h-4" />
-          الإحصائيات والتقارير والنسب
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => {
+              setSelectedSessionForAttendance(undefined);
+              setIsAttendanceModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-600/25 transition-all flex-shrink-0 cursor-pointer"
+            title="رصد ومتابعة حضور وغياب الأساتذة والطلبة"
+          >
+            <Users className="w-4 h-4" />
+            رصد الغياب والحضور
+          </button>
+          <button
+            onClick={handleExportSubjectExcel}
+            disabled={isExportingExcel}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-600/20 transition-all flex-shrink-0 disabled:opacity-50"
+            title="تصدير بيانات أفواج وطلبة وأساتذة المادة بصيغة Excel لضمان استرجاع البيانات"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+            {isExportingExcel ? 'جاري التصدير...' : 'تصدير بيانات المادة (Excel)'}
+          </button>
+          <button
+            onClick={() => navigate('/supervisor/reports')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/20 transition-all flex-shrink-0"
+          >
+            <BarChart3 className="w-4 h-4" />
+            الإحصائيات والتقارير والنسب
+          </button>
+        </div>
       </header>
 
       {/* 5 Prominent Framed Action & Navigation Cards */}
@@ -367,17 +416,31 @@ export default function SupervisorDashboard() {
                       <td className={`p-3 font-medium ${session.isAbsent ? 'text-red-600' : 'text-green-600'}`}>{session.studentAttendanceText}</td>
                       <td className={`p-3 font-medium ${session.teacherStatus.includes('متأخراً') ? 'text-orange-600' : session.teacherStatus.includes('موعد') ? 'text-green-600' : 'text-red-600'}`}>{session.teacherStatus}</td>
                       <td className="p-3">
-                        {session.isAbsent ? (
-                          <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
-                            <MessageSquare className="w-4 h-4" />
-                            تنبيه الأستاذ للغياب
+                        <div className="flex items-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={() => { 
+                              setSelectedSessionForAttendance(session.id); 
+                              setIsAttendanceModalOpen(true); 
+                            }} 
+                            className="text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-xs cursor-pointer"
+                            title="رصد وتعديل حضور الأستاذ والطلبة لهذه الحصة"
+                          >
+                            <Users className="w-3.5 h-3.5 text-emerald-600" />
+                            رصد الحضور
                           </button>
-                        ) : session.teacherStatus.includes('متأخراً') || session.teacherStatus.includes('لم يسجل') ? (
-                          <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
-                            <AlertTriangle className="w-4 h-4" />
-                            مراسلة الأستاذ
-                          </button>
-                        ) : null}
+                          {session.isAbsent ? (
+                            <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-xs">
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              تنبيه للغياب
+                            </button>
+                          ) : session.teacherStatus.includes('متأخراً') || session.teacherStatus.includes('لم يسجل') ? (
+                            <button onClick={() => { setSelectedTeacher(session.teacherId); setIsMessageModalOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap text-xs">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              مراسلة الأستاذ
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -470,9 +533,9 @@ export default function SupervisorDashboard() {
       />
 
       {/* Real Automated Modal for Messaging & Nudging Teacher */}
-      {isMessageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+      {isMessageModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto" dir={isRtl ? "rtl" : "ltr"}>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 my-auto">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-indigo-500" />
@@ -512,7 +575,7 @@ export default function SupervisorDashboard() {
                   <button
                     type="button"
                     onClick={() => setIsMessageModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     إلغاء
                   </button>
@@ -528,9 +591,15 @@ export default function SupervisorDashboard() {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
+      <AttendanceModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        sessionId={selectedSessionForAttendance}
+      />
     </div>
   );
 }

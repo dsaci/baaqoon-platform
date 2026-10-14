@@ -21,7 +21,8 @@ import {
   Archive,
   ArrowRight,
   Layers,
-  Activity
+  Activity,
+  Shield
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +36,7 @@ import SupervisorAccountabilityView from '../../supervisor/components/Supervisor
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import LiveMonitoringWidget from '../../scheduling/components/LiveMonitoringWidget';
+import DistributionAdminPage from './DistributionAdminPage';
 import { useTranslation } from 'react-i18next';
 
 export default function AdminDashboard() {
@@ -46,21 +48,34 @@ export default function AdminDashboard() {
   
   const searchParams = new URLSearchParams(window.location.search);
   const tabParam = searchParams.get('tab');
+  const subParam = searchParams.get('sub');
   const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(() => {
-    if (tabParam === 'cohorts') return 'cohorts';
+    if (tabParam === 'cohorts' || tabParam === 'distribution') return 'cohorts';
     if (tabParam === 'hr' || tabParam === 'teachers') return 'teachers';
     if (tabParam === 'students') return 'students';
     if (tabParam === 'accountability') return 'accountability';
     if (tabParam === 'stats' || tabParam === 'activity') return 'stats';
     return 'stats';
   });
-  const [cohortSubTab, setCohortSubTab] = useState<'list' | 'requests'>('list');
+  const [cohortSubTab, setCohortSubTab] = useState<'list' | 'requests' | 'distribution'>(() => {
+    if (tabParam === 'distribution' || subParam === 'distribution') return 'distribution';
+    if (subParam === 'requests') return 'requests';
+    return 'list';
+  });
 
   React.useEffect(() => {
     const handleLocationChange = () => {
       const search = new URLSearchParams(window.location.search);
       const tab = search.get('tab');
-      if (tab === 'cohorts') setActiveTab('cohorts');
+      const sub = search.get('sub');
+      if (tab === 'distribution') {
+        setActiveTab('cohorts');
+        setCohortSubTab('distribution');
+      } else if (tab === 'cohorts') {
+        setActiveTab('cohorts');
+        if (sub === 'distribution') setCohortSubTab('distribution');
+        else if (sub === 'requests') setCohortSubTab('requests');
+      }
       else if (tab === 'hr' || tab === 'teachers') setActiveTab('teachers');
       else if (tab === 'students') setActiveTab('students');
       else if (tab === 'accountability') setActiveTab('accountability');
@@ -203,6 +218,28 @@ export default function AdminDashboard() {
           >
             <BarChart3 className="w-4 h-4" />
             الإحصائيات والتقارير والنسب
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.get('/groups/admin/export-database', { responseType: 'blob' });
+                const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `baaqoon_database_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+              } catch (e) {
+                alert('حدث خطأ أثناء تصدير قاعدة البيانات بصيغة Excel');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-emerald-600/20 transition-all flex-shrink-0"
+            title="تصدير نسخة احتياطية كاملة لقاعدة البيانات بصيغة Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            تصدير قاعدة البيانات (Excel)
           </button>
         </div>
       </header>
@@ -482,14 +519,17 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => navigate('/admin/distribution')}
+              onClick={() => {
+                setActiveTab('cohorts');
+                setCohortSubTab('distribution');
+              }}
               className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Users2 className="w-5 h-5" />
               </div>
               <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإسناد وتوزيع المشرفين</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">توزيع المهام والمشرفين على المواد والمراحل الدراسية</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">توزيع المهام والمشرفين على المواد (مشرف أو أكثر لكل مادة)</p>
             </button>
           </div>
 
@@ -526,7 +566,7 @@ export default function AdminDashboard() {
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm animate-fade-in space-y-6">
           {/* Sub Header / Tab Bar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setCohortSubTab('list')}
@@ -554,15 +594,36 @@ export default function AdminDashboard() {
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setCohortSubTab('distribution')}
+                className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${
+                  cohortSubTab === 'distribution'
+                    ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                الإسناد الأكاديمي وتوزيع المشرفين (مشرف أو أكثر لكل مادة)
+              </button>
             </div>
 
-            <button 
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white rounded-xl text-sm font-black transition-all shadow-lg shadow-fuchsia-500/25 hover:-translate-y-0.5 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> إنشاء فوج وإسناد
-            </button>
+            {cohortSubTab !== 'distribution' && (
+              <button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white rounded-xl text-sm font-black transition-all shadow-lg shadow-fuchsia-500/25 hover:-translate-y-0.5 flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> إنشاء فوج وإسناد
+              </button>
+            )}
           </div>
+
+          {/* Sub Tab: Distribution (Multiple supervisors per subject) */}
+          {cohortSubTab === 'distribution' && (
+            <div className="pt-2">
+              <DistributionAdminPage />
+            </div>
+          )}
 
           {/* Sub Tab: Requests */}
           {cohortSubTab === 'requests' && (

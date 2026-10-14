@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send } from 'lucide-react';
+import { getUserActivityStatus } from '../../../utils/activityStatus';
 
 interface HrManagementAdminViewProps {
   initialRoleFilter?: string;
@@ -29,6 +30,9 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [enableDualRoleState, setEnableDualRoleState] = useState<boolean>(true);
   const [newPassword, setNewPassword] = useState('');
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', primaryRole: 'student', academicBranch: 'scientific', curriculumType: 'governmental', gradeLevel: 'grade_11', supervisedSubjectId: '', nationality: '' });
+  const [nudgeUserModal, setNudgeUserModal] = useState<any>(null);
+  const [nudgeMessage, setNudgeMessage] = useState<string>('');
+  const [isNudging, setIsNudging] = useState<boolean>(false);
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['admin_subjects_list'],
@@ -125,7 +129,12 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     return <div className="flex justify-center p-8"><div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>;
   }
 
+  const idleCount = users.filter((u: any) => getUserActivityStatus(u.lastLoginAt, u.createdAt).isIdle).length;
+
   const filteredUsers = users.filter((u: any) => {
+    if (roleFilter === 'idle') {
+      return getUserActivityStatus(u.lastLoginAt, u.createdAt).isIdle;
+    }
     if (roleFilter === 'all') return true;
     if (roleFilter === 'teacher') {
       return u.primaryRole === 'teacher' || u.isDualRole || (Array.isArray(u.roles) && u.roles.includes('teacher'));
@@ -206,27 +215,43 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
       <div className="flex flex-wrap gap-3">
         <button 
           onClick={() => setRoleFilter('all')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'all' ? 'bg-slate-800 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
         >
           الجميع
         </button>
         <button 
           onClick={() => setRoleFilter('student')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'student' ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'student' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
         >
           الطلبة
         </button>
         <button 
           onClick={() => setRoleFilter('teacher')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'teacher' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'teacher' ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
         >
           الأساتذة
         </button>
         <button 
           onClick={() => setRoleFilter('subject_supervisor')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'subject_supervisor' ? 'bg-purple-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${roleFilter === 'subject_supervisor' ? 'bg-purple-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}
         >
           المشرفون
+        </button>
+        
+        <button 
+          onClick={() => setRoleFilter('idle')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            roleFilter === 'idle' 
+              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 ring-2 ring-rose-400' 
+              : 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+          }`}
+          title="عرض المستخدمين الخاملين أو المنقطعين عن المنصة لأكثر من أسبوع"
+        >
+          <AlertTriangle className="w-4 h-4 text-rose-500" />
+          <span>الخاملون والمنقطعون</span>
+          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 dark:bg-rose-900/70 text-rose-700 dark:text-rose-200">
+            {idleCount}
+          </span>
         </button>
         
         {pendingCount > 0 && (
@@ -246,11 +271,14 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 <th className="px-6 py-4 font-black">معلومات التواصل</th>
                 <th className="px-6 py-4 font-black">الدور</th>
                 <th className="px-6 py-4 font-black">حالة الحساب</th>
+                <th className="px-6 py-4 font-black">حالة النشاط / آخر دخول</th>
                 <th className="px-6 py-4 font-black text-center">الإجراءات (قبول/رفض/تجميد)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredUsers.map((u: any) => (
+              {filteredUsers.map((u: any) => {
+                const act = getUserActivityStatus(u.lastLoginAt, u.createdAt);
+                return (
                 <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-bold text-slate-900 dark:text-white">{u.firstName} {u.lastName}</div>
@@ -272,8 +300,35 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                       {u.status === 'active' ? 'نشط' : u.status === 'pending' ? 'قيد الانتظار' : 'مجمد'}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg ${act.badgeClass}`}>
+                        <span className={`w-2 h-2 rounded-full ${act.dotClass}`} />
+                        {act.label}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono" dir="rtl">
+                        {u.lastLoginAt ? `آخر ظهور: ${act.formattedLastLogin}` : 'لم يسجل الدخول قط'}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
+                      {act.isIdle && (
+                        <button
+                          onClick={() => {
+                            setNudgeUserModal(u);
+                            setNudgeMessage(
+                              u.primaryRole === 'teacher'
+                                ? `أهلاً أ. ${u.firstName}، نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية.`
+                                : `مرحباً ${u.firstName}، نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.`
+                            );
+                          }}
+                          title="إرسال تنبيه خمول ومتابعة"
+                          className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 rounded-lg transition-colors ml-1"
+                        >
+                          <Bell className="w-5 h-5 text-amber-600 animate-pulse" />
+                        </button>
+                      )}
                       {u.status !== 'active' && (
                         <button
                           onClick={() => updateStatusMutation.mutate({ id: u.id, status: 'active' })}
@@ -347,11 +402,12 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
               
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
                     لا يوجد حسابات مسجلة في هذا القسم.
                   </td>
@@ -584,6 +640,45 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                     </div>
                   </div>
                 )}
+
+                {(() => {
+                  const act = getUserActivityStatus(selectedUserForView.lastLoginAt, selectedUserForView.createdAt);
+                  return (
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 md:col-span-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-slate-400" />
+                        حالة نشاط المستخدم على المنصة
+                      </span>
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black rounded-xl ${act.badgeClass}`}>
+                            <span className={`w-2.5 h-2.5 rounded-full ${act.dotClass}`} />
+                            {act.label}
+                          </span>
+                          <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                            {selectedUserForView.lastLoginAt ? `آخر ظهور: ${act.formattedLastLogin}` : 'لم يسجل الدخول للمنصة مطلقاً'}
+                          </span>
+                        </div>
+                        {act.isIdle && (
+                          <button
+                            onClick={() => {
+                              setNudgeUserModal(selectedUserForView);
+                              setNudgeMessage(
+                                selectedUserForView.primaryRole === 'teacher'
+                                  ? `أهلاً أ. ${selectedUserForView.firstName}، نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية.`
+                                  : `مرحباً ${selectedUserForView.firstName}، نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.`
+                              );
+                            }}
+                            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+                          >
+                            <Bell className="w-3.5 h-3.5" />
+                            إرسال تنبيه خمول مباشر
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             
@@ -591,6 +686,80 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
               <button onClick={() => setIsViewDetailsOpen(false)} className="px-8 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold transition-all">
                 إغلاق
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {nudgeUserModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl p-6 border border-amber-100 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">إرسال تنبيه خمول ومتابعة</h3>
+                  <p className="text-xs text-slate-500 font-bold">للمستخدم: {nudgeUserModal.firstName} {nudgeUserModal.lastName}</p>
+                </div>
+              </div>
+              <button onClick={() => setNudgeUserModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-bold">
+                سيصل هذا الإشعار التنبيهي مباشرة إلى حساب المستخدم في شريط الإشعارات لدعوته لاستئناف نشاطه ومتابعة مهامه التعليمية.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                  نص التنبيه والمتابعة:
+                </label>
+                <textarea
+                  rows={4}
+                  value={nudgeMessage}
+                  onChange={(e) => setNudgeMessage(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setNudgeUserModal(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  disabled={isNudging || !nudgeMessage.trim()}
+                  onClick={async () => {
+                    try {
+                      setIsNudging(true);
+                      await api.post('/users/admin/nudge-inactive', {
+                        userId: nudgeUserModal.id,
+                        message: nudgeMessage.trim()
+                      });
+                      alert(`تم إرسال تنبيه المتابعة بنجاح إلى ${nudgeUserModal.firstName} ${nudgeUserModal.lastName}`);
+                      setNudgeUserModal(null);
+                    } catch (err: any) {
+                      alert(err?.response?.data?.message || 'حدث خطأ أثناء إرسال التنبيه');
+                    } finally {
+                      setIsNudging(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-500/20 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  {isNudging ? 'جاري الإرسال...' : 'إرسال التنبيه الآن'}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

@@ -80,14 +80,11 @@ export class SyllabusController {
       }
     });
 
-    // Fallback if teacher is newly created or viewing demo
     if (cohorts.length === 0) {
-      cohorts = await this.prisma.cohort.findMany({
-        take: 2,
-        include: {
-          enrollments: { select: { studentId: true } }
-        }
-      });
+      return {
+        pacingInfo: pacing,
+        reports: []
+      };
     }
 
     const cohortReports = [];

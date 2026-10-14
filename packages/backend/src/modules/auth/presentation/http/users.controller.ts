@@ -94,6 +94,49 @@ export class UsersController {
     });
   }
 
+  @Post('admin/nudge-inactive')
+  async nudgeInactiveUser(@Req() req: any, @Body() body: { userId: string; message?: string }) {
+    if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(req.user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+    const { userId, message } = body;
+    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) {
+      return { error: 'المستخدم غير موجود' };
+    }
+
+    const defaultMessage = targetUser.primaryRole === 'teacher'
+      ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة لفترة. يرجى تسجيل الدخول لمتابعة الأفواج والخطط الدراسية وجدول الحصص.'
+      : 'نلفت انتباهك إلى غيابك عن المنصة لفترة. يرجى تسجيل الدخول لمتابعة دروسك والتكليفات المدرسية بانتظام.';
+
+    const noteBody = message?.trim() || defaultMessage;
+
+    await this.prisma.notification.create({
+      data: {
+        userId,
+        title: 'تنبيه متابعة: إشعار غياب وخمول عن المنصة',
+        body: noteBody,
+        type: 'system',
+        actionUrl: targetUser.primaryRole === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'
+      }
+    });
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'NUDGE_INACTIVE_USER',
+          details: `إرسال تنبيه خمول للمستخدم ${targetUser.firstName} ${targetUser.lastName} (${targetUser.primaryRole})`
+        }
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: `تم إرسال تنبيه المتابعة بنجاح إلى ${targetUser.firstName} ${targetUser.lastName}`
+    };
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Patch('me/profile')

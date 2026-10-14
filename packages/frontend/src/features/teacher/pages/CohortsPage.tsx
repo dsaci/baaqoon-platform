@@ -83,7 +83,7 @@ export default function CohortsPage() {
                       <h3 className="text-lg font-bold text-baaqoon-900 dark:text-white">{cohort.name}</h3>
                       <div className="flex items-center gap-1.5 text-sm text-baaqoon-600 dark:text-baaqoon-400 mt-1">
                         <Book className="w-4 h-4 text-baaqoon-400" />
-                        مادة التخصص
+                        {cohort.subjectName || cohort.course?.title || 'مادة التخصص'}
                       </div>
                     </div>
                     <button className="p-1 text-baaqoon-400 hover:text-baaqoon-700 dark:text-baaqoon-300 rounded-md transition-colors">

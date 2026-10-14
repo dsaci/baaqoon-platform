@@ -67,8 +67,8 @@ export class AuthService {
       throw new UnauthorizedException("إثبات أنك لست روبوت مطلوب (reCAPTCHA)");
     }
 
-    if (!data.email && !data.phone) {
-      throw new ConflictException("يجب إدخال البريد الإلكتروني أو رقم الهاتف");
+    if (!data.email?.trim() || !data.phone?.trim()) {
+      throw new ConflictException("البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل");
     }
 
     if (data.email) {
@@ -115,6 +115,47 @@ export class AuthService {
         },
       },
     });
+
+    if (data.primaryRole === 'student') {
+      try {
+        const branch = data.branch || 'scientific';
+        const grade = data.gradeLevel || 'grade_11';
+        const curriculum = data.curriculumType || 'governmental';
+
+        const courses = await this.prisma.course.findMany({
+          where: {
+            academicBranch: branch,
+            gradeLevel: grade,
+            curriculumType: curriculum,
+            isActive: true
+          },
+          select: { id: true }
+        });
+
+        for (const course of courses) {
+          const availableCohort = await this.prisma.cohort.findFirst({
+            where: {
+              courseId: course.id,
+              status: 'active'
+            },
+            include: { enrollments: true },
+            orderBy: { createdAt: 'asc' }
+          });
+
+          if (availableCohort && availableCohort.enrollments.length < (availableCohort.maxStudents || 30)) {
+            await this.prisma.cohortEnrollment.create({
+              data: {
+                cohortId: availableCohort.id,
+                studentId: newUser.id,
+                status: 'enrolled'
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error auto-enrolling student on registration:', err);
+      }
+    }
 
     return { message: 'تم التسجيل بنجاح. حسابك الآن قيد المراجعة من قبل الإدارة.' };
   }
@@ -182,8 +223,12 @@ export class AuthService {
       roles: roles,
     };
 
-    // Log Activity
+    // Log Activity & Update lastLoginAt
     try {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() }
+      });
       await this.prisma.activityLog.create({
         data: {
           userId: user.id,
@@ -192,7 +237,7 @@ export class AuthService {
         }
       });
     } catch(err) {
-      console.error('Failed to log activity', err);
+      console.error('Failed to log activity or update lastLoginAt', err);
     }
 
     return {
@@ -213,7 +258,17 @@ export class AuthService {
         academicBranch: user.academicBranch,
         curriculumType: user.curriculumType,
         avatarUrl: user.avatarUrl,
+        lastLoginAt: new Date(),
       },
     };
+  }
+
+  async touchLastLogin(userId: string) {
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { lastLoginAt: new Date() }
+      });
+    } catch (_) {}
   }
 }

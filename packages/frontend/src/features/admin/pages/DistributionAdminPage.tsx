@@ -69,8 +69,16 @@ function DistributionAdminPageInner() {
   // Mutation to add / assign a supervisor to a subject
   const addSupervisorMutation = useMutation({
     mutationFn: async ({ subjectId, userId }: { subjectId: string; userId: string }) => {
-      const res = await api.post(`/groups/admin/distribution/${subjectId}/supervisor/${userId}`);
-      return res.data;
+      try {
+        const res = await api.patch(`/groups/admin/distribution/${subjectId}/supervisor/${userId}`);
+        return res.data;
+      } catch (err: any) {
+        if (err?.response?.status === 404 || err?.response?.status === 405) {
+          const res = await api.post(`/groups/admin/distribution/${subjectId}/supervisor/${userId}`);
+          return res.data;
+        }
+        throw err;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin_distribution'] });
