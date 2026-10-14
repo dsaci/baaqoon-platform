@@ -28,6 +28,8 @@ import AnalyticsReportsPage from "./features/admin/pages/AnalyticsReportsPage";
 
 // Supervisor Pages
 import SupervisorDashboard from "./features/supervisor/pages/SupervisorDashboard";
+import SupervisorTeachersPage from "./features/supervisor/pages/SupervisorTeachersPage";
+import SupervisorCohortsPage from "./features/supervisor/pages/SupervisorCohortsPage";
 import ExamPrepPage from "./features/supervisor/pages/ExamPrepPage";
 
 // Shared Pages
@@ -206,10 +208,8 @@ function App() {
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
         <Route path="distribution" element={<SyllabusDistributionPage />} />
         
-        <Route
-          path="teachers"
-          element={<PlaceholderPage title="قريباً" />}
-        />
+        <Route path="teachers" element={<SupervisorTeachersPage />} />
+        <Route path="cohorts" element={<SupervisorCohortsPage />} />
         <Route path="schedule" element={<TimetablePage />} />
         <Route path="exam-prep" element={<ExamPrepPage />} />
       </Route>

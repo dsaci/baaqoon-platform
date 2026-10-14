@@ -200,6 +200,7 @@ export default function DashboardLayout() {
       },
       { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/supervisor/reports", icon: BarChart3 },
       { name: t("nav.teachers", "الأساتذة"), path: "/supervisor/teachers", icon: Users },
+      { name: t("nav.cohorts", "الأفواج والشواغر"), path: "/supervisor/cohorts", icon: GraduationCap },
       { name: t("nav.distribution", "التوزيع السنوي والشهري"), path: "/supervisor/distribution", icon: Calendar },
       {
         name: t("nav.schedule_weekly", "الجدول الأسبوعي"),
