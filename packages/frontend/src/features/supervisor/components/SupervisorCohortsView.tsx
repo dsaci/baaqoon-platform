@@ -14,12 +14,22 @@ import CohortRequestsAdminView from '../../admin/components/CohortRequestsAdminV
 import AttendanceModal from '../../scheduling/components/AttendanceModal';
 import { getUserActivityStatus } from '../../../utils/activityStatus';
 
-export default function SupervisorCohortsView() {
+interface SupervisorCohortsViewProps {
+  initialSubjectId?: string;
+}
+
+export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCohortsViewProps = {}) {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
   // State
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(initialSubjectId || '');
+
+  React.useEffect(() => {
+    if (initialSubjectId) {
+      setSelectedSubjectId(initialSubjectId);
+    }
+  }, [initialSubjectId]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cohortFilter, setCohortFilter] = useState<'all' | 'vacant' | 'teacher_vacant' | 'full'>('all');
   const [expandedCohortId, setExpandedCohortId] = useState<string | null>(null);
@@ -84,12 +94,14 @@ export default function SupervisorCohortsView() {
 
   // Set default subject
   React.useEffect(() => {
-    if (user?.supervisedSubjectId && !selectedSubjectId) {
+    if (initialSubjectId) {
+      setSelectedSubjectId(initialSubjectId);
+    } else if (user?.supervisedSubjectId && !selectedSubjectId) {
       setSelectedSubjectId(user.supervisedSubjectId);
     } else if (allSubjects[0]?.id && !selectedSubjectId) {
       setSelectedSubjectId(allSubjects[0].id);
     }
-  }, [user?.supervisedSubjectId, allSubjects, selectedSubjectId]);
+  }, [initialSubjectId, user?.supervisedSubjectId, allSubjects, selectedSubjectId]);
 
   // Fetch Detailed Cohorts & Vacancies
   const { data: detailedData, isLoading: isLoadingDetailed, refetch: refetchCohorts } = useQuery({

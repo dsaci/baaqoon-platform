@@ -36,19 +36,34 @@ export default function SupervisorDashboard() {
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
   const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(initialTab as any);
+  const [selectedDashboardSubjectId, setSelectedDashboardSubjectId] = useState<string>('');
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const { data: statsData, isLoading } = useQuery({
+    queryKey: ['supervisorStats', selectedDashboardSubjectId],
+    queryFn: async () => {
+      const url = selectedDashboardSubjectId
+        ? `/groups/supervisor/stats?subjectId=${selectedDashboardSubjectId}`
+        : '/groups/supervisor/stats';
+      const res = await api.get(url);
+      return res.data;
+    }
+  });
 
   const handleExportSubjectExcel = async () => {
     try {
       setIsExportingExcel(true);
-      const url = user?.supervisedSubjectId 
-        ? `/groups/supervisor/export-database?subjectId=${user.supervisedSubjectId}`
+      const targetSubId = selectedDashboardSubjectId || user?.supervisedSubjectId;
+      const url = targetSubId 
+        ? `/groups/supervisor/export-database?subjectId=${targetSubId}`
         : '/groups/supervisor/export-database';
       const res = await api.get(url, { responseType: 'blob' });
+      const currentSub = statsData?.allSubjects?.find((s: any) => s.id === targetSubId) || statsData?.supervisedSubject;
+      const subName = currentSub?.code ? currentSub.code : 'subject';
       const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.setAttribute('download', `baaqoon_subject_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
+      link.setAttribute('download', `baaqoon_${subName}_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -67,14 +82,6 @@ export default function SupervisorDashboard() {
       const res = await api.get('/sessions/monitoring');
       return res.data;
     },
-  });
-
-  const { data: statsData, isLoading } = useQuery({
-    queryKey: ['supervisorStats'],
-    queryFn: async () => {
-      const res = await api.get('/groups/supervisor/stats');
-      return res.data;
-    }
   });
 
   const progressQuery = useQuery({
@@ -149,11 +156,11 @@ export default function SupervisorDashboard() {
 
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 p-6 font-sans">
-      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
             <Activity className="w-8 h-8 text-baaqoon-accent" />
-            مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (statsData?.supervisedSubject?.nameAr || 'غير محدد')}
+            مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (selectedDashboardSubjectId ? (statsData?.allSubjects?.find((s: any) => s.id === selectedDashboardSubjectId)?.nameAr || statsData?.supervisedSubject?.nameAr) : (statsData?.allSubjects && statsData.allSubjects.length > 1 ? statsData.allSubjects.map((s: any) => s.nameAr).join(' و ') : (statsData?.supervisedSubject?.nameAr || 'غير محدد')))}
           </h1>
           <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2 font-bold">
             إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
@@ -189,6 +196,64 @@ export default function SupervisorDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Multi-Subject Coordination Switcher (e.g. for Marah Abdelkarim managing both History and Geography) */}
+      {statsData?.allSubjects && statsData.allSubjects.length > 1 && (
+        <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-amber-300">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                  تنسيق مزدوج / متعدد المواد
+                </span>
+                <span className="text-xs text-indigo-200">
+                  لديكِ صلاحيات تنسيق وإشراف على ({statsData.allSubjects.length}) مواد دراسية
+                </span>
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-white mt-1">
+                التبديل بين المواد المُنسّقة (تحديث فوري للإحصائيات، الكادر، والأفواج)
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-950/60 p-1.5 rounded-2xl border border-white/10 flex-wrap">
+            <button
+              onClick={() => setSelectedDashboardSubjectId('')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                !selectedDashboardSubjectId
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>📊 كافة المواد معاً</span>
+            </button>
+
+            {statsData.allSubjects.map((sub: any) => (
+              <button
+                key={sub.id}
+                onClick={() => setSelectedDashboardSubjectId(sub.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                  selectedDashboardSubjectId === sub.id
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/30 font-black'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>{sub.nameAr}</span>
+                {sub.id === statsData.supervisedSubject?.id && (
+                  <span className="text-[10px] bg-slate-900/70 text-amber-300 px-1.5 py-0.5 rounded-md">
+                    الرئيسية
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 5 Prominent Framed Action & Navigation Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
@@ -502,10 +567,10 @@ export default function SupervisorDashboard() {
       </>
       )}
       
-      {activeTab === 'teachers' && <SupervisorTeachersView />}
+      {activeTab === 'teachers' && <SupervisorTeachersView initialSubjectId={selectedDashboardSubjectId} />}
       {activeTab === 'students' && <HrManagementAdminView initialRoleFilter="student" />}
         
-      {activeTab === 'cohorts' && <SupervisorCohortsView />}
+      {activeTab === 'cohorts' && <SupervisorCohortsView initialSubjectId={selectedDashboardSubjectId} />}
       {activeTab === 'accountability' && <SupervisorAccountabilityView />}
 
       {/* Strategic Features (Coming Soon) */}

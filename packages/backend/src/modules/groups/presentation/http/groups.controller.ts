@@ -1007,9 +1007,18 @@ export class GroupsController {
       take: 5,
       include: { cohort: true }
     });
-    
+
+    let allSubjects: any[] = [];
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
+      allSubjects = await this.prisma.subject.findMany({
+        where: { id: { in: supervisorSubjectIds } },
+        select: { id: true, nameAr: true, code: true, iconUrl: true }
+      });
+    }
+
     return {
       supervisedSubject,
+      allSubjects,
       totalCohorts,
       totalStudents,
       totalTeachers,

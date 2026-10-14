@@ -11,12 +11,22 @@ import {
 } from 'lucide-react';
 import { getUserActivityStatus } from '../../../utils/activityStatus';
 
-export default function SupervisorTeachersView() {
+interface SupervisorTeachersViewProps {
+  initialSubjectId?: string;
+}
+
+export default function SupervisorTeachersView({ initialSubjectId }: SupervisorTeachersViewProps = {}) {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
   // State
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(initialSubjectId || '');
+
+  React.useEffect(() => {
+    if (initialSubjectId) {
+      setSelectedSubjectId(initialSubjectId);
+    }
+  }, [initialSubjectId]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'unassigned' | 'active' | 'idle'>('all');
   
