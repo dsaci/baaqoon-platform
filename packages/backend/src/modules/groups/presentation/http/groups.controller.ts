@@ -2434,8 +2434,38 @@ export class GroupsController {
         { roles: { some: { role: 'teacher' } } }
       ]
     };
+
     if (activeSubjectId) {
-      whereClause.supervisedSubjectId = activeSubjectId;
+      // Also include teachers who are assigned to cohorts of this subject even if their supervisedSubjectId is null
+      const subjectCourses = await this.prisma.course.findMany({
+        where: { subjectId: activeSubjectId },
+        select: { id: true }
+      });
+      const subjectCohorts = await this.prisma.cohort.findMany({
+        where: { courseId: { in: subjectCourses.map(c => c.id) } },
+        select: { id: true }
+      });
+      const cohortInstructors = await this.prisma.cohortInstructor.findMany({
+        where: { cohortId: { in: subjectCohorts.map(c => c.id) } },
+        select: { teacherId: true }
+      });
+      const instructorIdsInSubject = cohortInstructors.map(i => i.teacherId);
+
+      whereClause = {
+        status: 'active',
+        OR: [
+          // Teachers explicitly assigned to this subject
+          {
+            supervisedSubjectId: activeSubjectId,
+            OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+          },
+          // Teachers who teach cohorts of this subject (even if supervisedSubjectId is null/different)
+          ...(instructorIdsInSubject.length > 0 ? [{
+            id: { in: instructorIdsInSubject },
+            OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+          }] : [])
+        ]
+      };
     } else if (isSupervisor) {
       if (supervisorSubjectIds.length > 0) {
         whereClause.supervisedSubjectId = { in: supervisorSubjectIds };
