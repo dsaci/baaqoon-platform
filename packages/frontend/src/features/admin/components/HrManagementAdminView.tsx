@@ -153,9 +153,16 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
 
   const idleCount = users.filter((u: any) => getUserActivityStatus(u.lastLoginAt, u.createdAt).isIdle).length;
 
+  const teachersWithoutSubject = users.filter((u: any) => 
+    (u.primaryRole === 'teacher') && !u.supervisedSubjectId && !u.isDualRole
+  );
+
   const filteredUsers = users.filter((u: any) => {
     if (roleFilter === 'idle') {
       return getUserActivityStatus(u.lastLoginAt, u.createdAt).isIdle;
+    }
+    if (roleFilter === 'no_subject') {
+      return (u.primaryRole === 'teacher') && !u.supervisedSubjectId && !u.isDualRole;
     }
     if (roleFilter === 'all') return true;
     if (roleFilter === 'teacher') {
@@ -295,6 +302,31 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
           </div>
         )}
       </div>
+
+      {/* Warning banner for teachers without subject */}
+      {teachersWithoutSubject.length > 0 && (
+        <div className="flex items-center gap-3 p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-800 dark:text-amber-200 font-bold text-sm">
+              {teachersWithoutSubject.length} معلم بدون مادة محددة — مخفيون عن المنسقين
+            </p>
+            <p className="text-amber-600 dark:text-amber-400 text-xs mt-0.5">
+              يجب تحديد مادتهم ليظهروا في لوحة المنسق ويتم إسناد الأفواج إليهم
+            </p>
+          </div>
+          <button
+            onClick={() => setRoleFilter(roleFilter === 'no_subject' ? 'all' : 'no_subject')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0 ${
+              roleFilter === 'no_subject' 
+                ? 'bg-amber-600 text-white' 
+                : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-50'
+            }`}
+          >
+            {roleFilter === 'no_subject' ? 'عرض الكل' : 'عرض المخفيين فقط'}
+          </button>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">

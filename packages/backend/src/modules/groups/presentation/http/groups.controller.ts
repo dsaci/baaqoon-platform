@@ -233,9 +233,10 @@ export class GroupsController {
         data: { supervisedSubjectId: null }
       });
       try {
-        await this.prisma.$executeRawUnsafe(`
-          DELETE FROM users.supervisor_subjects WHERE subject_id = '${subjectId}';
-        `);
+        await this.prisma.$executeRawUnsafe(
+          `DELETE FROM users.supervisor_subjects WHERE subject_id = $1::uuid;`,
+          subjectId
+        );
       } catch (_) {}
       try {
         await this.prisma.activityLog.create({
@@ -273,11 +274,13 @@ export class GroupsController {
           UNIQUE(user_id, subject_id)
         );
       `);
-      await this.prisma.$executeRawUnsafe(`
-        INSERT INTO users.supervisor_subjects (user_id, subject_id)
-        VALUES ('${userId}', '${subjectId}')
-        ON CONFLICT (user_id, subject_id) DO NOTHING;
-      `);
+      await this.prisma.$executeRawUnsafe(
+        `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+         VALUES ($1::uuid, $2::uuid)
+         ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+        userId,
+        subjectId
+      );
     } catch (_) {}
 
     // 2. Set primaryRole to subject_supervisor, and if supervisedSubjectId is null set it to this subject
@@ -353,18 +356,21 @@ export class GroupsController {
         data: { supervisedSubjectId: null }
       });
       try {
-        await this.prisma.$executeRawUnsafe(`
-          DELETE FROM users.supervisor_subjects WHERE subject_id = '${subjectId}';
-        `);
+        await this.prisma.$executeRawUnsafe(
+          `DELETE FROM users.supervisor_subjects WHERE subject_id = $1::uuid;`,
+          subjectId
+        );
       } catch (_) {}
       return { success: true, message: 'تم إزالة جميع المشرفين من المادة' };
     }
 
     // 1. Remove from supervisor_subjects
     try {
-      await this.prisma.$executeRawUnsafe(`
-        DELETE FROM users.supervisor_subjects WHERE user_id = '${userId}' AND subject_id = '${subjectId}';
-      `);
+      await this.prisma.$executeRawUnsafe(
+        `DELETE FROM users.supervisor_subjects WHERE user_id = $1::uuid AND subject_id = $2::uuid;`,
+        userId,
+        subjectId
+      );
     } catch (_) {}
 
     const targetUser = await this.prisma.user.findUnique({
@@ -375,9 +381,10 @@ export class GroupsController {
     // Check if user still supervises other subjects
     let otherSubjectId: string | null = null;
     try {
-      const remaining: any[] = await this.prisma.$queryRawUnsafe(`
-        SELECT subject_id FROM users.supervisor_subjects WHERE user_id = '${userId}' LIMIT 1
-      `);
+      const remaining: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT subject_id FROM users.supervisor_subjects WHERE user_id = $1::uuid LIMIT 1`,
+        userId
+      );
       if (remaining && remaining.length > 0) {
         otherSubjectId = remaining[0].subject_id;
       }

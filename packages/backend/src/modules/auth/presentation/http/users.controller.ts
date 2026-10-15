@@ -166,9 +166,6 @@ export class UsersController {
       updateData.supervisedSubjectId = body.supervisedSubjectId || null;
     }
 
-    try {
-      await this.prisma.$executeRawUnsafe(`ALTER TABLE users.users ALTER COLUMN "avatarUrl" TYPE TEXT`);
-    } catch (_) {}
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -181,11 +178,13 @@ export class UsersController {
 
     if (body.supervisedSubjectId) {
       try {
-        await this.prisma.$executeRawUnsafe(`
-          INSERT INTO users.supervisor_subjects (user_id, subject_id)
-          VALUES ('${userId}', '${body.supervisedSubjectId}')
-          ON CONFLICT (user_id, subject_id) DO NOTHING;
-        `);
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          userId,
+          body.supervisedSubjectId
+        );
       } catch (_) {}
     }
 
@@ -433,11 +432,13 @@ export class UsersController {
 
     if (body.supervisedSubjectId) {
       try {
-        await this.prisma.$executeRawUnsafe(`
-          INSERT INTO users.supervisor_subjects (user_id, subject_id)
-          VALUES ('${id}', '${body.supervisedSubjectId}')
-          ON CONFLICT (user_id, subject_id) DO NOTHING;
-        `);
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          id,
+          body.supervisedSubjectId
+        );
       } catch (_) {}
     }
 

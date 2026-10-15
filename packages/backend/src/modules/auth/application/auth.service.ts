@@ -67,6 +67,12 @@ export class AuthService {
       throw new UnauthorizedException("إثبات أنك لست روبوت مطلوب (reCAPTCHA)");
     }
 
+    // Security: Only allow safe roles during self-registration
+    const allowedSelfRegisterRoles = ['teacher', 'student'];
+    if (!data.primaryRole || !allowedSelfRegisterRoles.includes(data.primaryRole)) {
+      throw new ConflictException("لا يمكن التسجيل بهذا الدور. يرجى التواصل مع الإدارة.");
+    }
+
     if (!data.email?.trim() || !data.phone?.trim()) {
       throw new ConflictException("البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل");
     }
@@ -75,12 +81,8 @@ export class AuthService {
       throw new ConflictException("تحديد الجنسية إجباري لاستكمال التسجيل");
     }
 
-    if ((data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') && !data.supervisedSubjectId) {
-      throw new ConflictException(
-        data.primaryRole === 'teacher'
-          ? "تحديد مادة التدريس إجباري للمعلم لاستكمال التسجيل وتفويجه وإسناد الحصص"
-          : "تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي"
-      );
+    if (data.primaryRole === 'teacher' && !data.supervisedSubjectId) {
+      throw new ConflictException("تحديد مادة التدريس إجباري للمعلم لاستكمال التسجيل وتفويجه وإسناد الحصص");
     }
 
     if (data.email) {
@@ -103,8 +105,8 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
-    // Teachers are PENDING by default (require admin approval). Students are ACTIVE.
-    const accountStatus = "pending";
+    // Teachers are PENDING by default (require admin approval). Students are ACTIVE immediately.
+    const accountStatus = data.primaryRole === 'student' ? 'active' : 'pending';
 
     const newUser = await this.prisma.user.create({
       data: {
@@ -130,11 +132,13 @@ export class AuthService {
 
     if (newUser.supervisedSubjectId) {
       try {
-        await this.prisma.$executeRawUnsafe(`
-          INSERT INTO users.supervisor_subjects (user_id, subject_id)
-          VALUES ('${newUser.id}', '${newUser.supervisedSubjectId}')
-          ON CONFLICT (user_id, subject_id) DO NOTHING;
-        `);
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          newUser.id,
+          newUser.supervisedSubjectId
+        );
       } catch (_) {}
     }
 

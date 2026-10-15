@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { RapidGenerationService } from '../../application/rapid-generation.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
@@ -155,7 +155,12 @@ export class AssessmentsController {
     @Param('submissionId') submissionId: string,
     @Body() body: { score: number; feedback: string }
   ) {
-    const userId = req.user?.id || '11111111-1111-1111-1111-111111111111'; // fallback teacher ID
+    const callerRole = req.user?.primaryRole;
+    if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
+      throw new UnauthorizedException('فقط المعلمون والمشرفون يمكنهم تصحيح الإجابات');
+    }
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) throw new UnauthorizedException('يجب تسجيل الدخول');
     return this.prisma.assessmentSubmission.update({
       where: { id: submissionId },
       data: {
@@ -259,9 +264,13 @@ export class AssessmentsController {
   }
 
   @Delete()
-  async deleteAllAssessments() {
-    // For demo purposes, we will delete all assessments to reset the environment
+  async deleteAllAssessments(@Req() req: any) {
+    const role = req.user?.primaryRole;
+    if (role !== 'super_admin' && role !== 'admin') {
+      throw new UnauthorizedException('غير مصرح لك بتنفيذ هذه العملية — يحتاج صلاحية مدير');
+    }
+    // For demo/testing purposes - only admins can reset assessments
     await this.prisma.assessment.deleteMany();
-    return { message: 'All assessments deleted successfully' };
+    return { message: 'تم حذف جميع الاختبارات' };
   }
 }

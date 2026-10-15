@@ -372,6 +372,10 @@ export class SessionsController {
       teacherNotes?: string;
     }
   ) {
+    const callerRole = req.user?.primaryRole;
+    if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
+      throw new BadRequestException('فقط المعلمون والمشرفون يمكنهم تسجيل الحضور');
+    }
     const currentUserId = req.user?.id || req.user?.userId;
     
     const session = await this.prisma.session.findUnique({
@@ -380,6 +384,16 @@ export class SessionsController {
     });
 
     if (!session) throw new BadRequestException('Session not found');
+
+    // Validate only enrolled students can have attendance recorded
+    const validEnrollments = await this.prisma.cohortEnrollment.findMany({
+      where: { cohortId: session.cohortId },
+      select: { studentId: true }
+    });
+    const enrolledStudentIds = new Set(validEnrollments.map(e => e.studentId));
+    if (body.records && Array.isArray(body.records)) {
+      body.records = body.records.filter(r => enrolledStudentIds.has(r.studentId));
+    }
 
     // 1. Update Student Attendance records if provided
     if (body.records && Array.isArray(body.records)) {
@@ -474,6 +488,20 @@ export class SessionsController {
          currentDate.setDate(currentDate.getDate() + 1);
       }
       
+      // Validate lesson belongs to cohort's subject
+      const cohortRecord2 = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+      const courseRecord2 = cohortRecord2?.courseId ? await this.prisma.course.findUnique({ where: { id: cohortRecord2.courseId } }) : null;
+      const cohortSubjectId2 = courseRecord2?.subjectId;
+      const lessonValidation = await this.prisma.curriculumLesson.findUnique({
+        where: { id: lessonId },
+        include: { unit: { include: { version: { include: { course: true } } } } }
+      });
+      const lessonSubjectId2 = lessonValidation?.unit?.version?.course?.subjectId;
+      if (cohortSubjectId2 && lessonSubjectId2 && cohortSubjectId2 !== lessonSubjectId2) {
+        console.warn(`Skipping lesson ${lessonId}: belongs to different subject than cohort`);
+        continue;
+      }
+
       const lesson = await this.prisma.curriculumLesson.findUnique({ where: { id: lessonId } });
       const title = lesson ? lesson.title : 'جلسة مجدولة';
 
@@ -522,6 +550,23 @@ export class SessionsController {
       throw new BadRequestException('يرجى اختيار الفوج الدراسي المعتمد لإنشاء الحصة');
     }
 
+    // Validate lesson belongs to same subject as cohort
+    if (body.lessonId) {
+      const cohortRecord = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+      if (cohortRecord?.courseId) {
+        const courseRecord = await this.prisma.course.findUnique({ where: { id: cohortRecord.courseId } });
+        const cohortSubjectId = courseRecord?.subjectId;
+        const lesson = await this.prisma.curriculumLesson.findUnique({
+          where: { id: body.lessonId },
+          include: { unit: { include: { version: { include: { course: true } } } } }
+        });
+        const lessonSubjectId = lesson?.unit?.version?.course?.subjectId;
+        if (cohortSubjectId && lessonSubjectId && cohortSubjectId !== lessonSubjectId) {
+          throw new BadRequestException('الدرس المحدد لا ينتمي لمادة الفوج الدراسي. يرجى اختيار درس من المادة الصحيحة.');
+        }
+      }
+    }
+
     return this.prisma.session.create({
       data: {
         title: body.title || 'حصة ذكية جديدة',
@@ -546,11 +591,7 @@ export class SessionsController {
     const cohortIds = enrollments.map((e: any) => e.cohortId);
 
     if (cohortIds.length === 0) {
-       return this.prisma.session.findMany({
-          orderBy: { scheduledStartTime: 'desc' },
-          take: 3,
-          include: { cohort: true }
-       });
+       return []; // Student not enrolled in any cohort - return empty, don't expose other cohorts' data
     }
 
     return this.prisma.session.findMany({
@@ -615,13 +656,18 @@ export class SessionsController {
 
   @Post('clear/:cohortId')
   async clearSessions(@Req() req: any, @Param('cohortId') cohortId: string) {
-    const userId = req.user?.id || req.user?.userId || '11111111-1111-1111-1111-111111111111';
-    let whereClause: any = { cohortId };
+    const callerRole = req.user?.primaryRole;
+    if (!['teacher', 'admin', 'super_admin'].includes(callerRole)) {
+      throw new BadRequestException('غير مصرح');
+    }
+    const userId = req.user?.id || req.user?.userId;
+    let whereClause: any;
     
     if (cohortId === 'all') {
       whereClause = { teacherId: userId };
     } else {
-      whereClause.teacherId = userId;
+      // Fix: keep both cohortId AND teacherId in the where clause
+      whereClause = { cohortId: cohortId, teacherId: userId };
     }
 
     return this.prisma.session.deleteMany({
@@ -631,6 +677,10 @@ export class SessionsController {
 
   @Delete(':id')
   async deleteSession(@Req() req: any, @Param('id') id: string) {
+    const callerRole = req.user?.primaryRole;
+    if (!['teacher', 'admin', 'super_admin'].includes(callerRole)) {
+      throw new BadRequestException('غير مصرح');
+    }
     return this.prisma.session.delete({
       where: { id }
     });
@@ -638,6 +688,10 @@ export class SessionsController {
 
   @Patch(':id')
   async updateSession(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    const callerRole = req.user?.primaryRole;
+    if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
+      throw new BadRequestException('غير مصرح');
+    }
     const data: any = {};
     if (body.title) data.title = body.title;
     if (body.scheduledStartTime) {
