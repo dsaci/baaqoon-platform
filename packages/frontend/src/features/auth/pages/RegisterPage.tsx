@@ -18,7 +18,7 @@ const BRANCHES = [
   { value: 'sharia', label: 'الشرعي' },
 ];
 
-const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LcVGPItAAAAAMMyZ2Skd8tQ4qxUcxx_ov7O1RFI";
+const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfVU_ItAAAAAOaVvnGpT0xyf51mjiZxavYp1b2k";
 const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function RegisterPage() {

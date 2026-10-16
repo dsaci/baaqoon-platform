@@ -101,7 +101,7 @@ export async function verifyRecaptchaToken(
 
   // Use custom secret from env, or user provided secret key
   const secretKey =
-    process.env.RECAPTCHA_SECRET_KEY || '6LcVGPItAAAAAMPcBylhiGQjqBQGiOIswmRS2XWx';
+    process.env.RECAPTCHA_SECRET_KEY || '6LfVU_ItAAAAAG7m4mLV5pUVj20MZQuWPt6cZTBH';
 
   try {
     const postBody = new URLSearchParams({
