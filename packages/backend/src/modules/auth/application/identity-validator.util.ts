@@ -89,9 +89,9 @@ export async function verifyRecaptchaToken(
     throw new UnauthorizedException('إثبات التحقق الأمني مطلوب (reCAPTCHA)');
   }
 
-  // Use custom secret from env, or Google's official test secret key
+  // Use custom secret from env, or user provided secret key
   const secretKey =
-    process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe';
+    process.env.RECAPTCHA_SECRET_KEY || '6LfzCvItAAAAAEkzCBx9-l1V2soamHll3wJ-12tc';
 
   try {
     const postBody = new URLSearchParams({

@@ -18,7 +18,7 @@ const BRANCHES = [
   { value: 'sharia', label: 'الشرعي' },
 ];
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfzCvItAAAAACzG99vkwG8xnMQNknGjJDHS8E1x";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
