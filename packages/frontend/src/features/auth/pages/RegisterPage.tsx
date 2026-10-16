@@ -149,28 +149,29 @@ export default function RegisterPage() {
   const isRtl = i18n.language === 'ar';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 py-12 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
-      {/* Abstract Background */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-graph-paper py-12 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+      {/* Ambient Fog & Atmospheric Blur Orbs (البلور والضبابية) */}
+      <div className="absolute -top-24 -right-24 w-[600px] h-[600px] bg-[#394C2A]/25 dark:bg-[#394C2A]/35 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 w-[600px] h-[600px] bg-[#BAAA80]/35 dark:bg-[#BAAA80]/20 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#FAF2DF]/70 dark:bg-[#202919]/40 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Theme and Lang controls at the top */}
-      <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
-        <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-emerald-100 dark:border-emerald-800/30 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
-          <Home className="w-4 h-4 text-emerald-500" />
+      <div className="absolute top-8 right-4 left-4 flex items-center justify-between pointer-events-none z-40 max-w-5xl mx-auto">
+        <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl border border-white/60 dark:border-zinc-800 rounded-xl text-sm font-bold text-[#19232D] dark:text-zinc-200 hover:bg-[#F5F2EA] dark:hover:bg-zinc-800 transition-colors shadow-xs">
+          <Home className="w-4 h-4 text-[#394C2A] dark:text-[#A8C794]" />
           {t("common.back_to_home", "العودة للرئيسية")}
         </Link>
-        <div className="flex items-center gap-2 pointer-events-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-1.5 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
+        <div className="flex items-center gap-2 pointer-events-auto bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl p-1.5 rounded-xl border border-white/60 dark:border-zinc-800 shadow-xs">
           <LangToggle />
           <ThemeToggle />
         </div>
       </div>
 
-      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/60 dark:border-slate-700/50 space-y-6 animate-fade-in-up mt-8 mb-8 z-10">
+      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-[#121711]/85 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/60 dark:border-zinc-800 space-y-6 animate-fade-in-up mt-8 mb-8 z-10">
         
         <div className="text-center space-y-3">
           <div className="relative inline-block">
-            <div className="absolute inset-0 bg-emerald-400 blur-lg opacity-20 rounded-full"></div>
+            <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-16 h-16 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white">

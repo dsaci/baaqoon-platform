@@ -25,9 +25,9 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-graph-paper font-sans selection:bg-[#BAAA80]/30 selection:text-[#1F2A18] scroll-smooth overflow-x-hidden">
       
-      {/* ── 1. Top Floating Navigation Bar ──────────────────────────────────── */}
+      {/* ── 1. Top Floating Navigation Bar (Frosted Glass Effect) ─────────── */}
       <header className="fixed w-full top-4 z-40 px-4 md:px-8 pointer-events-none">
-        <div className="max-w-6xl mx-auto flex justify-between items-center bg-white/95 dark:bg-[#121711]/95 backdrop-blur-md py-2.5 px-5 md:px-7 rounded-2xl md:rounded-full pointer-events-auto shadow-[0_4px_25px_rgba(31,42,24,0.06)] border border-[#E5E0D5] dark:border-zinc-800 transition-all">
+        <div className="max-w-6xl mx-auto flex justify-between items-center bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl py-2.5 px-5 md:px-7 rounded-2xl md:rounded-full pointer-events-auto shadow-[0_8px_30px_rgba(31,42,24,0.06)] border border-white/60 dark:border-zinc-800 transition-all">
           
           {/* Logo & Brand */}
           <Link to="/" className="flex items-center gap-3 group">
@@ -70,12 +70,17 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── 2. Hero Section ─────────────────────────────────────────────────── */}
-      <main className="flex-1 pt-32 md:pt-36 pb-20 flex items-center justify-center relative">
-        <div className="max-w-4xl mx-auto px-4 text-center z-10 space-y-7">
+      {/* ── 2. Hero Section with Atmospheric Blur & Glowing Fog ─────────────── */}
+      <main className="flex-1 pt-32 md:pt-40 pb-20 flex items-center justify-center relative overflow-hidden">
+        {/* Ambient Fog & Atmospheric Blur Orbs (البلور والضبابية) */}
+        <div className="absolute -bottom-28 -left-36 w-[550px] md:w-[680px] h-[550px] md:h-[680px] bg-[#BAAA80]/35 dark:bg-[#BAAA80]/20 rounded-full blur-[130px] md:blur-[160px] pointer-events-none -z-0" />
+        <div className="absolute -top-28 -right-36 w-[600px] md:w-[720px] h-[600px] md:h-[720px] bg-[#394C2A]/25 dark:bg-[#394C2A]/35 rounded-full blur-[140px] md:blur-[170px] pointer-events-none -z-0" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] md:w-[800px] h-[400px] md:h-[550px] bg-[#FAF2DF]/70 dark:bg-[#202919]/40 rounded-full blur-[110px] md:blur-[140px] pointer-events-none -z-0" />
+
+        <div className="max-w-4xl mx-auto px-4 text-center z-10 space-y-7 relative">
           
           {/* Badge Tag */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white dark:bg-zinc-800 border border-[#E2DDD3] dark:border-zinc-700 shadow-xs text-xs md:text-sm font-bold text-[#2A3722] dark:text-zinc-200 animate-fade-in-up">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/85 dark:bg-zinc-800/85 backdrop-blur-md border border-[#E2DDD3] dark:border-zinc-700 shadow-xs text-xs md:text-sm font-bold text-[#2A3722] dark:text-zinc-200 animate-fade-in-up">
             <GraduationCap className="w-4 h-4 text-[#394C2A]" />
             <span>منصة تعليمية متكاملة لطلاب فلسطين</span>
           </div>
@@ -99,14 +104,14 @@ export default function LandingPage() {
           <div className="flex flex-wrap gap-4 justify-center pt-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <Link 
               to="/register" 
-              className="px-8 py-3.5 rounded-2xl text-white font-black text-base md:text-lg bg-gradient-to-l from-[#BAAA80] to-[#4D5A35] hover:opacity-95 shadow-md hover:shadow-lg transition-all flex items-center gap-2.5 hover:-translate-y-0.5"
+              className="px-8 py-3.5 rounded-2xl text-white font-black text-base md:text-lg bg-gradient-to-l from-[#BAAA80] to-[#4D5A35] hover:opacity-95 shadow-lg shadow-[#394C2A]/20 hover:shadow-xl transition-all flex items-center gap-2.5 hover:-translate-y-0.5 active:translate-y-0"
             >
               <GraduationCap className="w-5 h-5" />
               <span>ابدأ رحلتك الآن</span>
             </Link>
             <a 
               href="#about" 
-              className="px-8 py-3.5 rounded-2xl text-[#19232D] dark:text-white font-black text-base md:text-lg bg-white dark:bg-zinc-800 border border-[#DFDACF] dark:border-zinc-700 hover:bg-[#F4EFE6] dark:hover:bg-zinc-700/60 shadow-xs transition-all flex items-center gap-2.5 hover:-translate-y-0.5"
+              className="px-8 py-3.5 rounded-2xl text-[#19232D] dark:text-white font-black text-base md:text-lg bg-white/85 dark:bg-zinc-800/85 backdrop-blur-md border border-[#DFDACF] dark:border-zinc-700 hover:bg-[#F4EFE6] dark:hover:bg-zinc-700/60 shadow-xs transition-all flex items-center gap-2.5 hover:-translate-y-0.5"
             >
               <BookOpen className="w-5 h-5 text-[#394C2A] dark:text-[#A8C794]" />
               <span>اكتشف المنصة</span>
@@ -116,13 +121,17 @@ export default function LandingPage() {
       </main>
 
       {/* ── 3. About & Vision Section ("رؤيتنا ورسالتنا") ────────────────────── */}
-      <section id="about" className="py-20 md:py-24 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800/80 relative">
+      <section id="about" className="py-20 md:py-24 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800/80 relative overflow-hidden">
+        {/* Ambient Blur */}
+        <div className="absolute top-1/4 -right-40 w-[600px] h-[600px] bg-[#394C2A]/20 dark:bg-[#394C2A]/25 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-10 -left-40 w-[550px] h-[550px] bg-[#BAAA80]/30 dark:bg-[#BAAA80]/15 rounded-full blur-[130px] pointer-events-none" />
+
         <div className="max-w-6xl mx-auto px-4 md:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             
             {/* Framed Olive Tree Artistic Sketch Card */}
             <div className="order-2 lg:order-1">
-              <div className="rounded-[2.5rem] p-3 md:p-4 bg-[#F5F2EA] dark:bg-zinc-800/60 border-2 border-[#D5CEBC] dark:border-zinc-700 shadow-md">
+              <div className="rounded-[2.5rem] p-3 md:p-4 bg-[#F5F2EA]/90 dark:bg-zinc-800/70 backdrop-blur-md border-2 border-[#D5CEBC] dark:border-zinc-700 shadow-md">
                 <img 
                   src={sketchImg} 
                   alt="شجرة الزيتون وجذور العلم في فلسطين" 
@@ -134,7 +143,7 @@ export default function LandingPage() {
             {/* Vision Text Content */}
             <div className="order-1 lg:order-2 space-y-6">
               <div>
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-[#E2DDD3] dark:border-zinc-700 text-[#394C2A] dark:text-[#A8C794] text-xs font-bold shadow-2xs mb-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/85 dark:bg-zinc-800/85 backdrop-blur-md border border-[#E2DDD3] dark:border-zinc-700 text-[#394C2A] dark:text-[#A8C794] text-xs font-bold shadow-2xs mb-4">
                   <Target className="w-3.5 h-3.5" />
                   <span>رؤيتنا ورسالتنا</span>
                 </div>
@@ -147,9 +156,9 @@ export default function LandingPage() {
                 </p>
               </div>
               
-              {/* Feature Highlights */}
+              {/* Feature Highlights with Frosted Glass */}
               <div className="grid sm:grid-cols-2 gap-4 pt-2">
-                <div className="bg-white dark:bg-zinc-800/90 p-5 rounded-3xl border border-[#E8E4DA] dark:border-zinc-700 shadow-xs">
+                <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-5 rounded-3xl border border-[#E8E4DA] dark:border-zinc-700 shadow-xs">
                   <div className="w-11 h-11 bg-[#EDF2EB] dark:bg-[#2A3722] text-[#394C2A] dark:text-[#A8C794] rounded-2xl flex items-center justify-center mb-3">
                     <Heart className="w-5 h-5" />
                   </div>
@@ -159,7 +168,7 @@ export default function LandingPage() {
                   </p>
                 </div>
 
-                <div className="bg-white dark:bg-zinc-800/90 p-5 rounded-3xl border border-[#E8E4DA] dark:border-zinc-700 shadow-xs">
+                <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-5 rounded-3xl border border-[#E8E4DA] dark:border-zinc-700 shadow-xs">
                   <div className="w-11 h-11 bg-[#F8F5E9] dark:bg-[#3A3522] text-[#8E8759] dark:text-[#BAAA80] rounded-2xl flex items-center justify-center mb-3">
                     <Zap className="w-5 h-5" />
                   </div>
@@ -176,7 +185,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── 4. Platform Hierarchy Section ───────────────────────────────────── */}
-      <section id="hierarchy" className="py-20 md:py-24 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800/80 relative">
+      <section id="hierarchy" className="py-20 md:py-24 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800/80 relative overflow-hidden">
+        {/* Ambient Blur */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[550px] bg-[#BAAA80]/20 dark:bg-[#1F2A18]/60 rounded-full blur-[150px] pointer-events-none" />
+        <div className="absolute top-10 -right-20 w-[450px] h-[450px] bg-[#394C2A]/15 dark:bg-[#394C2A]/25 rounded-full blur-[130px] pointer-events-none" />
+
         <div className="max-w-6xl mx-auto px-4 md:px-8 relative z-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl md:text-5xl font-black text-[#19232D] dark:text-white font-display">
@@ -188,7 +201,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-zinc-800/90 p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
               <div className="w-16 h-16 bg-[#EDF2EB] dark:bg-[#2A3722] text-[#394C2A] dark:text-[#A8C794] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xs group-hover:scale-105 transition-transform">
                 <Shield className="w-8 h-8" />
               </div>
@@ -198,7 +211,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-zinc-800/90 p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
               <div className="w-16 h-16 bg-[#F8F5E9] dark:bg-[#3A3522] text-[#8E8759] dark:text-[#BAAA80] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xs group-hover:scale-105 transition-transform">
                 <Users className="w-8 h-8" />
               </div>
@@ -208,7 +221,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-zinc-800/90 p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-7 rounded-[2rem] shadow-xs border border-[#E8E4DA] dark:border-zinc-700 text-center hover:-translate-y-1 transition-all group">
               <div className="w-16 h-16 bg-[#EDF2EB] dark:bg-[#2A3722] text-[#394C2A] dark:text-[#A8C794] rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-xs group-hover:scale-105 transition-transform">
                 <BookOpen className="w-8 h-8" />
               </div>
@@ -222,8 +235,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── 5. Student Call to Action Banner ─────────────────────────────────── */}
-      <section className="py-16 px-4 bg-graph-paper">
-        <div className="max-w-5xl mx-auto bg-gradient-to-l from-[#394C2A] to-[#1F2A18] rounded-[2.5rem] p-10 md:p-14 text-center text-white relative overflow-hidden shadow-xl">
+      <section className="py-16 px-4 bg-graph-paper relative overflow-hidden">
+        <div className="max-w-5xl mx-auto bg-gradient-to-l from-[#394C2A] to-[#1F2A18] rounded-[2.5rem] p-10 md:p-14 text-center text-white relative overflow-hidden shadow-2xl border border-[#4B6337]/50">
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-[#BAAA80]/25 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
           <div className="relative z-10 space-y-6">
             <h2 className="text-3xl md:text-5xl font-black leading-tight font-display">
               أنت محور اهتمامنا 🎯
@@ -234,7 +250,7 @@ export default function LandingPage() {
             <div className="pt-2">
               <Link 
                 to="/login" 
-                className="inline-block px-9 py-3.5 bg-gradient-to-l from-[#BAAA80] to-[#8E8759] text-[#19232D] font-black rounded-2xl hover:opacity-95 transition-all shadow-md text-base md:text-lg hover:scale-105"
+                className="inline-block px-9 py-3.5 bg-gradient-to-l from-[#BAAA80] to-[#8E8759] text-[#19232D] font-black rounded-2xl hover:opacity-95 transition-all shadow-md text-base md:text-lg hover:scale-105 active:scale-100"
               >
                 دخول الطالب
               </Link>
@@ -243,13 +259,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 6. Contact Cards Section (كما في أعلى البانر بالصورة 1) ───────────── */}
-      <section id="contact" className="py-16 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800">
-        <div className="max-w-5xl mx-auto px-4 md:px-8">
+      {/* ── 6. Contact Cards Section ────────────────────────────────────────── */}
+      <section id="contact" className="py-16 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800 relative overflow-hidden">
+        {/* Ambient Blur */}
+        <div className="absolute -bottom-20 right-1/4 w-[550px] h-[400px] bg-[#BAAA80]/25 dark:bg-[#BAAA80]/10 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute -top-20 left-10 w-[400px] h-[400px] bg-[#394C2A]/15 dark:bg-[#394C2A]/20 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-4 md:px-8 relative z-10">
           <div className="grid sm:grid-cols-3 gap-6">
             
             {/* البريد الإلكتروني */}
-            <div className="bg-white dark:bg-zinc-800/90 p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform">
               <div className="w-12 h-12 bg-[#F5F2EA] dark:bg-zinc-700/60 rounded-2xl flex items-center justify-center mb-3 text-[#394C2A] dark:text-[#A8C794]">
                 <Mail className="w-6 h-6" />
               </div>
@@ -258,7 +278,7 @@ export default function LandingPage() {
             </div>
 
             {/* الهاتف */}
-            <div className="bg-white dark:bg-zinc-800/90 p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform">
               <div className="w-12 h-12 bg-[#F5F2EA] dark:bg-zinc-700/60 rounded-2xl flex items-center justify-center mb-3 text-[#394C2A] dark:text-[#A8C794]">
                 <Phone className="w-6 h-6" />
               </div>
@@ -267,7 +287,7 @@ export default function LandingPage() {
             </div>
 
             {/* المقر الرئيسي */}
-            <div className="bg-white dark:bg-zinc-800/90 p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center">
+            <div className="bg-white/85 dark:bg-zinc-800/85 backdrop-blur-xl p-6 rounded-3xl shadow-xs border border-[#E8E4DA] dark:border-zinc-700 flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform">
               <div className="w-12 h-12 bg-[#F5F2EA] dark:bg-zinc-700/60 rounded-2xl flex items-center justify-center mb-3 text-[#394C2A] dark:text-[#A8C794]">
                 <MapPin className="w-6 h-6" />
               </div>
