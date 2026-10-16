@@ -18,13 +18,15 @@ const BRANCHES = [
   { value: 'sharia', label: 'الشرعي' },
 ];
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-      nationality: '',
+    nationality: '',
     countryCode: '+970',
     password: '',
     primaryRole: 'student',
@@ -59,35 +61,45 @@ export default function RegisterPage() {
     setError(null);
     
     if (!captchaToken) {
-      setError('يرجى تأكيد أنك لست روبوتاً');
+      setError('يرجى تأكيد اختبار الأمان (أنا لست برنامج روبوت)');
+      return;
+    }
+
+    const cleanFirstName = (formData.firstName || '').trim();
+    const cleanLastName = (formData.lastName || '').trim();
+
+    if (!cleanFirstName || !cleanLastName) {
+      setError('الاسم الأول واسم العائلة كلاهما إجباري لاستكمال التسجيل');
+      return;
+    }
+
+    if (cleanFirstName.length < 2 || cleanLastName.length < 2) {
+      setError('يجب أن يتكون كل من الاسم الأول واسم العائلة من حرفين على الأقل');
+      return;
+    }
+
+    if (!formData.email?.trim() || !formData.phone?.trim()) {
+      setError('البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل وتوثيق الحساب');
+      return;
+    }
+
+    if (!formData.nationality) {
+      setError('تحديد الجنسية إجباري لاستكمال التسجيل');
+      return;
+    }
+
+    if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && !formData.supervisedSubjectId) {
+      setError(
+        formData.primaryRole === 'teacher'
+          ? 'تحديد مادة التدريس إجباري للمعلم للتفويج وإسناد الحصص الدراسية'
+          : 'تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي'
+      );
       return;
     }
 
     setIsLoading(true);
 
     try {
-      if (!formData.email?.trim() || !formData.phone?.trim()) {
-        setError('البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل');
-        setIsLoading(false);
-        return;
-      }
-
-      if (!formData.nationality) {
-        setError('تحديد الجنسية إجباري لاستكمال التسجيل');
-        setIsLoading(false);
-        return;
-      }
-
-      if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && !formData.supervisedSubjectId) {
-        setError(
-          formData.primaryRole === 'teacher'
-            ? 'تحديد مادة التدريس إجباري للمعلم للتفويج وإسناد الحصص الدراسية'
-            : 'تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي'
-        );
-        setIsLoading(false);
-        return;
-      }
-
       const cleanPhone = (formData.phone || '').trim().replace(/^0+/, '');
       const dialCode = (formData.countryCode || '+970').split('-')[0];
       const formattedPhone = cleanPhone
@@ -95,15 +107,26 @@ export default function RegisterPage() {
         : '';
       
       const payload = { 
-        ...formData, 
+        ...formData,
+        firstName: cleanFirstName,
+        lastName: cleanLastName,
+        email: formData.email.trim().toLowerCase(),
         phone: formattedPhone,
         recaptchaToken: captchaToken 
       };
       
       const response = await api.post('/auth/register', payload);
-      alert('تم التسجيل بنجاح! حسابك الآن قيد المراجعة، يرجى انتظار تفعيل الإدارة.');
+      
+      if (formData.primaryRole === 'student') {
+        alert('تم إنشاء حساب الطالب بنجاح! يمكنك الآن تسجيل الدخول مباشرة ومتابعة حصصك وأفواجك.');
+      } else {
+        alert('تم استلام طلب التسجيل بنجاح! حسابك الآن قيد المراجعة الإدارية وسنقوم بتفعيله قريباً.');
+      }
       navigate('/login');
     } catch (err: any) {
+      // Reset reCAPTCHA on failure so user can retry with a fresh token
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
       setError(err.response?.data?.message || 'حدث خطأ أثناء إنشاء الحساب');
     } finally {
       setIsLoading(false);
@@ -457,12 +480,25 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          <div className="flex justify-center my-4 dir-ltr">
+          <div className="flex flex-col items-center justify-center my-4 dir-ltr space-y-1">
             <ReCAPTCHA
               ref={recaptchaRef}
-              sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-              onChange={(token) => setCaptchaToken(token)}
+              sitekey={RECAPTCHA_SITE_KEY}
+              hl={isRtl ? 'ar' : 'en'}
+              onChange={(token) => {
+                setCaptchaToken(token);
+                setError(null);
+              }}
+              onExpired={() => setCaptchaToken(null)}
+              onErrored={() => {
+                console.warn('reCAPTCHA failed to load or encountered a network error');
+              }}
             />
+            {captchaToken && (
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                ✓ تم التحقق الأمني بنجاح
+              </span>
+            )}
           </div>
 
           <button

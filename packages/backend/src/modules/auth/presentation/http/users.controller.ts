@@ -1,6 +1,7 @@
-import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req, Post, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req, Post, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { assertNoDuplicateUser, normalizeEmail, normalizePhone } from '../../application/identity-validator.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -65,20 +66,32 @@ export class UsersController {
   @Post('admin/create')
   async createUser(@Req() req: any, @Body() body: any) {
     if (!['super_admin', 'admin', 'subject_supervisor'].includes(req.user.primaryRole)) throw new UnauthorizedException();
-    const bcrypt = require('bcrypt');
-    const passwordHash = await bcrypt.hash(body.password || 'Baaqoon2024!', 12);
 
     const isDual = body.primaryRole === 'dual_teacher_supervisor' || body.isDualRole === true;
     const effectivePrimaryRole = isDual ? 'subject_supervisor' : body.primaryRole;
+
+    const { normalizedEmail, normalizedPhone, cleanFirstName, cleanLastName } =
+      await assertNoDuplicateUser(this.prisma, {
+        email: body.email,
+        phone: body.phone,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        primaryRole: effectivePrimaryRole,
+      });
+
+    const bcrypt = require('bcrypt');
+    const passwordHash = await bcrypt.hash(body.password || 'Baaqoon2024!', 12);
+
     const rolesToCreate = isDual
       ? [{ role: 'subject_supervisor' as any }, { role: 'teacher' as any }]
       : [{ role: effectivePrimaryRole as any }];
 
     return this.prisma.user.create({
       data: {
-        email: body.email,
-        firstName: body.firstName,
-        lastName: body.lastName,
+        email: normalizedEmail || null,
+        phone: normalizedPhone || null,
+        firstName: cleanFirstName,
+        lastName: cleanLastName,
         primaryRole: effectivePrimaryRole as any,
         passwordHash,
         status: 'active',
@@ -155,10 +168,44 @@ export class UsersController {
   ) {
     const userId = req.user.id || req.user.userId;
     const updateData: any = {};
-    if (body.firstName) updateData.firstName = body.firstName;
-    if (body.lastName) updateData.lastName = body.lastName;
-    if (body.email) updateData.email = body.email;
-    if (body.phone !== undefined) updateData.phone = body.phone || null;
+    if (body.firstName) updateData.firstName = body.firstName.trim();
+    if (body.lastName) updateData.lastName = body.lastName.trim();
+
+    if (body.email) {
+      const normEmail = normalizeEmail(body.email);
+      const existingEmail = await this.prisma.user.findFirst({
+        where: {
+          email: { equals: normEmail, mode: 'insensitive' },
+          id: { not: userId },
+        },
+      });
+      if (existingEmail) {
+        throw new ConflictException('البريد الإلكتروني المدخل مستخدم مسبقاً بحساب آخر');
+      }
+      updateData.email = normEmail;
+    }
+
+    if (body.phone !== undefined) {
+      if (body.phone) {
+        const { normalized: normPhone, tail } = normalizePhone(body.phone);
+        const existingPhone = await this.prisma.user.findFirst({
+          where: {
+            OR: [
+              { phone: normPhone },
+              ...(tail ? [{ phone: { endsWith: tail } }] : []),
+            ],
+            id: { not: userId },
+          },
+        });
+        if (existingPhone) {
+          throw new ConflictException('رقم الهاتف المدخل مستخدم مسبقاً بحساب آخر');
+        }
+        updateData.phone = normPhone;
+      } else {
+        updateData.phone = null;
+      }
+    }
+
     if (body.nationality !== undefined) updateData.nationality = body.nationality || null;
     if (body.gradeLevel !== undefined) updateData.gradeLevel = body.gradeLevel || null;
     if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;

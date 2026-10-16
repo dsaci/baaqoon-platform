@@ -30,12 +30,15 @@ export class UsersService {
     const id = (identifier || '').trim();
     if (!id) return null;
     const digits = id.replace(/\D/g, '');
-    const tail = digits.length >= 9 ? digits.slice(-9) : null;
+    const tail = digits.length >= 8 ? digits.slice(-8) : null;
     const OR: any[] = [
       { email: { equals: id, mode: 'insensitive' } },
       { phone: id },
     ];
-    if (tail && !id.includes('@')) OR.push({ phone: { endsWith: tail } });
+    if (tail && !id.includes('@')) {
+      OR.push({ phone: { endsWith: tail } });
+      OR.push({ phone: id.startsWith('+') ? id.slice(1) : `+${id}` });
+    }
     return this.prisma.user.findFirst({
       where: { OR },
       include: { roles: true },

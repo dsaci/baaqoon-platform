@@ -8,6 +8,10 @@ import * as bcrypt from "bcrypt";
 import { UsersFacade } from "../../users/users.facade";
 import { PrismaService } from "../../../core/database/prisma.service";
 import { UserRole } from "@prisma/client";
+import {
+  verifyRecaptchaToken,
+  assertNoDuplicateUser,
+} from "./identity-validator.util";
 
 @Injectable()
 export class AuthService {
@@ -63,11 +67,10 @@ export class AuthService {
   }
 
   async register(data: any) {
-    if (!data.recaptchaToken) {
-      throw new UnauthorizedException("إثبات أنك لست روبوت مطلوب (reCAPTCHA)");
-    }
+    // 1. Full Google reCAPTCHA Verification via Google siteverify API
+    await verifyRecaptchaToken(data.recaptchaToken);
 
-    // Security: Only allow safe roles during self-registration
+    // 2. Security: Only allow safe roles during self-registration
     const allowedSelfRegisterRoles = ['teacher', 'student'];
     if (!data.primaryRole || !allowedSelfRegisterRoles.includes(data.primaryRole)) {
       throw new ConflictException("لا يمكن التسجيل بهذا الدور. يرجى التواصل مع الإدارة.");
@@ -85,23 +88,15 @@ export class AuthService {
       throw new ConflictException("تحديد مادة التدريس إجباري للمعلم لاستكمال التسجيل وتفويجه وإسناد الحصص");
     }
 
-    if (data.email) {
-      const existingEmail = await this.usersFacade.getUserByIdentifier(
-        data.email,
-      );
-      if (existingEmail) {
-        throw new ConflictException("البريد الإلكتروني مستخدم مسبقاً");
-      }
-    }
-
-    if (data.phone) {
-      const existingPhone = await this.usersFacade.getUserByIdentifier(
-        data.phone,
-      );
-      if (existingPhone) {
-        throw new ConflictException("رقم الهاتف مستخدم مسبقاً");
-      }
-    }
+    // 3. Strict Duplicate Prevention & Collision Check (Email, Phone, and Full Name per Role)
+    const { normalizedEmail, normalizedPhone, cleanFirstName, cleanLastName } =
+      await assertNoDuplicateUser(this.prisma, {
+        email: data.email,
+        phone: data.phone,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        primaryRole: data.primaryRole,
+      });
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
@@ -110,13 +105,13 @@ export class AuthService {
 
     const newUser = await this.prisma.user.create({
       data: {
-        email: data.email || null,
+        email: normalizedEmail || null,
         passwordHash: hashedPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: cleanFirstName,
+        lastName: cleanLastName,
         primaryRole: data.primaryRole,
         status: accountStatus,
-        phone: data.phone || null,
+        phone: normalizedPhone || null,
         academicBranch: data.branch || null,
         nationality: data.nationality || null,
         curriculumType: data.curriculumType || null,
