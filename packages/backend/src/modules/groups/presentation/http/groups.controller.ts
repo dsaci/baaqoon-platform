@@ -58,6 +58,10 @@ export class GroupsController {
         FROM users.supervisor_subjects ss
         JOIN users.users u ON u.id = ss.user_id
         WHERE u.status IN ('active', 'pending')
+          AND (
+            u."primaryRole" IN ('subject_supervisor', 'admin', 'super_admin')
+            OR EXISTS (SELECT 1 FROM users.user_roles ur WHERE ur."userId" = u.id AND ur.role = 'subject_supervisor')
+          )
       `);
     } catch (_) {}
 
@@ -225,13 +229,26 @@ export class GroupsController {
     }
     
     if (userId === 'none' || !userId) {
-      await this.prisma.user.updateMany({
+      const currentSupes = await this.prisma.user.findMany({
         where: {
           supervisedSubjectId: subjectId,
-          primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
-        },
-        data: { supervisedSubjectId: null }
+          primaryRole: { in: ['subject_supervisor'] }
+        }
       });
+      for (const su of currentSupes) {
+        await this.prisma.user.update({
+          where: { id: su.id },
+          data: { primaryRole: 'teacher', supervisedSubjectId: subjectId }
+        });
+        await this.prisma.userRoleAssignment.deleteMany({
+          where: { userId: su.id, role: 'subject_supervisor' }
+        });
+        await this.prisma.userRoleAssignment.upsert({
+          where: { userId_role: { userId: su.id, role: 'teacher' } },
+          update: {},
+          create: { userId: su.id, role: 'teacher' }
+        });
+      }
       try {
         await this.prisma.$executeRawUnsafe(
           `DELETE FROM users.supervisor_subjects WHERE subject_id = $1::uuid;`,
@@ -243,11 +260,11 @@ export class GroupsController {
           data: {
             userId: req.user.id,
             action: 'UNASSIGN_ALL_SUPERVISORS',
-            details: `إلغاء تعيين كافة المشرفين للمادة ${subjectId}`
+            details: `إلغاء تعيين كافة المشرفين للمادة ${subjectId} مع إبقائهم كأساتذة مدرّسين لمادتهم`
           }
         });
       } catch (e) {}
-      return { success: true, message: 'تم إخلاء مشرفي المادة بنجاح' };
+      return { success: true, message: 'تم إخلاء مشرفي المادة بنجاح وتحويلهم لأساتذة مدرّسين لمادتهم' };
     }
 
     const targetUser = await this.prisma.user.findUnique({
@@ -348,20 +365,35 @@ export class GroupsController {
     }
 
     if (userId === 'all') {
-      await this.prisma.user.updateMany({
+      const currentSupervisors = await this.prisma.user.findMany({
         where: {
           supervisedSubjectId: subjectId,
           primaryRole: { in: ['subject_supervisor', 'admin', 'super_admin'] }
-        },
-        data: { supervisedSubjectId: null }
+        }
       });
+      for (const su of currentSupervisors) {
+        if (su.primaryRole === 'subject_supervisor') {
+          await this.prisma.user.update({
+            where: { id: su.id },
+            data: { primaryRole: 'teacher', supervisedSubjectId: subjectId }
+          });
+          await this.prisma.userRoleAssignment.deleteMany({
+            where: { userId: su.id, role: 'subject_supervisor' }
+          });
+          await this.prisma.userRoleAssignment.upsert({
+            where: { userId_role: { userId: su.id, role: 'teacher' } },
+            update: {},
+            create: { userId: su.id, role: 'teacher' }
+          });
+        }
+      }
       try {
         await this.prisma.$executeRawUnsafe(
           `DELETE FROM users.supervisor_subjects WHERE subject_id = $1::uuid;`,
           subjectId
         );
       } catch (_) {}
-      return { success: true, message: 'تم إزالة جميع المشرفين من المادة' };
+      return { success: true, message: 'تم إزالة جميع المشرفين من المادة وإبقاؤهم كأساتذة مدرّسين لمادتهم' };
     }
 
     // 1. Remove from supervisor_subjects
@@ -377,6 +409,10 @@ export class GroupsController {
       where: { id: userId },
       include: { roles: true }
     });
+
+    if (!targetUser) {
+      return { error: 'المستخدم غير موجود' };
+    }
 
     // Check if user still supervises other subjects
     let otherSubjectId: string | null = null;
@@ -399,25 +435,26 @@ export class GroupsController {
       });
       message = 'تم إزالة المشرف من هذه المادة مع استمرار تكليفه الإشرافي للمواد الأخرى';
     } else {
-      // No remaining subjects
-      const hasTeacherRole = targetUser?.roles?.some(r => r.role === 'teacher');
-      const taughtCohortsCount = await this.prisma.cohortInstructor.count({ where: { teacherId: userId } });
+      // No remaining supervisory subjects
+      // RETAIN AND PRESERVE THEIR TEACHING SUBJECT - NEVER SET TO NULL!
+      const teachingSubjectId = targetUser.supervisedSubjectId || subjectId;
 
-      if (hasTeacherRole || taughtCohortsCount > 0) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { primaryRole: 'teacher', supervisedSubjectId: null }
-        });
-        await this.prisma.userRoleAssignment.deleteMany({
-          where: { userId, role: 'subject_supervisor' }
-        });
-        message = 'تم إلغاء التكليف الإشرافي مع إبقاء الحساب كأستاذ مدرّس للمادة';
-      } else {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { supervisedSubjectId: null }
-        });
-      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          primaryRole: 'teacher',
+          supervisedSubjectId: teachingSubjectId
+        }
+      });
+      await this.prisma.userRoleAssignment.deleteMany({
+        where: { userId, role: 'subject_supervisor' }
+      });
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId, role: 'teacher' } },
+        update: {},
+        create: { userId, role: 'teacher' }
+      });
+      message = 'تم إلغاء التكليف الإشرافي بنجاح مع الاحتفاظ بكامل صلاحياته كأستاذ مدرّس للمادة دون أي انقطاع';
     }
 
     try {

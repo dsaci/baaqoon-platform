@@ -118,6 +118,13 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setSaving(true);
     setError('');
 
+    const isTeacherOrSupervisor = user?.primaryRole === 'teacher' || user?.primaryRole === 'subject_supervisor' || user?.isDualRole;
+    if (isTeacherOrSupervisor && !formData.supervisedSubjectId) {
+      setError('تحديد مادة التدريس إجباري وحتمي لمواصلة استخدام المنصة. يرجى اختيار المادة.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await api.patch('/users/me/profile', {
         firstName: formData.firstName,
@@ -401,16 +408,22 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
             {(user?.primaryRole === 'teacher' || user?.primaryRole === 'subject_supervisor' || user?.isDualRole) && (
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-black text-purple-700 dark:text-purple-300">
-                  <span>📚</span> {user?.primaryRole === 'teacher' ? 'مادة التدريس والتخصص الدراسي' : 'مادة التنسيق والإشراف'}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-black text-purple-700 dark:text-purple-300">
+                    <span>📚</span> {user?.primaryRole === 'teacher' ? 'مادة التدريس والتخصص الدراسي' : 'مادة التنسيق والإشراف'}
+                  </label>
+                  <span className="text-[10px] font-black text-rose-500 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800">
+                    * إجباري حتمي
+                  </span>
+                </div>
                 <select 
                   name="supervisedSubjectId" 
                   value={formData.supervisedSubjectId} 
                   onChange={handleChange}
+                  required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                 >
-                  <option value="">-- اختر مادة التخصص والتدريس --</option>
+                  <option value="" disabled>-- اختر مادة التخصص والتدريس (إجباري) --</option>
                   {subjects.map((s: any) => (
                     <option key={s.id} value={s.id}>{s.nameAr}</option>
                   ))}

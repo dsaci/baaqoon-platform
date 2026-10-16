@@ -109,44 +109,80 @@ export class AssessmentsController {
   async submitAssessment(
     @Req() req: any,
     @Param('assessmentId') assessmentId: string,
-    @Body() body: { answers: Record<string, string> }
+    @Body() body: { answers?: Record<string, string>; solutionText?: string; notes?: string; fileUrl?: string }
   ) {
     const studentId = req.user?.id || req.user?.userId;
+    if (!studentId) {
+      throw new UnauthorizedException('يجب تسجيل الدخول لتسليم الواجب');
+    }
 
-    // Load assessment with questions
+    // Load assessment with questions and template
     const assessment = await this.prisma.assessment.findUnique({
       where: { id: assessmentId },
       include: { questions: { include: { questionTemplate: true } } }
     });
-    if (!assessment) throw new Error('Assessment not found');
-
-    // Auto-grade MCQ and true_false
-    let score = 0;
-    const totalPoints = assessment.questions.reduce((sum: number, q: any) => sum + Number(q.scoreWeight || 1), 0);
-
-    for (const q of assessment.questions as any[]) {
-      const studentAnswer = body.answers[q.id];
-      if (!studentAnswer) continue;
-      const correctAnswer = q.questionTemplate?.correctAnswer;
-      if (correctAnswer && studentAnswer.trim() === correctAnswer.trim()) {
-        score += Number(q.scoreWeight || 1);
-      }
+    if (!assessment) {
+      throw new BadRequestException('التقييم أو الواجب غير موجود');
     }
 
-    // Create submission
-    const finalScore = totalPoints > 0 ? Math.round((score / totalPoints) * Number(assessment.maxScore || 100)) : 0;
-    const submission = await this.prisma.assessmentSubmission.create({
-      data: {
+    const hasQuestions = assessment.questions && assessment.questions.length > 0;
+    let finalScore: number | null = null;
+    let status: 'submitted' | 'graded' = 'submitted';
+
+    if (hasQuestions) {
+      // Auto-grade MCQ and true_false
+      let score = 0;
+      const totalPoints = assessment.questions.reduce((sum: number, q: any) => sum + Number(q.scoreWeight || 1), 0);
+
+      const answers = body.answers || {};
+      for (const q of assessment.questions as any[]) {
+        const studentAnswer = answers[q.id];
+        if (!studentAnswer) continue;
+        const correctAnswer = q.questionTemplate?.correctAnswer;
+        if (correctAnswer && studentAnswer.trim() === correctAnswer.trim()) {
+          score += Number(q.scoreWeight || 1);
+        }
+      }
+
+      finalScore = totalPoints > 0 ? Math.round((score / totalPoints) * Number(assessment.maxScore || 100)) : 0;
+      status = 'graded';
+    } else {
+      // Written assignment / homework: submitted for teacher grading
+      finalScore = null;
+      status = 'submitted';
+    }
+
+    const payloadFeedback = JSON.stringify({
+      answers: body.answers || {},
+      solutionText: body.solutionText || body.answers?.['solutionText'] || '',
+      fileUrl: body.fileUrl || body.answers?.['fileUrl'] || '',
+      notes: body.notes || ''
+    });
+
+    const submission = await this.prisma.assessmentSubmission.upsert({
+      where: {
+        assessmentId_studentId: {
+          assessmentId,
+          studentId
+        }
+      },
+      update: {
+        status,
+        score: finalScore,
+        feedback: payloadFeedback,
+        submittedAt: new Date()
+      },
+      create: {
         assessmentId,
         studentId,
-        status: 'submitted',
-        submittedAt: new Date(),
+        status,
         score: finalScore,
-        feedback: JSON.stringify(body.answers),
+        feedback: payloadFeedback,
+        submittedAt: new Date()
       }
     });
 
-    return { submission, score, totalPoints };
+    return { submission, score: finalScore, hasQuestions, status };
   }
 
   @Patch('submissions/:submissionId/grade')
@@ -161,11 +197,27 @@ export class AssessmentsController {
     }
     const userId = req.user?.id || req.user?.userId;
     if (!userId) throw new UnauthorizedException('يجب تسجيل الدخول');
+
+    const existing = await this.prisma.assessmentSubmission.findUnique({
+      where: { id: submissionId }
+    });
+
+    let mergedFeedback = body.feedback;
+    if (existing?.feedback) {
+      try {
+        const parsed = JSON.parse(existing.feedback);
+        if (parsed && typeof parsed === 'object') {
+          parsed.teacherComment = body.feedback;
+          mergedFeedback = JSON.stringify(parsed);
+        }
+      } catch {}
+    }
+
     return this.prisma.assessmentSubmission.update({
       where: { id: submissionId },
       data: {
         score: body.score,
-        feedback: body.feedback,
+        feedback: mergedFeedback,
         status: 'graded',
         gradedById: userId,
         gradedAt: new Date()
@@ -182,11 +234,18 @@ export class AssessmentsController {
     });
     const cohortIds = enrollments.map((e: any) => e.cohortId);
 
-    // Also include 'fake' assessments if student is not in any cohort for demo purposes
+    // Also include assessments if student is not in any cohort for demo/fallback purposes
     if (cohortIds.length === 0) {
        return this.prisma.assessment.findMany({
           orderBy: { createdAt: 'desc' },
-          take: 3
+          take: 3,
+          include: {
+            cohort: true,
+            questions: { include: { questionTemplate: true } },
+            submissions: {
+              where: { studentId }
+            }
+          }
        });
     }
 
@@ -195,6 +254,7 @@ export class AssessmentsController {
       orderBy: { createdAt: 'desc' },
       include: {
         cohort: true,
+        questions: { include: { questionTemplate: true } },
         submissions: {
           where: { studentId }
         }

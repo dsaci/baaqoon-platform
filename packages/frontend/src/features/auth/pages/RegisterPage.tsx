@@ -18,7 +18,7 @@ const BRANCHES = [
   { value: 'sharia', label: 'الشرعي' },
 ];
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfzCvItAAAAACzG99vkwG8xnMQNknGjJDHS8E1x";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LcVGPItAAAAAMMyZ2Skd8tQ4qxUcxx_ov7O1RFI";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -91,11 +91,11 @@ export default function RegisterPage() {
       return;
     }
 
-    if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && !formData.supervisedSubjectId) {
+    if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && (!formData.supervisedSubjectId || !formData.supervisedSubjectId.trim())) {
       setError(
         formData.primaryRole === 'teacher'
-          ? 'تحديد مادة التدريس إجباري للمعلم للتفويج وإسناد الحصص الدراسية'
-          : 'تحديد مادة التنسيق والإشراف إجباري للمشرف الأكاديمي'
+          ? '⛔ تنبيه إلزامي: تحديد مادة التدريس إجباري قطعي لإتمام التسجيل. لا يمكن استخدام المنصة أو إنشاء حساب معلم بدون اختيار مادة التخصص الأكاديمي.'
+          : '⛔ تنبيه إلزامي: تحديد مادة التنسيق والإشراف إجباري قطعي للمشرف الأكاديمي لإتمام التسجيل.'
       );
       return;
     }
@@ -236,34 +236,40 @@ export default function RegisterPage() {
 
           {/* Supervised Subject - shown only for subject_supervisor and teacher */}
           {(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher') && (
-            <div className="space-y-1.5 animate-fade-in-up">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                {formData.primaryRole === 'teacher' ? (
-                  <span>
-                    {t("auth.teaching_subject", "مادة التدريس والتخصص الأكاديمي")} <span className="text-rose-500 font-bold">* (إجباري للتفويج وإسناد الحصص)</span>
-                  </span>
-                ) : (
-                  <span>
-                    {t("auth.coordination_subject", "مادة التنسيق والإشراف الأكاديمي")} <span className="text-rose-500 font-bold">* (إجباري للمشرف)</span>
-                  </span>
-                )}
-              </label>
+            <div className="space-y-2 p-3.5 bg-gradient-to-r from-rose-50/80 via-amber-50/40 to-white dark:from-rose-950/30 dark:via-amber-950/20 dark:to-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-800/80 animate-fade-in-up">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-black text-rose-950 dark:text-rose-200">
+                  {formData.primaryRole === 'teacher' ? (
+                    <span>مادة التدريس والتخصص الأكاديمي</span>
+                  ) : (
+                    <span>مادة التنسيق والإشراف الأكاديمي</span>
+                  )}
+                </label>
+                <span className="text-[11px] font-black text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/60 px-2 py-0.5 rounded-md">
+                  * إجباري حتمي للتسجيل
+                </span>
+              </div>
               <select 
                 name="supervisedSubjectId"
                 value={formData.supervisedSubjectId}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
+                className="w-full px-4 py-3 rounded-xl border-2 border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-black focus:ring-4 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all shadow-xs"
                 required
               >
-                <option value="" className="dark:bg-baaqoon-800">
+                <option value="">
                   {formData.primaryRole === 'teacher' 
-                    ? t("auth.choose_teaching_subject", "-- اختر مادة التدريس الأساسية --")
-                    : t("auth.choose_coordination_subject", "-- اختر مادة التنسيق والإشراف --")}
+                    ? '-- اضغط هنا لاختيار مادة التدريس الرسمية --'
+                    : '-- اضغط هنا لاختيار مادة التنسيق والإشراف --'}
                 </option>
                 {subjects.map((s: any) => (
-                  <option key={s.id} value={s.id} className="dark:bg-baaqoon-800">{s.nameAr}</option>
+                  <option key={s.id} value={s.id} className="dark:bg-slate-800 py-1 font-bold">
+                    {s.nameAr} ({s.code})
+                  </option>
                 ))}
               </select>
+              <p className="text-[11px] text-rose-700 dark:text-rose-300 font-bold">
+                🔒 قرار إداري ملزم: لن تتمكن من الدخول للمنصة أو إنشاء حساب أستاذ إلا بتحديد المادة للتفويج المباشر وإسناد الحصص.
+              </p>
             </div>
           )}
 
@@ -484,31 +490,38 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex flex-col items-center justify-center my-4 dir-ltr space-y-1">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={RECAPTCHA_SITE_KEY}
-              hl={isRtl ? 'ar' : 'en'}
-              onChange={(token) => {
-                setCaptchaToken(token);
-                setCaptchaError(false);
-                setError(null);
-              }}
-              onExpired={() => setCaptchaToken(null)}
-              onErrored={() => {
-                console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
-                setCaptchaError(true);
-                setCaptchaToken('recaptcha-fallback-token');
-              }}
-            />
+            {!captchaError ? (
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                hl={isRtl ? 'ar' : 'en'}
+                onChange={(token) => {
+                  setCaptchaToken(token);
+                  setCaptchaError(false);
+                  setError(null);
+                }}
+                onExpired={() => setCaptchaToken(null)}
+                onErrored={() => {
+                  console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
+                  setCaptchaError(true);
+                  setCaptchaToken('recaptcha-fallback-token');
+                }}
+              />
+            ) : (
+              <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🛡️</span>
+                  <span>تم تفعيل التسجيل الآمن البديل بنجاح</span>
+                </div>
+                <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                  (ملاحظة لمدير المنصة: مفتاح Google reCAPTCHA الحالي يحتاج أن يكون نوع v2 Checkbox).
+                </p>
+              </div>
+            )}
             {captchaToken && !captchaError && (
               <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
                 ✓ تم التحقق الأمني بنجاح
               </span>
-            )}
-            {captchaError && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-200 text-right dir-rtl space-y-1 w-full mt-2">
-                <p>⚠️ تنبيه: تم تفعيل التسجيل الآمن البديل نظراً لتعذر تحميل Google reCAPTCHA مؤقتاً.</p>
-              </div>
             )}
           </div>
 

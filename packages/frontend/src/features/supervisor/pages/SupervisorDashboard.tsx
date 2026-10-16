@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3, GraduationCap, UserCheck, Sparkles, FileSpreadsheet } from 'lucide-react';
+import { Activity, Calendar, AlertTriangle, Bell, UserX, CheckCircle, Send, MessageSquare, Users, BookOpen, BarChart3, GraduationCap, UserCheck, Sparkles, FileSpreadsheet, Video } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import HrManagementAdminView from '../../admin/components/HrManagementAdminView'
 import SupervisorCohortsView from '../components/SupervisorCohortsView';
 import SupervisorAccountabilityView from '../components/SupervisorAccountabilityView';
 import SupervisorTeachersView from '../components/SupervisorTeachersView';
+import RecordedLessonsStaffView from '../../curriculum/components/recorded-lessons/RecordedLessonsStaffView';
 import { ShieldAlert } from 'lucide-react';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Eye, Mic, Star } from 'lucide-react';
@@ -35,7 +36,7 @@ export default function SupervisorDashboard() {
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const initialTab = (searchParams.get('tab') as 'stats' | 'teachers' | 'students') || 'stats';
-  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<'stats' | 'teachers' | 'students' | 'cohorts' | 'accountability' | 'recorded'>(initialTab as any);
   const [selectedDashboardSubjectId, setSelectedDashboardSubjectId] = useState<string>('');
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
@@ -255,8 +256,8 @@ export default function SupervisorDashboard() {
         </div>
       )}
 
-      {/* 5 Prominent Framed Action & Navigation Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
+      {/* 6 Prominent Framed Action & Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4 mb-6">
         {/* 1. الإحصائيات والمتابعة */}
         <button 
           type="button"
@@ -399,6 +400,34 @@ export default function SupervisorDashboard() {
             </h3>
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               الخطة السنوية والالتزام
+            </p>
+          </div>
+        </button>
+
+        {/* 6. الدروس المسجلة والإثرائية */}
+        <button 
+          type="button"
+          onClick={() => setActiveTab('recorded')}
+          className={`p-4 sm:p-5 rounded-2xl border-2 text-right transition-all flex flex-col justify-between relative overflow-hidden group shadow-xs ${
+            activeTab === 'recorded' 
+              ? 'bg-gradient-to-br from-teal-50/90 via-emerald-50/40 to-white dark:from-teal-950/60 dark:via-emerald-950/30 dark:to-slate-900 border-teal-600 dark:border-teal-500 shadow-md shadow-teal-600/10 scale-[1.02]' 
+              : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/90 dark:border-slate-800 hover:border-teal-300 dark:hover:border-slate-700 hover:shadow-sm hover:-translate-y-0.5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full mb-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-teal-600 dark:text-teal-400 font-bold group-hover:scale-110 transition-transform">
+              <Video className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+              محتوى إثرائي
+            </span>
+          </div>
+          <div>
+            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white mb-0.5">
+              الدروس المسجلة
+            </h3>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              بنك التسجيلات والتعويض
             </p>
           </div>
         </button>
@@ -572,6 +601,7 @@ export default function SupervisorDashboard() {
         
       {activeTab === 'cohorts' && <SupervisorCohortsView initialSubjectId={selectedDashboardSubjectId} />}
       {activeTab === 'accountability' && <SupervisorAccountabilityView />}
+      {activeTab === 'recorded' && <RecordedLessonsStaffView />}
 
       {/* Strategic Features (Coming Soon) */}
       <ComingSoonSection 

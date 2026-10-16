@@ -1,3 +1,10 @@
+import * as dotenv from "dotenv";
+import * as path from "path";
+
+// Load environment variables from packages/backend/.env or root .env
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config();
+
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";

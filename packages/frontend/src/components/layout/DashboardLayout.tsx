@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   GraduationCap,
   ShieldAlert,
+  Video,
+  KeyRound,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import WelcomeModal from "../shared/WelcomeModal";
@@ -29,6 +31,8 @@ import { useTranslation } from "react-i18next";
 
 import ProfileModal from "../shared/ProfileModal";
 import CompleteContactModal from "../shared/CompleteContactModal";
+import MandatorySubjectGate from "../shared/MandatorySubjectGate";
+import ForceChangePasswordGate from "../shared/ForceChangePasswordGate";
 import UserAvatar from "../shared/UserAvatar";
 import AppTour from "../tour/AppTour";
 import PlatformGuideModal from "../guide/PlatformGuideModal";
@@ -54,7 +58,9 @@ export default function DashboardLayout() {
     user?.isDualRole ||
     (Array.isArray(user?.roles) && user!.roles!.includes('teacher'))
   );
+  const mustChangePassword = Boolean(user?.mustChangePassword);
   const isMissingSubject = Boolean(isTeacherOrSupervisor && !user?.supervisedSubjectId);
+  const isLocked = Boolean(isMissingSubject || mustChangePassword);
   const isMissingNationality = !user?.nationality || user.nationality.trim() === '';
   const hasIncompleteContact = Boolean(user && (isMissingEmail || isMissingPhone || isMissingSubject || isMissingNationality));
 
@@ -127,6 +133,7 @@ export default function DashboardLayout() {
         },
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
+        { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
         {
           name: t("nav.supervisor_panel", "لوحة الإشراف التربوي"),
@@ -145,6 +152,7 @@ export default function DashboardLayout() {
         },
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
+        { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
       ];
     }
@@ -164,6 +172,11 @@ export default function DashboardLayout() {
         name: t("nav.curriculum_builder", "بناء الحصص (المناهج)"),
         path: "/teacher/curriculum",
         icon: BookOpen,
+      },
+      {
+        name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"),
+        path: "/teacher/recorded-lessons",
+        icon: Video,
       },
       {
         name: t("nav.assessments", "الواجبات"),
@@ -201,6 +214,11 @@ export default function DashboardLayout() {
       { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/supervisor/reports", icon: BarChart3 },
       { name: t("nav.teachers", "الأساتذة"), path: "/supervisor/teachers", icon: Users },
       { name: t("nav.cohorts", "الأفواج والشواغر"), path: "/supervisor/cohorts", icon: GraduationCap },
+      {
+        name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"),
+        path: "/supervisor/recorded-lessons",
+        icon: Video,
+      },
       { name: t("nav.distribution", "التوزيع السنوي والشهري"), path: "/supervisor/distribution", icon: Calendar },
       {
         name: t("nav.schedule_weekly", "الجدول الأسبوعي"),
@@ -232,6 +250,11 @@ export default function DashboardLayout() {
           name: t("nav.dashboard", "الرئيسية"),
           path: "/student/dashboard",
           icon: LayoutDashboard,
+        },
+        {
+          name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"),
+          path: "/student/recorded-lessons",
+          icon: Video,
         },
         {
           name: t("nav.schedule", "الجدول والحصص"),
@@ -360,8 +383,15 @@ export default function DashboardLayout() {
             return (
               <Link
                 key={link.name}
-                to={link.path}
+                to={isLocked ? "#" : link.path}
+                onClick={(e) => {
+                  if (isLocked) {
+                    e.preventDefault();
+                  }
+                }}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                  isLocked ? "opacity-35 pointer-events-none cursor-not-allowed" : ""
+                } ${
                   isActive
                     ? `${
                         isRtl ? "bg-gradient-to-l" : "bg-gradient-to-r"
@@ -638,7 +668,37 @@ export default function DashboardLayout() {
             </div>
           )}
 
-          <Outlet />
+          {mustChangePassword ? (
+            <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+              <div className="max-w-md w-full p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-amber-300 dark:border-amber-800 space-y-3 shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto">
+                  <KeyRound className="w-7 h-7" />
+                </div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  استخدام الحساب معلّق مؤقتاً
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
+                  يلزم تعيين كلمة مرور جديدة خاصة بك لتأمين حسابك قبل الدخول للمنصة وتصفح الحصص والأفواج.
+                </p>
+              </div>
+            </div>
+          ) : isMissingSubject ? (
+            <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+              <div className="max-w-md w-full p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-rose-300 dark:border-rose-800 space-y-3 shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center mx-auto">
+                  <ShieldAlert className="w-7 h-7" />
+                </div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  استخدام الحساب معلّق مؤقتاً
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
+                  يلزم تحديد وتثبيت مادة التدريس الرسمية لمواصلة استخدام المنصة وتصفح الحصص والأفواج.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </div>
       </main>
 
@@ -651,19 +711,31 @@ export default function DashboardLayout() {
         onClose={() => setIsProfileModalOpen(false)}
       />
 
-      {/* Complete Contact Info Modal - Strictly locked when isMissingSubject is true */}
-      <CompleteContactModal
-        isOpen={isCompleteContactOpen || isMissingSubject}
-        onClose={() => {
-          if (!isMissingSubject) {
+      {/* Hard Mandatory Password Change Gate */}
+      {mustChangePassword && (
+        <ForceChangePasswordGate />
+      )}
+
+      {/* Hard Mandatory Subject Selection Gate for Teachers/Supervisors */}
+      {!mustChangePassword && isMissingSubject && (
+        <MandatorySubjectGate
+          onSubjectAssigned={() => {
             setIsCompleteContactOpen(false);
-          }
-        }}
-        isMissingEmail={isMissingEmail}
-        isMissingPhone={isMissingPhone}
-        isMissingSubject={isMissingSubject}
-        isMissingNationality={isMissingNationality}
-      />
+          }}
+        />
+      )}
+
+      {/* Complete Contact Info Modal - For missing email, phone or nationality */}
+      {!mustChangePassword && !isMissingSubject && (
+        <CompleteContactModal
+          isOpen={isCompleteContactOpen}
+          onClose={() => setIsCompleteContactOpen(false)}
+          isMissingEmail={isMissingEmail}
+          isMissingPhone={isMissingPhone}
+          isMissingSubject={false}
+          isMissingNationality={isMissingNationality}
+        />
+      )}
 
       {/* Platform Step-by-Step Guide Modal */}
       <PlatformGuideModal

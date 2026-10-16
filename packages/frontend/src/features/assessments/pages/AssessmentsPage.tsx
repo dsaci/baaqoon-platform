@@ -214,12 +214,12 @@ export default function AssessmentsPage() {
                                 <h1>${assessment.title}</h1>
                                 <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
                                 <div class="questions">
-                                  ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
+                                  ${assessment.questions && assessment.questions.length > 0 ? assessment.questions.map((q: any, i: number) => `
                                     <div class="question">
-                                      <span class="score">${q.scoreWeight} ${isRtl ? 'درجات' : 'pts'}</span>
-                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate.content}
+                                      <span class="score">${q.scoreWeight || 1} ${isRtl ? 'درجات' : 'pts'}</span>
+                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال بدون نص'}
                                     </div>
-                                  `).join('') : '<p>No questions added yet.</p>'}
+                                  `).join('') : `<div class="question"><p>${assessment.description || 'لا توجد أسئلة مضافة'}</p></div>`}
                                 </div>
                                 <script>window.print(); setTimeout(() => window.close(), 500);</script>
                               </body>
@@ -284,12 +284,12 @@ export default function AssessmentsPage() {
                                 <h1>${assessment.title}</h1>
                                 <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
                                 <div class="questions">
-                                  ${assessment.questions ? assessment.questions.map((q: any, i: number) => `
+                                  ${assessment.questions && assessment.questions.length > 0 ? assessment.questions.map((q: any, i: number) => `
                                     <div class="question">
-                                      <span class="score">${q.scoreWeight} ${isRtl ? 'درجات' : 'pts'}</span>
-                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate.content}
+                                      <span class="score">${q.scoreWeight || 1} ${isRtl ? 'درجات' : 'pts'}</span>
+                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال بدون نص'}
                                     </div>
-                                  `).join('') : '<p>No questions added yet.</p>'}
+                                  `).join('') : `<div class="question"><p>${assessment.description || 'لا توجد أسئلة مضافة'}</p></div>`}
                                 </div>
                                 <script>window.print(); setTimeout(() => window.close(), 500);</script>
                               </body>
@@ -306,9 +306,9 @@ export default function AssessmentsPage() {
                           {isRtl ? 'بدء الحل والتسليم' : 'Start Assessment'}
                         </Link>
                       ) : (
-                        <button className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block border border-slate-200 dark:border-slate-700">
-                          {isRtl ? 'عرض الإجابة' : 'View Submission'}
-                        </button>
+                        <Link to={`/student/assessments/${assessment.id}/take`} className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block text-center border border-slate-200 dark:border-slate-700">
+                          {isRtl ? 'عرض الإجابة والنتيجة' : 'View Submission'}
+                        </Link>
                       )}
                     </div>
                   </>

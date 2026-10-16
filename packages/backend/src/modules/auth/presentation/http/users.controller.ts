@@ -1,4 +1,5 @@
-import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req, Post, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req, Post, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { assertNoDuplicateUser, normalizeEmail, normalizePhone } from '../../application/identity-validator.util';
@@ -70,6 +71,16 @@ export class UsersController {
     const isDual = body.primaryRole === 'dual_teacher_supervisor' || body.isDualRole === true;
     const effectivePrimaryRole = isDual ? 'subject_supervisor' : body.primaryRole;
 
+    if (effectivePrimaryRole === 'teacher' || effectivePrimaryRole === 'subject_supervisor' || isDual) {
+      if (!body.supervisedSubjectId || !body.supervisedSubjectId.trim()) {
+        throw new BadRequestException('تحديد مادة التدريس إجباري حتمي عند إنشاء حساب معلم أو مشرف.');
+      }
+      const subject = await this.prisma.subject.findUnique({ where: { id: body.supervisedSubjectId.trim() } });
+      if (!subject) {
+        throw new BadRequestException('مادة التدريس المحددة غير موجودة في النظام.');
+      }
+    }
+
     const { normalizedEmail, normalizedPhone, cleanFirstName, cleanLastName } =
       await assertNoDuplicateUser(this.prisma, {
         email: body.email,
@@ -95,6 +106,7 @@ export class UsersController {
         primaryRole: effectivePrimaryRole as any,
         passwordHash,
         status: 'active',
+        mustChangePassword: true,
         academicBranch: body.academicBranch || null,
         curriculumType: body.curriculumType || null,
         gradeLevel: body.gradeLevel || (effectivePrimaryRole === 'student' ? 'grade_11' : null),
@@ -210,7 +222,19 @@ export class UsersController {
     if (body.gradeLevel !== undefined) updateData.gradeLevel = body.gradeLevel || null;
     if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;
     if (body.supervisedSubjectId !== undefined) {
-      updateData.supervisedSubjectId = body.supervisedSubjectId || null;
+      if (body.supervisedSubjectId && body.supervisedSubjectId.trim()) {
+        const subject = await this.prisma.subject.findUnique({ where: { id: body.supervisedSubjectId.trim() } });
+        if (!subject) {
+          throw new BadRequestException('المادة الدراسية المحددة غير موجودة.');
+        }
+        updateData.supervisedSubjectId = body.supervisedSubjectId.trim();
+      } else {
+        const isTeacherOrSup = req.user.primaryRole === 'teacher' || req.user.primaryRole === 'subject_supervisor';
+        if (isTeacherOrSup) {
+          throw new BadRequestException('لا يمكن إلغاء مادة التدريس؛ تحديد المادة إجباري لمواصلة استخدام المنصة.');
+        }
+        updateData.supervisedSubjectId = null;
+      }
     }
 
 
@@ -254,7 +278,62 @@ export class UsersController {
       avatarUrl: updated.avatarUrl,
       nationality: updated.nationality,
       gradeLevel: updated.gradeLevel,
+      mustChangePassword: Boolean(updated.mustChangePassword),
     };
+  }
+
+  @Post('me/change-password')
+  async changeMyPassword(@Req() req: any, @Body() body: { currentPassword?: string; newPassword: string }) {
+    const userId = req.user.id;
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('المستخدم غير موجود.');
+
+    const newPassword = (body.newPassword || '').trim();
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('كلمة المرور الجديدة يجب ألا تقل عن 8 خانات وتحتوي على أحرف وأرقام.');
+    }
+
+    if (newPassword === 'Baaqoon2024!') {
+      throw new BadRequestException('لا يمكن إعادة استخدام كلمة المرور الأولية المؤقتة. يرجى كتابة كلمة مرور جديدة خاصة بك.');
+    }
+
+    if (body.currentPassword) {
+      const isValid = await bcrypt.compare(body.currentPassword, user.passwordHash);
+      if (!isValid) {
+        throw new BadRequestException('كلمة المرور الحالية غير صحيحة.');
+      }
+    } else if (!user.mustChangePassword) {
+      throw new BadRequestException('يرجى إدخال كلمة المرور الحالية لتأكيد التغيير.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+      },
+    });
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId,
+          action: 'password_change',
+          details: 'تم تغيير كلمة المرور وتأمين الحساب بنجاح',
+        },
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: 'تم تغيير كلمة المرور وتأمين حسابك بنجاح! يمكنك الآن متابعة استخدام المنصة بأمان.',
+    };
+  }
+
+  @Patch('me/change-password')
+  async patchMyPassword(@Req() req: any, @Body() body: any) {
+    return this.changeMyPassword(req, body);
   }
 
   @Get('admin/list')
@@ -343,7 +422,9 @@ export class UsersController {
       throw new UnauthorizedException('المستخدم غير موجود');
     }
 
-    const subjectId = body.supervisedSubjectId !== undefined ? (body.supervisedSubjectId || null) : targetUser.supervisedSubjectId;
+    const subjectId = (body.supervisedSubjectId && typeof body.supervisedSubjectId === 'string' && body.supervisedSubjectId.trim() !== '') 
+      ? body.supervisedSubjectId 
+      : targetUser.supervisedSubjectId;
 
     if (body.enableDualRole) {
       // Grant Dual Role: Teacher + Subject Supervisor together
@@ -391,11 +472,15 @@ export class UsersController {
     } else {
       // Revert to single role (either teacher or subject_supervisor)
       const targetSingleRole = body.singleRole || 'teacher';
+      const finalSubjectId = targetSingleRole === 'teacher'
+        ? (subjectId || targetUser.supervisedSubjectId)
+        : subjectId;
+
       await this.prisma.user.update({
         where: { id },
         data: {
           primaryRole: targetSingleRole as any,
-          supervisedSubjectId: subjectId
+          supervisedSubjectId: finalSubjectId
         }
       });
 

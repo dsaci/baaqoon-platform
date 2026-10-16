@@ -9,6 +9,7 @@ import { api } from '../../../lib/axios';
 import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAccountabilityWidget';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import AttendanceModal from '../../scheduling/components/AttendanceModal';
+import AddRecordedLessonModal from '../../curriculum/components/recorded-lessons/AddRecordedLessonModal';
 import { useTranslation } from 'react-i18next';
 
 export default function TeacherDashboard() {
@@ -17,6 +18,7 @@ export default function TeacherDashboard() {
   const isRtl = i18n.language === 'ar';
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isAddRecordedModalOpen, setIsAddRecordedModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
 
   const { data: sessions = [], isLoading } = useQuery({
@@ -171,7 +173,7 @@ export default function TeacherDashboard() {
               setSelectedSessionId(upcomingSession?.id);
               setIsAttendanceModalOpen(true);
             }}
-            className="w-full flex items-center justify-between p-3.5 mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl transition-all shadow-md shadow-emerald-600/20 font-black text-sm group cursor-pointer"
+            className="w-full flex items-center justify-between p-3.5 mb-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl transition-all shadow-md shadow-emerald-600/20 font-black text-sm group cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
@@ -183,6 +185,23 @@ export default function TeacherDashboard() {
               </div>
             </div>
             <span className="text-xs bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors">فتح السجل ←</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsAddRecordedModalOpen(true)}
+            className="w-full flex items-center justify-between p-3.5 mb-4 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-2xl transition-all shadow-md shadow-indigo-600/20 font-black text-sm group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                <Video className="w-5 h-5 text-white" />
+              </div>
+              <div className="text-right">
+                <span className="block leading-tight text-sm font-black">+ نشر درس مسجل أو محتوى إثرائي 🎥</span>
+                <span className="text-[11px] opacity-85 font-bold">لتعويض الطلبة المتغيبين وشروحات محمية</span>
+              </div>
+            </div>
+            <span className="text-xs bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors">إضافة درس ←</span>
           </button>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -210,6 +229,16 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="mt-4 pt-4 border-t border-baaqoon-100 dark:border-baaqoon-800 space-y-2">
+            <Link 
+              to="/teacher/recorded-lessons" 
+              className="flex items-center justify-between w-full text-right px-4 py-3 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-900 dark:text-indigo-200 rounded-xl transition-colors text-sm font-bold border border-indigo-200 dark:border-indigo-800 shadow-sm"
+            >
+              <span className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-indigo-600" />
+                <span>بنك الدروس المسجلة والمحتوى الإثرائي</span>
+              </span>
+              <span className="text-xs text-indigo-600 dark:text-indigo-400 font-bold">عرض الدروس ←</span>
+            </Link>
             <Link 
               to="/teacher/distribution" 
               className="flex items-center justify-between w-full text-right px-4 py-3 bg-white dark:bg-baaqoon-900 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 text-baaqoon-800 dark:text-baaqoon-200 rounded-xl transition-colors text-sm font-bold border border-baaqoon-200 dark:border-baaqoon-700 shadow-sm"
@@ -333,6 +362,13 @@ export default function TeacherDashboard() {
         isOpen={isAttendanceModalOpen}
         onClose={() => setIsAttendanceModalOpen(false)}
         sessionId={selectedSessionId}
+      />
+
+      <AddRecordedLessonModal
+        isOpen={isAddRecordedModalOpen}
+        onClose={() => setIsAddRecordedModalOpen(false)}
+        onSuccess={() => {}}
+        defaultSubjectId={user?.supervisedSubjectId || undefined}
       />
     </div>
   );

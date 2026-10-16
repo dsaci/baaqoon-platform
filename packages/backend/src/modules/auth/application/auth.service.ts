@@ -84,8 +84,18 @@ export class AuthService {
       throw new ConflictException("تحديد الجنسية إجباري لاستكمال التسجيل");
     }
 
-    if ((data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') && !data.supervisedSubjectId) {
-      throw new ConflictException("تحديد مادة التدريس/الإشراف إجباري لاستكمال التسجيل وتفويجك وإسناد الحصص الدراسية");
+    if (data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') {
+      const subId = (data.supervisedSubjectId || '').trim();
+      if (!subId) {
+        throw new ConflictException("تحديد مادة التدريس إجباري حتمي لإنشاء حساب المعلم أو المشرف؛ لا يمكن التسجيل دون اختيار مادة التخصص الأكاديمي.");
+      }
+      const subject = await this.prisma.subject.findUnique({
+        where: { id: subId },
+        select: { id: true, nameAr: true }
+      });
+      if (!subject) {
+        throw new ConflictException("مادة التدريس المحددة غير صالحة أو غير مسجلة في قاعدة بيانات المنصة.");
+      }
     }
 
     // 3. Strict Duplicate Prevention & Collision Check (Email, Phone, and Full Name per Role)
@@ -275,6 +285,7 @@ export class AuthService {
         roles,
         isDualRole,
         supervisedSubjectId: user.supervisedSubjectId,
+        mustChangePassword: Boolean(user.mustChangePassword),
         status: user.status,
         phone: user.phone,
         nationality: user.nationality,

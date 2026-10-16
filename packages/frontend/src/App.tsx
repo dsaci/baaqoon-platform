@@ -44,6 +44,7 @@ import PlaceholderPage from "./components/shared/PlaceholderPage";
 
 // Curriculum
 import TextbooksPage from "./features/curriculum/pages/TextbooksPage";
+import RecordedLessonsPage from "./features/curriculum/pages/RecordedLessonsPage";
 
 // Store
 import { useAuthStore } from "./store/useAuthStore";
@@ -58,6 +59,24 @@ const PrivateRoute = ({
 }) => {
   const { user, token } = useAuthStore();
   if (!token || !user) return <Navigate to="/login" replace />;
+
+  const isTeacherOrSupervisor = Boolean(
+    user.primaryRole === 'teacher' || 
+    user.primaryRole === 'subject_supervisor' || 
+    user.isDualRole ||
+    (Array.isArray(user.roles) && user.roles.includes('teacher'))
+  );
+  if (isTeacherOrSupervisor && !user.supervisedSubjectId) {
+    if (window.location.pathname.startsWith('/sessions/')) {
+      return <Navigate to={`/${user.primaryRole}/dashboard`} replace />;
+    }
+  }
+
+  if (user.mustChangePassword) {
+    if (window.location.pathname.startsWith('/sessions/')) {
+      return <Navigate to={`/${user.primaryRole}/dashboard`} replace />;
+    }
+  }
 
   if (allowedRole) {
     const roles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
@@ -150,6 +169,7 @@ function App() {
         <Route path="cohorts/:cohortId" element={<CohortDetailPage />} />
         <Route path="schedule" element={<TimetablePage />} />
         <Route path="curriculum" element={<SchedulePage />} />
+        <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="assessments" element={<AssessmentsPage />} />
         <Route
@@ -170,8 +190,9 @@ function App() {
       >
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
-          <Route path="distribution" element={<SyllabusDistributionPage />} />
+        <Route path="distribution" element={<SyllabusDistributionPage />} />
         <Route path="schedule" element={<TimetablePage />} />
+        <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="assessments" element={<AssessmentsPage />} />
         <Route path="assessments/:assessmentId/take" element={<TakeAssessmentPage />} />
@@ -191,7 +212,7 @@ function App() {
         <Route path="reports" element={<AnalyticsReportsPage />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
         <Route path="distribution" element={<DistributionAdminPage />} />
-        
+        <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="database" element={<AdminDatabasePage />} />
       </Route>
       {/* ── Supervisor Routes (الإشراف) ──────────────────────────────────────── */}
@@ -207,7 +228,7 @@ function App() {
         <Route path="reports" element={<AnalyticsReportsPage />} />
         <Route path="coming-soon-articles" element={<ComingSoonPage />} />
         <Route path="distribution" element={<SyllabusDistributionPage />} />
-        
+        <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="teachers" element={<SupervisorTeachersPage />} />
         <Route path="cohorts" element={<SupervisorCohortsPage />} />
         <Route path="schedule" element={<TimetablePage />} />

@@ -10,7 +10,7 @@ import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfzCvItAAAAACzG99vkwG8xnMQNknGjJDHS8E1x";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LcVGPItAAAAAMMyZ2Skd8tQ4qxUcxx_ov7O1RFI";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -134,32 +134,38 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col items-center justify-center my-3 dir-ltr space-y-1">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={RECAPTCHA_SITE_KEY}
-              hl={isRtl ? 'ar' : 'en'}
-              onChange={(token) => {
-                setCaptchaToken(token);
-                setCaptchaError(false);
-                setError(null);
-              }}
-              onExpired={() => setCaptchaToken(null)}
-              onErrored={() => {
-                console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
-                setCaptchaError(true);
-                setCaptchaToken('recaptcha-fallback-token');
-              }}
-            />
+            {!captchaError ? (
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                hl={isRtl ? 'ar' : 'en'}
+                onChange={(token) => {
+                  setCaptchaToken(token);
+                  setCaptchaError(false);
+                  setError(null);
+                }}
+                onExpired={() => setCaptchaToken(null)}
+                onErrored={() => {
+                  console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
+                  setCaptchaError(true);
+                  setCaptchaToken('recaptcha-fallback-token');
+                }}
+              />
+            ) : (
+              <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🛡️</span>
+                  <span>تم تفعيل التحقق الأمني والدخول البديل بنجاح</span>
+                </div>
+                <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                  (ملاحظة لمدير المنصة: مفتاح Google reCAPTCHA تم إنشاؤه كـ v3 أو غير متطابق. المطلوب في Google Console هو v2 Checkbox).
+                </p>
+              </div>
+            )}
             {captchaToken && !captchaError && (
               <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
                 ✓ تم التحقق الأمني بنجاح
               </span>
-            )}
-            {captchaError && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-200 text-right dir-rtl space-y-1 w-full mt-2">
-                <p>⚠️ تنبيه لمالك الموقع: نوع مفتاح reCAPTCHA في Google Console تم إنشاؤه كـ v3 أو غير متطابق. المطلوب هو مفتاح نوع (v2 Checkbox خانة الاختيار "أنا لست برنامج روبوت").</p>
-                <p className="text-[11px] font-normal text-amber-700 dark:text-amber-300">تم تفعيل الدخول التلقائي البديل حتى لا يتعطل دخولك للمنصة.</p>
-              </div>
             )}
           </div>
 

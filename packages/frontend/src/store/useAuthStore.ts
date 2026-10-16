@@ -17,6 +17,7 @@ export interface User {
   gradeLevel?: 'grade_11' | 'grade_12';
   academicBranch?: string;
   curriculumType?: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthState {

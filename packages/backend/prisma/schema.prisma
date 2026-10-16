@@ -27,6 +27,7 @@ model User {
   timezone            String                    @default("Asia/Gaza") @db.VarChar(64)
   locale              String                    @default("ar") @db.VarChar(10)
     nationality         String?                   @db.VarChar(100)
+  mustChangePassword  Boolean                   @default(false)
   lastLoginAt         DateTime?                 @db.Timestamptz(6)
   createdAt           DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime                  @updatedAt @db.Timestamptz(6)
@@ -47,6 +48,8 @@ model User {
   roles               UserRoleAssignment[]
   activityLogs        ActivityLog[]             @relation("UserActivityLogs")
   supervisedSubject   Subject?                  @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id])
+  createdRecordedLessons RecordedLesson[]       @relation("CreatedRecordedLessons")
+  recordedLessonViews    RecordedLessonView[]   @relation("StudentRecordedLessonViews")
 
   @@map("users")
   @@schema("users")
@@ -79,6 +82,7 @@ model Subject {
   courses            Course[]
   CohortRequest      CohortRequest[]
   supervisors        User[]           @relation("SubjectSupervisors")
+  recordedLessons    RecordedLesson[]
 
   @@map("subjects")
   @@schema("curriculum")
@@ -186,6 +190,7 @@ model CurriculumLesson {
   unit                     CurriculumUnit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
   sessions                 CurriculumSession[]
   liveSessions             Session[]
+  recordedLessons          RecordedLesson[]
 
   @@unique([unitId, orderIndex])
   @@map("curriculum_lessons")
@@ -227,6 +232,7 @@ model Cohort {
   enrollments         CohortEnrollment[]
   instructors         CohortInstructor[]
   sessions            Session[]
+  recordedLessons     RecordedLesson[]
 
   @@map("cohorts")
   @@schema("groups")
@@ -291,6 +297,7 @@ model Session {
   rescheduledTo       Session?            @relation("SessionReschedules", fields: [rescheduledToId], references: [id])
   reschedules         Session[]           @relation("SessionReschedules")
   teacher             User                @relation(fields: [teacherId], references: [id])
+  recordedLessons     RecordedLesson[]
 
   @@map("sessions")
   @@schema("scheduling")
@@ -784,3 +791,50 @@ model SyllabusMonth {
   @@map("syllabus_months")
   @@schema("curriculum")
 }
+
+model RecordedLesson {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String               @db.VarChar(200)
+  description     String?
+  subjectId       String               @map("subject_id") @db.Uuid
+  cohortId        String?              @map("cohort_id") @db.Uuid
+  lessonId        String?              @map("lesson_id") @db.Uuid
+  sessionId       String?              @map("session_id") @db.Uuid
+  createdById     String               @map("created_by_id") @db.Uuid
+  mediaType       String               @default("youtube") @map("media_type") @db.VarChar(50)
+  mediaUrl        String               @map("media_url") @db.Text
+  attachmentUrl   String?              @map("attachment_url") @db.Text
+  attachmentName  String?              @map("attachment_name") @db.VarChar(255)
+  isGlobalSubject Boolean              @default(false) @map("is_global_subject")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subject         Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  cohort          Cohort?              @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  lesson          CurriculumLesson?    @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  session         Session?             @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  creator         User                 @relation("CreatedRecordedLessons", fields: [createdById], references: [id], onDelete: Cascade)
+  views           RecordedLessonView[]
+
+  @@map("recorded_lessons")
+  @@schema("curriculum")
+}
+
+model RecordedLessonView {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordedLessonId String         @map("recorded_lesson_id") @db.Uuid
+  studentId        String         @map("student_id") @db.Uuid
+  pledgeAccepted   Boolean        @default(true) @map("pledge_accepted")
+  pledgedAt        DateTime       @default(now()) @map("pledged_at") @db.Timestamptz(6)
+  ipAddress        String?        @map("ip_address") @db.VarChar(64)
+  viewCount        Int            @default(1) @map("view_count")
+  lastViewedAt     DateTime       @default(now()) @map("last_viewed_at") @db.Timestamptz(6)
+
+  recordedLesson   RecordedLesson @relation(fields: [recordedLessonId], references: [id], onDelete: Cascade)
+  student          User           @relation("StudentRecordedLessonViews", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([recordedLessonId, studentId])
+  @@map("recorded_lesson_views")
+  @@schema("curriculum")
+}
+

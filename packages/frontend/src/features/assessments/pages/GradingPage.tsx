@@ -135,15 +135,26 @@ export default function GradingPage() {
     (s) => s.id === selectedSubmissionId,
   );
 
+  const parsedSubmission = React.useMemo(() => {
+    if (!selectedSubmission?.feedback) return null;
+    try {
+      const parsed = typeof selectedSubmission.feedback === "string" ? JSON.parse(selectedSubmission.feedback) : selectedSubmission.feedback;
+      return parsed && typeof parsed === "object" ? parsed : { solutionText: selectedSubmission.feedback };
+    } catch {
+      return { solutionText: selectedSubmission.feedback };
+    }
+  }, [selectedSubmission]);
+
   // Update form state when selection changes
   React.useEffect(() => {
     if (selectedSubmission) {
       setCurrentScore(
         selectedSubmission.score !== null ? selectedSubmission.score : "",
       );
-      setCurrentFeedback(selectedSubmission.feedback || "");
+      const teacherComment = parsedSubmission?.teacherComment || (typeof selectedSubmission.feedback === "string" && !parsedSubmission ? selectedSubmission.feedback : "");
+      setCurrentFeedback(teacherComment || "");
     }
-  }, [selectedSubmissionId, selectedSubmission]);
+  }, [selectedSubmissionId, selectedSubmission, parsedSubmission]);
 
   const handleScoreChange = (val: number | "") => {
     if (val === "") {
@@ -368,23 +379,69 @@ export default function GradingPage() {
                 </div>
 
                 <div className="bg-baaqoon-50 dark:bg-baaqoon-950 rounded-xl p-6 border border-baaqoon-200 dark:border-baaqoon-700">
-                  {assessment?.questions?.map((q: any, idx: number) => (
-                    <div key={q.id} className="mb-6 last:mb-0">
-                      <h3 className="font-semibold text-baaqoon-900 dark:text-white mb-2 flex items-start gap-2">
-                        <span className="text-baaqoon-accent mt-0.5 font-bold">
-                          س{idx + 1}:
-                        </span>
-                        {q.questionTemplate?.content || "سؤال غير متوفر"}
-                      </h3>
-                      <div className="mt-4 bg-white dark:bg-baaqoon-900 p-5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 text-baaqoon-700 dark:text-baaqoon-300 leading-relaxed min-h-[120px]">
-                        {selectedSubmission?.answer ||
-                          "لم يتم تقديم إجابة أو لا توجد تسليمات بعد."}
+                  {assessment?.questions && assessment.questions.length > 0 ? (
+                    assessment.questions.map((q: any, idx: number) => {
+                      const studentAns =
+                        parsedSubmission?.answers?.[q.id] ||
+                        selectedSubmission?.answer ||
+                        "لم يتم تقديم إجابة لهذا السؤال.";
+                      const qText =
+                        q.questionTemplate?.content ||
+                        q.questionTemplate?.questionTextAr ||
+                        q.content ||
+                        "سؤال بدون نص";
+                      return (
+                        <div key={q.id} className="mb-6 last:mb-0">
+                          <h3 className="font-semibold text-baaqoon-900 dark:text-white mb-2 flex items-start gap-2">
+                            <span className="text-baaqoon-accent mt-0.5 font-bold">
+                              س{idx + 1}:
+                            </span>
+                            {qText}
+                          </h3>
+                          <div className="mt-3 bg-white dark:bg-baaqoon-900 p-4 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700 text-baaqoon-700 dark:text-baaqoon-300 leading-relaxed font-medium text-sm">
+                            <span className="text-xs text-baaqoon-400 block mb-1 font-bold">إجابة الطالب:</span>
+                            {studentAns}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Assignment Prompt / Description */}
+                      <div className="bg-white dark:bg-baaqoon-900 p-5 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700">
+                        <span className="text-xs font-bold text-baaqoon-500 block mb-2">موضوع وتكليف الواجب:</span>
+                        <p className="text-baaqoon-900 dark:text-white font-medium text-sm whitespace-pre-line leading-relaxed">
+                          {assessment?.description || "لا يوجد وصف مدخل للتكليف"}
+                        </p>
                       </div>
-                    </div>
-                  ))}
-                  {!assessment?.questions?.length && (
-                    <div className="text-center p-4 text-baaqoon-500">
-                      لا توجد أسئلة مولدة في هذا الواجب
+
+                      {/* Student Submitted Solution */}
+                      <div className="bg-white dark:bg-baaqoon-900 p-5 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700 space-y-3">
+                        <span className="text-xs font-bold text-baaqoon-accent block">حل الواجب المسلّم من الطالب:</span>
+                        <div className="p-4 bg-baaqoon-50 dark:bg-baaqoon-950 rounded-xl text-baaqoon-800 dark:text-baaqoon-200 font-medium text-sm leading-relaxed whitespace-pre-line min-h-[100px]">
+                          {parsedSubmission?.solutionText || selectedSubmission?.answer || "لم يقدم الطالب نصاً للحل بعد."}
+                        </div>
+
+                        {parsedSubmission?.fileUrl && (
+                          <div className="pt-2">
+                            <a
+                              href={parsedSubmission.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-bold hover:underline"
+                            >
+                              📎 فتح رابط الملف المرفق من الطالب
+                            </a>
+                          </div>
+                        )}
+
+                        {parsedSubmission?.notes && (
+                          <div className="text-xs text-baaqoon-500 pt-2 border-t border-baaqoon-100 dark:border-baaqoon-800">
+                            <span className="font-bold">ملاحظة الطالب: </span>
+                            {parsedSubmission.notes}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

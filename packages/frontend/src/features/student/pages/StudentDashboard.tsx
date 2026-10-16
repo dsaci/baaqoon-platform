@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../lib/axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   Clock,
   Video,
@@ -22,13 +22,16 @@ import {
   Layers,
   Loader2,
   X,
-  AlertCircle
+  AlertCircle,
+  Play,
+  ShieldCheck
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { DownloadCloud, Trophy, LifeBuoy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
+import RecordedLessonPlayerModal from '../../curriculum/components/recorded-lessons/RecordedLessonPlayerModal';
 
 const motivationalQuotes = [
   "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
@@ -43,8 +46,12 @@ export default function StudentDashboard() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [enrollToast, setEnrollToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const [selectedRecordedLesson, setSelectedRecordedLesson] = useState<any>(null);
+  const [isRecordedPlayerOpen, setIsRecordedPlayerOpen] = useState(false);
 
   const studentName = user
     ? `${user.firstName} ${user.lastName}`
@@ -120,6 +127,28 @@ export default function StudentDashboard() {
       return res.data;
     },
   });
+
+  const { data: recordedLessons = [] } = useQuery({
+    queryKey: ["studentRecordedLessons"],
+    queryFn: async () => {
+      const res = await api.get("/curriculum/recorded-lessons");
+      return res.data || [];
+    },
+  });
+
+  // Auto-open lesson if arrived from notification URL (e.g. ?tab=recorded&lessonId=...)
+  useEffect(() => {
+    const lessonId = searchParams.get("lessonId");
+    if (lessonId && recordedLessons.length > 0) {
+      const target = recordedLessons.find((l: any) => l.id === lessonId);
+      if (target) {
+        setSelectedRecordedLesson(target);
+        setIsRecordedPlayerOpen(true);
+      }
+    }
+  }, [searchParams, recordedLessons]);
+
+  const unwatchedRecordedCount = recordedLessons.filter((l: any) => !l.isViewed).length;
 
   const completedCount = assignments.filter(
     (a: any) => a.submissions?.length > 0
@@ -398,6 +427,108 @@ export default function StudentDashboard() {
         )}
       </div>
 
+      {/* ══════════════════════ Recorded Lessons Section ══════════════════════ */}
+      <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-md rounded-3xl p-6 border border-teal-100 dark:border-teal-800/40 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+              <Video className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  الدروس المسجلة والمحتوى الإثرائي والتعويضي
+                </h2>
+                {unwatchedRecordedCount > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 animate-pulse">
+                    {unwatchedRecordedCount} جديد لم تشاهده
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5">
+                عوض ما فاتك من حصص وراجع الشروحات المسجلة بأمانة وخصوصية تامة 🛡️
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/student/recorded-lessons"
+            className="self-start sm:self-auto px-4 py-2 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 rounded-xl text-xs font-black transition-colors flex items-center gap-1.5"
+          >
+            <span>عرض كافة الدروس المسجلة ({recordedLessons.length})</span>
+            <span>←</span>
+          </Link>
+        </div>
+
+        {recordedLessons.length === 0 ? (
+          <div className="p-6 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+              لا توجد دروس مسجلة حالياً. سيصلك إشعار فوري عند نشر أي درس تعويضي من قبل أساتذتك.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+            {recordedLessons.slice(0, 3).map((lesson: any) => {
+              const isUnwatched = !lesson.isViewed;
+              return (
+                <div
+                  key={lesson.id}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                    isUnwatched
+                      ? "bg-gradient-to-br from-emerald-50/60 to-white dark:from-emerald-950/30 dark:to-slate-900 border-emerald-200 dark:border-emerald-800/60 shadow-xs"
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                        {lesson.subject?.nameAr || "مادة دراسية"}
+                      </span>
+                      {isUnwatched ? (
+                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          جديد
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          تمت المشاهدة
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white line-clamp-1">
+                      {lesson.title}
+                    </h4>
+
+                    {lesson.lesson?.title && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold line-clamp-1">
+                        • {lesson.lesson.title}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSelectedRecordedLesson(lesson);
+                      setIsRecordedPlayerOpen(true);
+                    }}
+                    className={`w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isUnwatched
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20"
+                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>{isUnwatched ? "مشاهدة الدرس الآن 🎥" : "إعادة المشاهدة"}</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ══════════════════════ Sessions Timeline ══════════════════════ */}
         <div className="lg:col-span-2 space-y-6">
@@ -598,18 +729,17 @@ export default function StudentDashboard() {
                     </div>
                     <button
                       onClick={() =>
-                        !isCompleted &&
                         navigate(
                           `/student/assessments/${assignment.id}/take`
                         )
                       }
                       className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
                         isCompleted
-                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 cursor-default"
+                          ? "bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
                           : "bg-gradient-to-l from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-md shadow-violet-500/20 hover:shadow-lg"
                       }`}
                     >
-                      {isCompleted ? "✅ أحسنت! تم التسليم" : "🚀 ابدأ الحل الآن"}
+                      {isCompleted ? "✅ تم التسليم — عرض النتيجة والحل" : "🚀 ابدأ الحل الآن"}
                     </button>
                   </div>
                 );
@@ -703,6 +833,23 @@ export default function StudentDashboard() {
           }
         ]} 
       />
+
+      {/* Recorded Lesson Player Modal */}
+      {selectedRecordedLesson && (
+        <RecordedLessonPlayerModal
+          lesson={selectedRecordedLesson}
+          isOpen={isRecordedPlayerOpen}
+          onClose={() => {
+            setIsRecordedPlayerOpen(false);
+            setSelectedRecordedLesson(null);
+          }}
+          onViewRecorded={(lessonId) => {
+            queryClient.setQueryData(["studentRecordedLessons"], (old: any[] = []) =>
+              old.map((l) => (l.id === lessonId ? { ...l, isViewed: true, hasAcceptedPledge: true } : l))
+            );
+          }}
+        />
+      )}
 
     </div>
   );
