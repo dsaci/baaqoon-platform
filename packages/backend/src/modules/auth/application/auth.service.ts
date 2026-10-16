@@ -186,6 +186,9 @@ export class AuthService {
 
     const identifier = userOrData.email || userOrData.phone;
     if (identifier && userOrData.password) {
+      // 1. Enforce Google reCAPTCHA verification on login
+      await verifyRecaptchaToken(userOrData.recaptchaToken);
+
       user = await this.usersFacade.getUserByIdentifier(identifier);
       if (!user) {
         throw new UnauthorizedException(

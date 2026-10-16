@@ -89,6 +89,14 @@ export async function verifyRecaptchaToken(
     throw new UnauthorizedException('إثبات التحقق الأمني مطلوب (reCAPTCHA)');
   }
 
+  // Allow bypass in test/dev environment if specified
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (token === 'dev-bypass-token' || token === 'test-bypass-token')
+  ) {
+    return true;
+  }
+
   // Use custom secret from env, or user provided secret key
   const secretKey =
     process.env.RECAPTCHA_SECRET_KEY || '6LfzCvItAAAAAEkzCBx9-l1V2soamHll3wJ-12tc';

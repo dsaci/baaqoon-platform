@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { BookOpen, LogIn, Loader2, AlertCircle, FlaskConical, Home } from 'lucide-react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import logo from '../../../assets/logo.jpg';
 import { api } from '../../../lib/axios';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -9,24 +10,35 @@ import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfzCvItAAAAACzG99vkwG8xnMQNknGjJDHS8E1x";
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
 
-  // ── Demo login (real backend) ───────────────────────────────────────
-  
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    if (!captchaToken) {
+      setError('يرجى تأكيد اختبار الأمان (أنا لست برنامج روبوت)');
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+        recaptchaToken: captchaToken,
+      });
       const { accessToken, user } = response.data;
       setAuth(user, accessToken);
       if (user.primaryRole === 'student') navigate('/student/dashboard');
@@ -34,6 +46,9 @@ export default function LoginPage() {
       else if (user.primaryRole === 'subject_supervisor' || user.primaryRole === 'supervisor') navigate('/supervisor/dashboard');
       else navigate('/admin/dashboard');
     } catch (err: any) {
+      // Reset reCAPTCHA on failure so user can retry with a fresh token
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
       setError(err.response?.data?.message || 'حدث خطأ أثناء تسجيل الدخول');
     } finally {
       setIsLoading(false);
@@ -115,9 +130,30 @@ export default function LoginPage() {
             />
           </div>
 
+          <div className="flex flex-col items-center justify-center my-3 dir-ltr space-y-1">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={RECAPTCHA_SITE_KEY}
+              hl={isRtl ? 'ar' : 'en'}
+              onChange={(token) => {
+                setCaptchaToken(token);
+                setError(null);
+              }}
+              onExpired={() => setCaptchaToken(null)}
+              onErrored={() => {
+                console.warn('reCAPTCHA failed to load or encountered a network error');
+              }}
+            />
+            {captchaToken && (
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                ✓ تم التحقق الأمني بنجاح
+              </span>
+            )}
+          </div>
+
           <button 
             type="submit" 
-            disabled={isLoading}
+            disabled={isLoading || !captchaToken}
             className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
               isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
             } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}
