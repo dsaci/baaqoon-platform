@@ -34,7 +34,9 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Cairo"', '"Tajawal"', 'sans-serif'],
+        sans: ['"Thmanyah Sans"', '"Thmanyah"', '"Tajawal"', 'sans-serif'],
+        display: ['"Thmanyah Serif Display"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
+        serif: ['"Thmanyah Serif Text"', '"Thmanyah Serif Display"', 'serif'],
       },
       keyframes: {
         'fade-in-up': {
