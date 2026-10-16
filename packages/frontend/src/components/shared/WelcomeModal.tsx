@@ -33,7 +33,7 @@ export default function WelcomeModal() {
       {/* Modal */}
       <div className="relative bg-white dark:bg-baaqoon-900 w-full max-w-lg rounded-2xl shadow-2xl p-8 overflow-hidden animate-fade-in-up border border-baaqoon-100 dark:border-baaqoon-800">
         {/* Decorative background strip */}
-        <div className="absolute top-0 inset-x-0 h-4 flag-strip" />
+        <div className="absolute top-0 inset-x-0 h-2 bg-[#394C2A]" />
         <div className="absolute top-4 inset-x-0 h-32 bg-gradient-to-b from-baaqoon-100 to-white opacity-50" />
         
         <button 

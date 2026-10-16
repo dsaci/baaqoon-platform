@@ -154,9 +154,6 @@ export default function RegisterPage() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Top Flag Strip */}
-      <div className="flag-strip w-full fixed top-0 left-0 right-0 z-50 shadow-md" />
-      
       {/* Theme and Lang controls at the top */}
       <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
         <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-emerald-100 dark:border-emerald-800/30 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
@@ -558,8 +555,6 @@ export default function RegisterPage() {
         </p>
 
       </div>
-      {/* Bottom Flag Strip */}
-      <div className="flag-strip w-full fixed bottom-0 left-0 right-0 z-50" />
     </div>
   );
 }
