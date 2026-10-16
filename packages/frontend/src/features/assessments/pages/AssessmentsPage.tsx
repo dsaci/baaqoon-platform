@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles } from 'lucide-react';
+import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import CreateAssessmentModal from '../components/CreateAssessmentModal';
@@ -51,9 +51,24 @@ export default function AssessmentsPage() {
   }));
 
   const handleReset = async () => {
-    if (confirm('هل أنت متأكد من تصفير (حذف) جميع الاختبارات والتكليفات التجريبية؟')) {
-      await api.delete('/assessments');
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+    if (confirm(isRtl ? 'هل أنت متأكد من تصفير (حذف) جميع الاختبارات والتكليفات الخاصة بك؟' : 'Are you sure you want to reset all your assessments?')) {
+      try {
+        await api.delete('/assessments');
+        queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      } catch (err: any) {
+        alert(err.response?.data?.message || 'حدث خطأ أثناء تصفير الواجبات');
+      }
+    }
+  };
+
+  const handleDeleteAssessment = async (id: string, title: string) => {
+    if (confirm(isRtl ? `هل أنت متأكد من حذف واجب "${title}" نهائياً؟` : `Are you sure you want to delete "${title}"?`)) {
+      try {
+        await api.delete(`/assessments/${id}`);
+        queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      } catch (err: any) {
+        alert(err.response?.data?.message || 'حدث خطأ أثناء حذف الواجب');
+      }
     }
   };
 
@@ -231,12 +246,22 @@ export default function AssessmentsPage() {
                       >
                         {isRtl ? 'تصدير (PDF)' : 'Export (PDF)'}
                       </button>
-                      <Link
-                        to={`/teacher/assessments/${assessment.id}/grade`}
-                        className={`px-4 py-2.5 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5`}
-                      >
-                        {t('assessments.grading', isRtl ? 'عرض وتصحيح' : 'Grade Submissions')}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          to={`/teacher/assessments/${assessment.id}/grade`}
+                          className={`flex-1 px-3.5 py-2.5 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5`}
+                        >
+                          {t('assessments.grading', isRtl ? 'عرض وتصحيح' : 'Grade Submissions')}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
+                          title={isRtl ? 'حذف هذا الواجب نهائياً' : 'Delete this assessment'}
+                          className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 rounded-xl transition-colors border border-rose-200 dark:border-rose-800 shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : (

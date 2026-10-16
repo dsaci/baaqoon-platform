@@ -25,8 +25,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      // Don't auto-logout if the request was during login or register
+      if (!url.includes('/auth/login') && !url.includes('/auth/register') && !url.includes('/auth/password-reset-request')) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

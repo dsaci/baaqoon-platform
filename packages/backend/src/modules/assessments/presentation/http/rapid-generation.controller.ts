@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Req, Param, UseGuards, BadRequestException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { RapidGenerationService } from '../../application/rapid-generation.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
@@ -325,12 +325,83 @@ export class AssessmentsController {
 
   @Delete()
   async deleteAllAssessments(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
     const role = req.user?.primaryRole;
-    if (role !== 'super_admin' && role !== 'admin') {
-      throw new UnauthorizedException('غير مصرح لك بتنفيذ هذه العملية — يحتاج صلاحية مدير');
+
+    if (!userId) {
+      throw new UnauthorizedException('يجب تسجيل الدخول لتنفيذ هذه العملية.');
     }
-    // For demo/testing purposes - only admins can reset assessments
-    await this.prisma.assessment.deleteMany();
-    return { message: 'تم حذف جميع الاختبارات' };
+
+    // 1. Admins can reset all assessments in the platform
+    if (role === 'super_admin' || role === 'admin') {
+      const deleted = await this.prisma.assessment.deleteMany();
+      return { message: 'تم تصفير وحذف جميع التكليفات والاختبارات بنجاح.', count: deleted.count };
+    }
+
+    // 2. Teachers and supervisors can reset their own created assessments or assessments in their cohorts
+    if (role === 'teacher' || role === 'subject_supervisor' || role === 'supervisor' || req.user?.isDualRole) {
+      const teacherCohorts = await this.prisma.cohortInstructor.findMany({
+        where: { teacherId: userId },
+        select: { cohortId: true },
+      });
+      const cohortIds = teacherCohorts.map((tc) => tc.cohortId);
+
+      const whereClause: any = {
+        OR: [
+          { createdById: userId },
+          ...(cohortIds.length > 0 ? [{ cohortId: { in: cohortIds } }] : []),
+        ],
+      };
+
+      const deleted = await this.prisma.assessment.deleteMany({
+        where: whereClause,
+      });
+
+      return {
+        message: 'تم تصفير وحذف التكليفات والاختبارات الخاصة بك بنجاح.',
+        count: deleted.count,
+      };
+    }
+
+    throw new ForbiddenException('غير مصرح لك بتصفير الواجبات.');
+  }
+
+  @Delete(':id')
+  async deleteAssessmentById(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user?.id || req.user?.userId;
+    const role = req.user?.primaryRole;
+
+    if (!userId) {
+      throw new UnauthorizedException('يجب تسجيل الدخول أولاً.');
+    }
+
+    const assessment = await this.prisma.assessment.findUnique({
+      where: { id },
+      include: {
+        cohort: {
+          include: {
+            instructors: true,
+          },
+        },
+      },
+    });
+
+    if (!assessment) {
+      throw new BadRequestException('التكليف أو الاختبار غير موجود أو تم حذفه مسبقاً.');
+    }
+
+    const isAdmin = role === 'super_admin' || role === 'admin';
+    const isAuthor = assessment.createdById === userId;
+    const isCohortInstructor = assessment.cohort?.instructors?.some((i) => i.teacherId === userId);
+
+    if (!isAdmin && !isAuthor && !isCohortInstructor) {
+      throw new ForbiddenException('غير مصرح لك بحذف هذا التكليف.');
+    }
+
+    await this.prisma.assessment.delete({
+      where: { id },
+    });
+
+    return { message: 'تم حذف التكليف بنجاح.' };
   }
 }
