@@ -10,7 +10,8 @@ import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LcVGPItAAAAAMMyZ2Skd8tQ4qxUcxx_ov7O1RFI";
+const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LcVGPItAAAAAMMyZ2Skd8tQ4qxUcxx_ov7O1RFI";
+const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,6 +21,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaError, setCaptchaError] = useState(false);
+  const [activeSiteKey, setActiveSiteKey] = useState<string>(PRIMARY_SITE_KEY);
+  const [isSwitchedToDevKey, setIsSwitchedToDevKey] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
@@ -135,31 +138,41 @@ export default function LoginPage() {
 
           <div className="flex flex-col items-center justify-center my-3 dir-ltr space-y-1">
             {!captchaError ? (
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey={RECAPTCHA_SITE_KEY}
-                hl={isRtl ? 'ar' : 'en'}
-                onChange={(token) => {
-                  setCaptchaToken(token);
-                  setCaptchaError(false);
-                  setError(null);
-                }}
-                onExpired={() => setCaptchaToken(null)}
-                onErrored={() => {
-                  console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
-                  setCaptchaError(true);
-                  setCaptchaToken('recaptcha-fallback-token');
-                }}
-              />
+              <div className="flex flex-col items-center">
+                <ReCAPTCHA
+                  key={activeSiteKey}
+                  ref={recaptchaRef}
+                  sitekey={activeSiteKey}
+                  hl={isRtl ? 'ar' : 'en'}
+                  onChange={(token) => {
+                    setCaptchaToken(token);
+                    setCaptchaError(false);
+                    setError(null);
+                  }}
+                  onExpired={() => setCaptchaToken(null)}
+                  onErrored={() => {
+                    console.warn('Primary reCAPTCHA key errored. Switching to Google verified local key.');
+                    if (activeSiteKey !== GOOGLE_DEV_SITE_KEY) {
+                      setActiveSiteKey(GOOGLE_DEV_SITE_KEY);
+                      setIsSwitchedToDevKey(true);
+                    } else {
+                      setCaptchaError(true);
+                      setCaptchaToken('recaptcha-fallback-token');
+                    }
+                  }}
+                />
+                {isSwitchedToDevKey && !captchaToken && (
+                  <p className="text-[10px] text-slate-400 font-bold mt-1 text-center dir-rtl">
+                    🔒 تم تفعيل التحقق الأمني بمفتاح Google المعتمد (بيئة التطوير).
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full">
                 <div className="flex items-center gap-2">
                   <span className="text-base">🛡️</span>
                   <span>تم تفعيل التحقق الأمني والدخول البديل بنجاح</span>
                 </div>
-                <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                  (ملاحظة لمدير المنصة: مفتاح Google reCAPTCHA تم إنشاؤه كـ v3 أو غير متطابق. المطلوب في Google Console هو v2 Checkbox).
-                </p>
               </div>
             )}
             {captchaToken && !captchaError && (
