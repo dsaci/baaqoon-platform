@@ -21,16 +21,23 @@ export default {
           800: '#27272a',
           900: '#18181b', // Near black (Palestinian flag black)
 
-          // Palestinian Green — the core accent color
-          accent:     '#007A3D',  // Palestine green
-          accentDark: '#005C2E',  // Darker green for hover
+          // Palestinian Green & Earthy Olive — the core brand colors
+          accent:     '#394C2A',  // Deep Olive Green (الهوية البصرية الجديدة)
+          accentDark: '#1F2A18',  // Deep Forest Olive (لون البانر السفلي)
+          olive:      '#394C2A',
+          oliveDark:  '#1F2A18',
+          oliveLight: '#EDF2EB',
+          gold:       '#BAAA80',  // Warm Khaki / Olive Gold
+          goldDark:   '#8E8759',
+          navy:       '#19232D',  // Deep Charcoal Navy for headlines
+          bgWarm:     '#FAF7F2',  // Warm Graph Paper background
 
           // Palestinian Red — for alerts, CTAs, live indicators
           red:        '#CE1126',  // Palestine red
           redDark:    '#A50E1F',
 
           // Palestinian Black — for headings, borders
-          black:      '#000000',
+          black:      '#19232D',
         }
       },
       fontFamily: {

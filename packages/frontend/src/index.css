@@ -7,10 +7,12 @@
 
 /* ── Global Defaults ─────────────────────────────────────────────────────── */
 :root {
-  --color-green:   #007A3D;
-  --color-red:     #CE1126;
-  --color-black:   #18181b;
-  --color-white:   #fafafa;
+  --color-green:       #394C2A;  /* Deep Olive Green */
+  --color-olive-dark:  #1F2A18;  /* Deep Forest Olive */
+  --color-gold:        #BAAA80;  /* Warm Olive Gold */
+  --color-red:         #CE1126;
+  --color-black:       #19232D;
+  --color-white:       #FAF7F2;
 }
 
 html {
@@ -19,8 +21,8 @@ html {
 
 body {
   font-family: 'Thmanyah Sans', 'Thmanyah', 'Tajawal', sans-serif;
-  background-color: #fafafa;
-  color: #18181b;
+  background-color: #FAF7F2;
+  color: #19232D;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -29,8 +31,25 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .dark body {
-  background-color: #09090b; /* Zinc 950 */
-  color: #fafafa;
+  background-color: #0E120D;
+  color: #FAF7F2;
+}
+
+/* ── Graph Paper Background Utility ─────────────────────────────────────── */
+.bg-graph-paper {
+  background-color: #FAF7F2;
+  background-image: 
+    linear-gradient(to right, rgba(180, 170, 150, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(180, 170, 150, 0.16) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.dark .bg-graph-paper {
+  background-color: #0E120D;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 26px 26px;
 }
 
 /* ── Palestinian Flag Strip ──────────────────────────────────────────────── */
@@ -90,8 +109,8 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; }
 ::-webkit-scrollbar-track  { background: #f4f4f5; }
-::-webkit-scrollbar-thumb  { background: #007A3D; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #005C2E; }
+::-webkit-scrollbar-thumb  { background: #394C2A; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #1F2A18; }
 
 /* ── Dir LTR for email/password inputs ───────────────────────────────────── */
 .dir-ltr { direction: ltr; text-align: left; }

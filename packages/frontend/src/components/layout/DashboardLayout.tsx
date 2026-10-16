@@ -395,8 +395,8 @@ export default function DashboardLayout() {
                   isActive
                     ? `${
                         isRtl ? "bg-gradient-to-l" : "bg-gradient-to-r"
-                      } from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-100 dark:border-emerald-800/50 shadow-sm`
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                      } from-[#EDF2EB] to-[#F5F2EA] dark:from-[#2A3722]/50 dark:to-[#1F2A18]/50 text-[#394C2A] dark:text-[#A8C794] font-bold border border-[#D5CEBC]/60 dark:border-[#394C2A]/40 shadow-xs`
+                    : "text-slate-600 dark:text-slate-400 hover:bg-[#F5F2EA] dark:hover:bg-slate-800/50 hover:text-[#19232D] dark:hover:text-white"
                 }`}
               >
                 <Icon className="w-5 h-5 shrink-0" />

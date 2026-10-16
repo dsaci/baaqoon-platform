@@ -85,14 +85,14 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/60 dark:border-slate-700/50 space-y-8 animate-fade-in-up mt-8 mb-8 z-10">
+      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-[#121711]/90 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-[#E5E0D5] dark:border-zinc-800 space-y-8 animate-fade-in-up mt-8 mb-8 z-10">
         
         <div className="text-center space-y-3">
           <div className="relative inline-block">
-            <div className="absolute inset-0 bg-emerald-400 blur-lg opacity-20 rounded-full"></div>
+            <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white">
+          <h2 className="text-3xl font-black text-[#19232D] dark:text-white">
             {t("auth.sign_in_title", "تسجيل الدخول")}
           </h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">
@@ -117,21 +117,21 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-left dir-ltr shadow-sm"
+              className="w-full px-4 py-3 rounded-xl border border-[#E5E0D5] dark:border-zinc-700 bg-white/70 dark:bg-zinc-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#394C2A]/40 focus:border-[#394C2A] outline-none transition-all text-left dir-ltr shadow-xs"
               placeholder={t("auth.email_or_phone_placeholder", "user@example.com أو 059...")}
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-              {t("common.password", "كلمة المرور")}
+              {t("auth.password", "كلمة المرور")}
             </label>
             <input 
               type="password" 
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-left dir-ltr shadow-sm"
+              className="w-full px-4 py-3 rounded-xl border border-[#E5E0D5] dark:border-zinc-700 bg-white/70 dark:bg-zinc-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#394C2A]/40 focus:border-[#394C2A] outline-none transition-all text-left dir-ltr shadow-xs"
               placeholder="••••••••"
             />
           </div>
@@ -176,7 +176,7 @@ export default function LoginPage() {
               </div>
             )}
             {captchaToken && !captchaError && (
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+              <span className="text-[11px] font-bold text-[#394C2A] dark:text-[#A8C794] flex items-center gap-1 mt-1">
                 ✓ تم التحقق الأمني بنجاح
               </span>
             )}
@@ -185,16 +185,14 @@ export default function LoginPage() {
           <button 
             type="submit" 
             disabled={isLoading || (!captchaToken && !captchaError)}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
-              isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
-            } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-[#BAAA80] to-[#4D5A35] hover:opacity-95 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-md shadow-[#394C2A]/20 hover:shadow-lg hover:-translate-y-0.5`}
           >
             {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
             {isLoading ? t("common.loading", "جاري التحميل...") : t("common.login", "تسجيل الدخول")}
           </button>
         
           <div className={`mt-2 mb-4 ${isRtl ? 'text-right' : 'text-left'}`}>
-            <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-emerald-600 hover:text-emerald-700 font-bold transition-colors">
+            <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-[#394C2A] hover:text-[#1F2A18] dark:text-[#A8C794] font-bold transition-colors">
               {t("auth.forgot_password", "نسيت كلمة المرور؟")}
             </button>
           </div>
