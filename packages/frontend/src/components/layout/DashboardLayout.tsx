@@ -651,10 +651,14 @@ export default function DashboardLayout() {
         onClose={() => setIsProfileModalOpen(false)}
       />
 
-      {/* Complete Contact Info Modal */}
+      {/* Complete Contact Info Modal - Strictly locked when isMissingSubject is true */}
       <CompleteContactModal
-        isOpen={isCompleteContactOpen}
-        onClose={() => setIsCompleteContactOpen(false)}
+        isOpen={isCompleteContactOpen || isMissingSubject}
+        onClose={() => {
+          if (!isMissingSubject) {
+            setIsCompleteContactOpen(false);
+          }
+        }}
         isMissingEmail={isMissingEmail}
         isMissingPhone={isMissingPhone}
         isMissingSubject={isMissingSubject}

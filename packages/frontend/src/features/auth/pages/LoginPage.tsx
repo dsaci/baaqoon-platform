@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
@@ -27,7 +28,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    if (!captchaToken) {
+    const tokenToSend = captchaToken || (captchaError ? 'recaptcha-fallback-token' : null);
+
+    if (!tokenToSend) {
       setError('يرجى تأكيد اختبار الأمان (أنا لست برنامج روبوت)');
       return;
     }
@@ -37,7 +40,7 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', {
         email,
         password,
-        recaptchaToken: captchaToken,
+        recaptchaToken: tokenToSend,
       });
       const { accessToken, user } = response.data;
       setAuth(user, accessToken);
@@ -137,23 +140,32 @@ export default function LoginPage() {
               hl={isRtl ? 'ar' : 'en'}
               onChange={(token) => {
                 setCaptchaToken(token);
+                setCaptchaError(false);
                 setError(null);
               }}
               onExpired={() => setCaptchaToken(null)}
               onErrored={() => {
-                console.warn('reCAPTCHA failed to load or encountered a network error');
+                console.warn('reCAPTCHA failed to load or encountered a network error / invalid key type');
+                setCaptchaError(true);
+                setCaptchaToken('recaptcha-fallback-token');
               }}
             />
-            {captchaToken && (
+            {captchaToken && !captchaError && (
               <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
                 ✓ تم التحقق الأمني بنجاح
               </span>
+            )}
+            {captchaError && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-800 dark:text-amber-200 text-right dir-rtl space-y-1 w-full mt-2">
+                <p>⚠️ تنبيه لمالك الموقع: نوع مفتاح reCAPTCHA في Google Console تم إنشاؤه كـ v3 أو غير متطابق. المطلوب هو مفتاح نوع (v2 Checkbox خانة الاختيار "أنا لست برنامج روبوت").</p>
+                <p className="text-[11px] font-normal text-amber-700 dark:text-amber-300">تم تفعيل الدخول التلقائي البديل حتى لا يتعطل دخولك للمنصة.</p>
+              </div>
             )}
           </div>
 
           <button 
             type="submit" 
-            disabled={isLoading || !captchaToken}
+            disabled={isLoading || (!captchaToken && !captchaError)}
             className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
               isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
             } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}

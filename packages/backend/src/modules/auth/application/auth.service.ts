@@ -84,8 +84,8 @@ export class AuthService {
       throw new ConflictException("تحديد الجنسية إجباري لاستكمال التسجيل");
     }
 
-    if (data.primaryRole === 'teacher' && !data.supervisedSubjectId) {
-      throw new ConflictException("تحديد مادة التدريس إجباري للمعلم لاستكمال التسجيل وتفويجه وإسناد الحصص");
+    if ((data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') && !data.supervisedSubjectId) {
+      throw new ConflictException("تحديد مادة التدريس/الإشراف إجباري لاستكمال التسجيل وتفويجك وإسناد الحصص الدراسية");
     }
 
     // 3. Strict Duplicate Prevention & Collision Check (Email, Phone, and Full Name per Role)

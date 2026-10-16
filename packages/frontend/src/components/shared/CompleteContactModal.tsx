@@ -20,7 +20,7 @@ export default function CompleteContactModal({
   isMissingSubject = false,
   isMissingNationality = false
 }: CompleteContactModalProps) {
-  const { user, initialize } = useAuthStore();
+  const { user, initialize, logout } = useAuthStore();
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [countryCode, setCountryCode] = useState('+970');
@@ -110,39 +110,49 @@ export default function CompleteContactModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 text-right" dir="rtl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 text-right" dir="rtl">
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto animate-fade-in">
         
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white flex justify-between items-center relative">
+        <div className={`p-6 ${
+          isMissingSubject 
+            ? 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-700' 
+            : 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700'
+        } text-white flex justify-between items-center relative`}>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
               <ShieldAlert className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className="text-lg font-black text-white">
-                {isMissingSubject ? 'استكمال البيانات وتحديد مادة التدريس' : 'استكمال بيانات الحساب الإلزامية'}
+                {isMissingSubject ? 'تحديد مادة التدريس إجباري لمتابعة استخدام المنصة' : 'استكمال بيانات الحساب الإلزامية'}
               </h3>
               <p className="text-xs text-amber-100 font-medium mt-0.5">
                 {isMissingSubject 
-                  ? 'إلزامي لتفويج المعلمين وإسناد الطلاب وتأمين الحساب'
+                  ? 'لا يمكن استخدام الحساب حتى يتم تحديد مادة التدريس'
                   : 'تأمين الحساب واستكمال معلومات التواصل'}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {!isMissingSubject && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
+          <div className={`p-4 ${
+            isMissingSubject 
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200' 
+              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+          } rounded-2xl border text-xs leading-relaxed font-bold`}>
             {isMissingSubject ? (
-              <span>⚠️ <strong>تنبيه هام للأساتذة:</strong> لا يمكن للمشرفين الأكاديميين أو الإدارة إسناد الأفواج والطلاب إليك حتى تقوم بتحديد مادتك الدراسية الأساسية. يرجى اختيارها أدناه لتثبيتها فوراً.</span>
+              <span>⛔ <strong>قرار إداري ملزم:</strong> تم تعليق استخدام المنصة مؤقتاً لحسابك حتى تقوم باختيار مادة تدريسك الرسمية. بعد تحديد المادة، سيتم فوراً تفعيل وتثبيت كافة صلاحيات التدريس والأفواج والحصص الخاصة بك.</span>
             ) : (
               <span>🔒 وفقاً لمعايير منصة باقون، يلزم توفر البريد الإلكتروني ورقم الهاتف والجنسية لضمان أمان الحساب وتلقي الإشعارات الهامة.</span>
             )}
@@ -306,25 +316,38 @@ export default function CompleteContactModal({
 
           {/* Actions */}
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              تذكيري لاحقاً
-            </button>
+            {isMissingSubject ? (
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  window.location.href = '/login';
+                }}
+                className="px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-800 text-xs font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              >
+                تسجيل الخروج
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                تذكيري لاحقاً
+              </button>
+            )}
             <button
               type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black shadow-lg shadow-amber-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
+              disabled={loading || (isMissingSubject && !supervisedSubjectId)}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري الحفظ...</span>
+                  <span>جاري الحفظ والتثبيت...</span>
                 </>
               ) : (
-                <span>حفظ وتأكيد البيانات</span>
+                <span>{isMissingSubject ? 'تثبيت مادة التدريس ومواصلة الاستخدام' : 'حفظ وتأكيد البيانات'}</span>
               )}
             </button>
           </div>
