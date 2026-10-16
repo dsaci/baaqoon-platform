@@ -41,8 +41,12 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Thmanyah Sans"', '"Thmanyah"', '"Tajawal"', 'sans-serif'],
-        display: ['"Thmanyah Serif Display"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
+        // Cairo for practical UI, forms, tables, dashboards, and reading comfort
+        sans: ['"Cairo"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
+        // Thmanyah for majestic display titles, headlines, brand identity, and landing page
+        display: ['"Thmanyah Serif Display"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
+        thmanyah: ['"Thmanyah Sans"', '"Thmanyah Serif Display"', '"Cairo"', 'sans-serif'],
+        cairo: ['"Cairo"', '"Tajawal"', 'sans-serif'],
         serif: ['"Thmanyah Serif Text"', '"Thmanyah Serif Display"', 'serif'],
       },
       keyframes: {

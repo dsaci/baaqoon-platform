@@ -31,7 +31,7 @@ export default function LandingPage() {
           
           {/* Logo & Brand */}
           <Link to="/" className="flex items-center gap-3 group">
-            <span className="text-2xl font-black text-[#19232D] dark:text-white tracking-tight">
+            <span className="text-2xl font-black text-[#19232D] dark:text-white tracking-tight font-display">
               باقون
             </span>
             <img 
@@ -138,7 +138,7 @@ export default function LandingPage() {
                   <Target className="w-3.5 h-3.5" />
                   <span>رؤيتنا ورسالتنا</span>
                 </div>
-                <h2 className="text-3xl md:text-5xl font-black leading-tight">
+                <h2 className="text-3xl md:text-5xl font-black leading-tight font-display">
                   <span className="block text-[#19232D] dark:text-white">جذورنا عميقة..</span>
                   <span className="block text-[#394C2A] dark:text-[#A8C794] mt-1">وطموحنا يعانق السماء</span>
                 </h2>
@@ -179,7 +179,7 @@ export default function LandingPage() {
       <section id="hierarchy" className="py-20 md:py-24 bg-graph-paper border-t border-[#E8E4DA] dark:border-zinc-800/80 relative">
         <div className="max-w-6xl mx-auto px-4 md:px-8 relative z-10">
           <div className="text-center space-y-3 mb-16">
-            <h2 className="text-3xl md:text-5xl font-black text-[#19232D] dark:text-white">
+            <h2 className="text-3xl md:text-5xl font-black text-[#19232D] dark:text-white font-display">
               هيكلية <span className="text-[#394C2A] dark:text-[#A8C794]">منظمة وداعمة</span>
             </h2>
             <p className="text-[#4A5568] dark:text-zinc-400 max-w-2xl mx-auto text-base md:text-lg">
@@ -225,7 +225,7 @@ export default function LandingPage() {
       <section className="py-16 px-4 bg-graph-paper">
         <div className="max-w-5xl mx-auto bg-gradient-to-l from-[#394C2A] to-[#1F2A18] rounded-[2.5rem] p-10 md:p-14 text-center text-white relative overflow-hidden shadow-xl">
           <div className="relative z-10 space-y-6">
-            <h2 className="text-3xl md:text-5xl font-black leading-tight">
+            <h2 className="text-3xl md:text-5xl font-black leading-tight font-display">
               أنت محور اهتمامنا 🎯
             </h2>
             <p className="text-base md:text-xl font-medium text-[#E5EADD] max-w-2xl mx-auto leading-relaxed">
@@ -292,7 +292,7 @@ export default function LandingPage() {
                 <div className="w-11 h-11 bg-white rounded-xl p-1.5 flex items-center justify-center shadow-xs shrink-0">
                   <img src={logo} alt="باقون" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-2xl font-black text-white tracking-tight">
+                <span className="text-2xl font-black text-white tracking-tight font-display">
                   باقون
                 </span>
               </div>
