@@ -24,7 +24,9 @@ import {
   X,
   AlertCircle,
   Play,
-  ShieldCheck
+  ShieldCheck,
+  User,
+  GraduationCap
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
@@ -32,6 +34,15 @@ import { DownloadCloud, Trophy, LifeBuoy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import RecordedLessonPlayerModal from '../../curriculum/components/recorded-lessons/RecordedLessonPlayerModal';
+
+/**
+ * Helper to extract YouTube video ID
+ */
+function getYouTubeId(url?: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : null;
+}
 
 const motivationalQuotes = [
   "العلم نور والجهل ظلام… واصل طريقك يا بطل! 🌟",
@@ -427,33 +438,33 @@ export default function StudentDashboard() {
         )}
       </div>
 
-      {/* ══════════════════════ Recorded Lessons Section ══════════════════════ */}
-      <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-md rounded-3xl p-6 border border-teal-100 dark:border-teal-800/40 shadow-sm space-y-4">
+      {/* ══════════════════════ Recorded Lessons Section (16:9 HD Cards) ══════════════════════ */}
+      <div className="bg-white dark:bg-zinc-800/90 rounded-3xl p-6 border border-[#E5E0D5] dark:border-zinc-700 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#394C2A] to-[#1F2A18] text-[#BAAA80] flex items-center justify-center shadow-md shadow-[#1F2A18]/20 shrink-0">
               <Video className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                  الدروس المسجلة والمحتوى الإثرائي والتعويضي
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black text-[#19232D] dark:text-white">
+                  الدروس المسجلة والمحتوى الإثرائي
                 </h2>
                 {unwatchedRecordedCount > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 animate-pulse">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#FAF5E6] dark:bg-[#322A1A] text-[#8E793E] dark:text-[#E2C97F] border border-[#D5C189]/50 animate-pulse">
                     {unwatchedRecordedCount} جديد لم تشاهده
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5">
-                عوض ما فاتك من حصص وراجع الشروحات المسجلة بأمانة وخصوصية تامة 🛡️
+              <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold mt-0.5">
+                عوض ما فاتك من حصص وراجع الشروحات بدقة HD بأمانة وموثوقية 🛡️
               </p>
             </div>
           </div>
 
           <Link
             to="/student/recorded-lessons"
-            className="self-start sm:self-auto px-4 py-2 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-900/50 text-teal-700 dark:text-teal-300 rounded-xl text-xs font-black transition-colors flex items-center gap-1.5"
+            className="self-start sm:self-auto px-4 py-2 bg-[#F5F2EA] dark:bg-zinc-700 hover:bg-[#EAE4D5] dark:hover:bg-zinc-600 text-[#394C2A] dark:text-[#A8C794] rounded-xl text-xs font-black transition-colors flex items-center gap-1.5 border border-[#DFDACF] dark:border-zinc-600 shadow-2xs"
           >
             <span>عرض كافة الدروس المسجلة ({recordedLessons.length})</span>
             <span>←</span>
@@ -461,67 +472,141 @@ export default function StudentDashboard() {
         </div>
 
         {recordedLessons.length === 0 ? (
-          <div className="p-6 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+          <div className="p-8 text-center rounded-2xl border border-dashed border-[#DFDACF] dark:border-zinc-700 bg-[#FAF7F2]/60 dark:bg-zinc-900/40">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold">
               لا توجد دروس مسجلة حالياً. سيصلك إشعار فوري عند نشر أي درس تعويضي من قبل أساتذتك.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-1">
             {recordedLessons.slice(0, 3).map((lesson: any) => {
               const isUnwatched = !lesson.isViewed;
+              const ytId = getYouTubeId(lesson.mediaUrl);
+              const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null;
+
               return (
                 <div
                   key={lesson.id}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                  className={`bg-white dark:bg-zinc-800 rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden group shadow-xs hover:shadow-lg hover:-translate-y-1 ${
                     isUnwatched
-                      ? "bg-gradient-to-br from-emerald-50/60 to-white dark:from-emerald-950/30 dark:to-slate-900 border-emerald-200 dark:border-emerald-800/60 shadow-xs"
-                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                      ? "border-[#BAAA80] dark:border-[#5D532E] ring-1 ring-[#BAAA80]/20"
+                      : "border-[#E5E0D5] dark:border-zinc-700"
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
-                        {lesson.subject?.nameAr || "مادة دراسية"}
-                      </span>
-                      {isUnwatched ? (
-                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                          جديد
-                        </span>
+                  <div>
+                    {/* 16:9 Thumbnail Cover */}
+                    <div
+                      onClick={() => {
+                        setSelectedRecordedLesson(lesson);
+                        setIsRecordedPlayerOpen(true);
+                      }}
+                      className="relative aspect-video w-full bg-[#1F2A18] overflow-hidden cursor-pointer"
+                    >
+                      {thumbUrl ? (
+                        <img
+                          src={thumbUrl}
+                          alt={lesson.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
                       ) : (
-                        <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                          تمت المشاهدة
-                        </span>
+                        <div className="w-full h-full bg-gradient-to-br from-[#394C2A] to-[#1F2A18] flex flex-col items-center justify-center p-4 text-center text-white/90">
+                          <GraduationCap className="w-10 h-10 text-[#BAAA80] mb-2 opacity-80" />
+                          <span className="text-xs font-bold text-white/90 line-clamp-2">{lesson.title}</span>
+                        </div>
                       )}
+
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+
+                      {/* Top Badges */}
+                      <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5 z-10">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-black/60 backdrop-blur-md text-[#FAF7F2] border border-white/20 flex items-center gap-1 shadow-sm">
+                          <BookOpen className="w-2.5 h-2.5 text-[#BAAA80]" />
+                          <span>{lesson.subject?.nameAr || "المادة"}</span>
+                        </span>
+
+                        {isUnwatched ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-[#BAAA80] to-[#8E8759] text-[#19232D] shadow-sm flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>جديد</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 backdrop-blur-md text-emerald-300 border border-emerald-400/30 flex items-center gap-1 shadow-sm">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>تمت المشاهدة</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Hover Play Button */}
+                      <div className="absolute inset-0 flex items-center justify-center z-10">
+                        <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-md border border-white/40 text-white flex items-center justify-center shadow-lg group-hover:scale-115 group-hover:bg-[#BAAA80] group-hover:text-[#19232D] transition-all duration-300">
+                          <Play className="w-5 h-5 fill-current translate-x-0.5" />
+                        </div>
+                      </div>
+
+                      {/* Bottom Tag */}
+                      <div className="absolute bottom-2 inset-x-2.5 flex items-center justify-between text-[10px] text-white/90 font-bold z-10">
+                        <span className="px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-sm border border-white/10 text-[#BAAA80]">
+                          HD 1080p
+                        </span>
+                        <span className="text-white/80">
+                          {lesson.isGlobalSubject ? "متاح للجميع" : (lesson.cohort?.name || "فوجك")}
+                        </span>
+                      </div>
                     </div>
 
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white line-clamp-1">
-                      {lesson.title}
-                    </h4>
+                    {/* Card Content */}
+                    <div className="p-4 space-y-2.5">
+                      <h4
+                        onClick={() => {
+                          setSelectedRecordedLesson(lesson);
+                          setIsRecordedPlayerOpen(true);
+                        }}
+                        className="text-sm font-black text-[#19232D] dark:text-white group-hover:text-[#394C2A] dark:group-hover:text-[#A8C794] transition-colors line-clamp-1 cursor-pointer"
+                      >
+                        {lesson.title}
+                      </h4>
 
-                    {lesson.lesson?.title && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold line-clamp-1">
-                        • {lesson.lesson.title}
-                      </p>
-                    )}
+                      {/* Teacher Row */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 pt-1 border-t border-[#E5E0D5]/60 dark:border-zinc-700/60">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <User className="w-3 h-3 text-[#394C2A] dark:text-[#A8C794] shrink-0" />
+                          <span className="truncate">
+                            {lesson.creator ? `${lesson.creator.firstName} ${lesson.creator.lastName}` : "معلم المادة"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-400 dark:text-zinc-500 shrink-0">
+                          <Calendar className="w-3 h-3" />
+                          <span>
+                            {new Date(lesson.createdAt).toLocaleDateString("ar-EG", {
+                              month: "short",
+                              day: "numeric"
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedRecordedLesson(lesson);
-                      setIsRecordedPlayerOpen(true);
-                    }}
-                    className={`w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      isUnwatched
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20"
-                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{isUnwatched ? "مشاهدة الدرس الآن 🎥" : "إعادة المشاهدة"}</span>
-                  </button>
+                  {/* Action Button */}
+                  <div className="p-3 bg-[#FAF7F2]/60 dark:bg-zinc-900/40 border-t border-[#E5E0D5] dark:border-zinc-700/60">
+                    <button
+                      onClick={() => {
+                        setSelectedRecordedLesson(lesson);
+                        setIsRecordedPlayerOpen(true);
+                      }}
+                      className={`w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+                        isUnwatched
+                          ? "bg-gradient-to-l from-[#BAAA80] to-[#394C2A] hover:opacity-95 text-white shadow-xs hover:-translate-y-0.5"
+                          : "bg-white dark:bg-zinc-800 hover:bg-[#F5F2EA] dark:hover:bg-zinc-700 text-[#19232D] dark:text-zinc-200 border border-[#DFDACF] dark:border-zinc-700"
+                      }`}
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{isUnwatched ? "مشاهدة الدرس الآن 🎥" : "إعادة المشاهدة"}</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
