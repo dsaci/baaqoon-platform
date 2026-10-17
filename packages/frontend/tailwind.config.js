@@ -38,11 +38,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Cairo"', '"thmanyahsans"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
-        display: ['"Thmanyah Serif Display"', '"thmanyahserifdisplay"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
-        thmanyah: ['"thmanyahsans"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
+        sans: ['"Cairo"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
+        display: ['"Thmanyah Serif Display"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
+        thmanyah: ['"Thmanyah Sans"', '"Thmanyah Serif Display"', '"Cairo"', 'sans-serif'],
         cairo: ['"Cairo"', '"Tajawal"', 'sans-serif'],
-        serif: ['"thmanyahserifdisplay"', '"Thmanyah Serif Text"', 'serif'],
+        serif: ['"Thmanyah Serif Text"', '"Thmanyah Serif Display"', 'serif'],
       },
       keyframes: {
         "fade-in-up": {

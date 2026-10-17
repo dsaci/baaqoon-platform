@@ -1,44 +1,6 @@
+@import './fonts/thmanyah.css';
+@import './fonts/cairo.css';
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700&display=swap');
-
-@font-face {
-  font-family: "thmanyahsans";
-  src: url("./assets/fonts/thmanyahsans-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "thmanyahsans";
-  src: url("./assets/fonts/thmanyahsans-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "thmanyahsans";
-  src: url("./assets/fonts/thmanyahsans-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "thmanyahsans";
-  src: url("./assets/fonts/thmanyahsans-Black.woff2") format("woff2");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "thmanyahserifdisplay";
-  src: url("./assets/fonts/thmanyahserifdisplay-Black.woff2") format("woff2");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
 
 @tailwind base;
 @tailwind components;
@@ -46,10 +8,12 @@
 
 /* ── Global Defaults ─────────────────────────────────────────────────────── */
 :root {
-  --color-green: #007a3d;
-  --color-red: #ce1126;
-  --color-black: #18181b;
-  --color-white: #fafafa;
+  --color-green:       #394C2A;  /* Deep Olive Green */
+  --color-olive-dark:  #1F2A18;  /* Deep Forest Olive */
+  --color-gold:        #BAAA80;  /* Warm Olive Gold */
+  --color-red:         #CE1126;
+  --color-black:       #19232D;
+  --color-white:       #FAF7F2;
 }
 
 html {
@@ -57,20 +21,27 @@ html {
 }
 
 body {
-  font-family: "thmanyahsans";
-  background-color: #fafafa;
-  color: #18181b;
+  font-family: 'Cairo', 'Thmanyah Sans', 'Tajawal', sans-serif;
+  background-color: #FAF7F2;
+  color: #19232D;
   -webkit-font-smoothing: antialiased;
 }
 
 .dark body {
-  background-color: #09090b; /* Zinc 950 */
-  color: #fafafa;
+  background-color: #0E120D;
+  color: #FAF7F2;
 }
 
-.thmanyahserif {
-  font-family: "thmanyahserifdisplay";
+/* High-level display titles, main heroes and brand typography use Thmanyah */
+h1, .font-display, .font-thmanyah-display, .thmanyahserif {
+  font-family: 'Thmanyah Serif Display', 'Thmanyah Sans', 'Cairo', sans-serif;
 }
+
+/* UI headings, card titles, forms, and dashboard metrics use Cairo for eye comfort */
+h2, h3, h4, h5, h6 {
+  font-family: 'Cairo', 'Thmanyah Sans', 'Tajawal', sans-serif;
+}
+
 .keffiyeh {
   background-image:
     repeating-linear-gradient(
@@ -97,6 +68,7 @@ body {
       rgba(201, 180, 138, 0.07) 14px 15px
     );
 }
+
 .bg-graph-paper {
   background-color: #faf7f2;
   background-image:
@@ -145,7 +117,7 @@ body {
 }
 
 .dark .glass-panel {
-  background: rgba(24, 24, 27, 0.75); /* Darker translucent background */
+  background: rgba(24, 24, 27, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.3),
@@ -181,11 +153,11 @@ body {
   background: #f4f4f5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3a4d2a;
+  background: #394C2A;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4d2a;
+  background: #1F2A18;
 }
 
 /* ── Dir LTR for email/password inputs ───────────────────────────────────── */
