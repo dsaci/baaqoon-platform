@@ -1,100 +1,94 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { BookOpen, LogIn, Loader2, AlertCircle, FlaskConical, Home } from 'lucide-react';
-import ReCAPTCHA from 'react-google-recaptcha';
-import logo from '../../../assets/logo.jpg';
-import { api } from '../../../lib/axios';
-import { useAuthStore } from '../../../store/useAuthStore';
-import { useTranslation } from 'react-i18next';
-import ForgotPasswordModal from '../components/ForgotPasswordModal';
-import ThemeToggle from '../../../components/shared/ThemeToggle';
-import LangToggle from '../../../components/shared/LangToggle';
-
-const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfVU_ItAAAAAOaVvnGpT0xyf51mjiZxavYp1b2k";
-const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  BookOpen,
+  LogIn,
+  Loader2,
+  AlertCircle,
+  FlaskConical,
+  Home,
+} from "lucide-react";
+import logo from "../../../assets/logo.png";
+import { api } from "../../../lib/axios";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useTranslation } from "react-i18next";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
+import ThemeToggle from "../../../components/shared/ThemeToggle";
+import LangToggle from "../../../components/shared/LangToggle";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaError, setCaptchaError] = useState(false);
-  const [activeSiteKey, setActiveSiteKey] = useState<string>(PRIMARY_SITE_KEY);
-  const [isSwitchedToDevKey, setIsSwitchedToDevKey] = useState(false);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
 
+  // ── Demo login (real backend) ───────────────────────────────────────
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    const tokenToSend = captchaToken || (captchaError ? 'recaptcha-fallback-token' : null);
-
-    if (!tokenToSend) {
-      setError('يرجى تأكيد اختبار الأمان (أنا لست برنامج روبوت)');
-      return;
-    }
-
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await api.post('/auth/login', {
-        email,
-        password,
-        recaptchaToken: tokenToSend,
-      });
+      const response = await api.post("/auth/login", { email, password });
       const { accessToken, user } = response.data;
       setAuth(user, accessToken);
-      if (user.primaryRole === 'student') navigate('/student/dashboard');
-      else if (user.primaryRole === 'teacher') navigate('/teacher/dashboard');
-      else if (user.primaryRole === 'subject_supervisor' || user.primaryRole === 'supervisor') navigate('/supervisor/dashboard');
-      else navigate('/admin/dashboard');
+      if (user.primaryRole === "student") navigate("/student/dashboard");
+      else if (user.primaryRole === "teacher") navigate("/teacher/dashboard");
+      else if (
+        user.primaryRole === "subject_supervisor" ||
+        user.primaryRole === "supervisor"
+      )
+        navigate("/supervisor/dashboard");
+      else navigate("/admin/dashboard");
     } catch (err: any) {
-      // Reset reCAPTCHA on failure so user can retry with a fresh token
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
-      setError(err.response?.data?.message || 'حدث خطأ أثناء تسجيل الدخول');
+      setError(err.response?.data?.message || "حدث خطأ أثناء تسجيل الدخول");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
+  const { t } = useTranslation();
+
+  // ... inside component handleDemoLogin and handleLogin ...
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-graph-paper relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
-      {/* Ambient Fog & Atmospheric Blur Orbs (البلور والضبابية) */}
-      <div className="absolute -top-24 -right-24 w-[600px] h-[600px] bg-[#394C2A]/25 dark:bg-[#394C2A]/35 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute -bottom-24 -left-24 w-[600px] h-[600px] bg-[#BAAA80]/35 dark:bg-[#BAAA80]/20 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#FAF2DF]/70 dark:bg-[#202919]/40 rounded-full blur-[120px] pointer-events-none" />
-      
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-[#111111] relative overflow-hidden">
+      {/* Abstract Background */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-baaqoon-gold/20 dark:bg-baaqoon-gold/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-baaqoon-gold/20 dark:bg-baaqoon-gold/10 rounded-full blur-[100px] pointer-events-none" />
+
       {/* Theme and Lang controls at the top */}
-      <div className="absolute top-8 right-4 left-4 flex items-center justify-between pointer-events-none z-40 max-w-5xl mx-auto">
-        <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl border border-white/60 dark:border-zinc-800 rounded-xl text-sm font-bold text-[#19232D] dark:text-zinc-200 hover:bg-[#F5F2EA] dark:hover:bg-zinc-800 transition-colors shadow-xs">
-          <Home className="w-4 h-4 text-[#394C2A] dark:text-[#A8C794]" />
-          {t("common.back_to_home", "العودة للرئيسية")}
+      <div className="absolute top-10 right-4 left-4 flex items-center justify-between pointer-events-none z-40">
+        <Link
+          to="/"
+          className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/70 dark:bg-[#111111] backdrop-blur-md border border-baaqoon-accent/20 dark:border-baaqoon-gold/20 rounded-xl text-sm font-bold text-slate-700 dark:text-baaqoon-gold hover:bg-baaqoon-gold/30 dark:hover:bg-baaqoon-gold dark:hover:text-baaqoon-accent transition-colors shadow-sm"
+        >
+          <Home className="w-4 h-4 text-baaqoon-accent" />
+          العودة للرئيسية
         </Link>
-        <div className="flex items-center gap-2 pointer-events-auto bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl p-1.5 rounded-xl border border-white/60 dark:border-zinc-800 shadow-xs">
+        <div className="flex items-center gap-2 pointer-events-auto bg-white/70 dark:bg-[#111111] backdrop-blur-md p-1.5 rounded-xl border border-baaqoon-accent/20 dark:border-baaqoon-gold/20 shadow-sm">
           <LangToggle />
           <ThemeToggle />
         </div>
       </div>
 
-      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-[#121711]/85 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/60 dark:border-zinc-800 space-y-8 animate-fade-in-up mt-8 mb-8 z-10">
-        
+      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/60 dark:bg-[#131111] backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/60 dark:border-baaqoon-gold/20 space-y-8 animate-fade-in-up mt-8 mb-8 z-10">
         <div className="text-center space-y-3">
           <div className="relative inline-block">
-            <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
-            <img src={logo} alt="باقون" className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
+            <img
+              src={logo}
+              alt="باقون"
+              className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl dark:bg-white p-1"
+            />
           </div>
-          <h2 className="text-3xl font-black text-[#19232D] dark:text-white">
-            {t("auth.sign_in_title", "تسجيل الدخول")}
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white">
+            تسجيل الدخول
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">
-            {t("auth.sign_in_subtitle", "مرحباً بعودتك إلى منصة باقون 👋")}
+          <p className="text-slate-500 dark:text-baaqoon-gold font-medium">
+            مرحباً بعودتك إلى منصة باقون 👋
           </p>
         </div>
 
@@ -107,101 +101,67 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-              {t("auth.email_or_phone", "البريد الإلكتروني أو رقم الهاتف")}
+            <label className="block text-sm font-bold text-slate-700 dark:text-baaqoon-gold">
+              البريد الإلكتروني أو رقم الهاتف
             </label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-[#E5E0D5] dark:border-zinc-700 bg-white/70 dark:bg-zinc-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#394C2A]/40 focus:border-[#394C2A] outline-none transition-all text-left dir-ltr shadow-xs"
-              placeholder={t("auth.email_or_phone_placeholder", "user@example.com أو 059...")}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-baaqoon-700 bg-white/50 dark:bg-baaqoon-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-baaqoon-gold focus:border-baaqoon-gold outline-none transition-all text-left dir-ltr shadow-sm"
+              placeholder="user@example.com أو 059..."
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
-              {t("auth.password", "كلمة المرور")}
+            <label className="block text-sm font-bold text-slate-700 dark:text-baaqoon-gold">
+              {t("common.password")}
             </label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-[#E5E0D5] dark:border-zinc-700 bg-white/70 dark:bg-zinc-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-[#394C2A]/40 focus:border-[#394C2A] outline-none transition-all text-left dir-ltr shadow-xs"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-baaqoon-700 bg-white/50 dark:bg-baaqoon-800/50 backdrop-blur-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-baaqoon-gold focus:border-baaqoon-gold outline-none transition-all text-left dir-ltr shadow-sm"
               placeholder="••••••••"
             />
           </div>
 
-          <div className="flex flex-col items-center justify-center my-3 dir-ltr space-y-1">
-            {!captchaError ? (
-              <div className="flex flex-col items-center">
-                <ReCAPTCHA
-                  key={activeSiteKey}
-                  ref={recaptchaRef}
-                  sitekey={activeSiteKey}
-                  hl={isRtl ? 'ar' : 'en'}
-                  onChange={(token) => {
-                    setCaptchaToken(token);
-                    setCaptchaError(false);
-                    setError(null);
-                  }}
-                  onExpired={() => setCaptchaToken(null)}
-                  onErrored={() => {
-                    console.warn('Primary reCAPTCHA key errored. Switching to Google verified local key.');
-                    if (activeSiteKey !== GOOGLE_DEV_SITE_KEY) {
-                      setActiveSiteKey(GOOGLE_DEV_SITE_KEY);
-                      setIsSwitchedToDevKey(true);
-                    } else {
-                      setCaptchaError(true);
-                      setCaptchaToken('recaptcha-fallback-token');
-                    }
-                  }}
-                />
-                {isSwitchedToDevKey && !captchaToken && (
-                  <p className="text-[10px] text-slate-400 font-bold mt-1 text-center dir-rtl">
-                    🔒 تم تفعيل التحقق الأمني بمفتاح Google المعتمد (بيئة التطوير).
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🛡️</span>
-                  <span>تم تفعيل التحقق الأمني والدخول البديل بنجاح</span>
-                </div>
-              </div>
-            )}
-            {captchaToken && !captchaError && (
-              <span className="text-[11px] font-bold text-[#394C2A] dark:text-[#A8C794] flex items-center gap-1 mt-1">
-                ✓ تم التحقق الأمني بنجاح
-              </span>
-            )}
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={isLoading || (!captchaToken && !captchaError)}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-[#BAAA80] to-[#4D5A35] hover:opacity-95 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-md shadow-[#394C2A]/20 hover:shadow-lg hover:-translate-y-0.5`}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-l from-baaqoon-accent to-baaqoon-gold disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold text-lg rounded-xl transition-all mt-4 shadow-lg shadow-baaqoon-accent/30 hover:-translate-y-0.5"
           >
-            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
-            {isLoading ? t("common.loading", "جاري التحميل...") : t("common.login", "تسجيل الدخول")}
+            {isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <LogIn className="w-6 h-6" />
+            )}
+            {isLoading ? t("common.loading") : t("common.login")}
           </button>
-        
-          <div className={`mt-2 mb-4 ${isRtl ? 'text-right' : 'text-left'}`}>
-            <button type="button" onClick={() => setIsForgotOpen(true)} className="text-sm text-[#394C2A] hover:text-[#1F2A18] dark:text-[#A8C794] font-bold transition-colors">
-              {t("auth.forgot_password", "نسيت كلمة المرور؟")}
+
+          <div className="text-right mt-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setIsForgotOpen(true)}
+              className="text-sm text-baaqoon-accent hover:text-baaqoon-gold font-bold transition-colors"
+            >
+              نسيت كلمة المرور؟
             </button>
           </div>
-
         </form>
-        {isForgotOpen && <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />}
+        {isForgotOpen && (
+          <ForgotPasswordModal onClose={() => setIsForgotOpen(false)} />
+        )}
 
         <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
-          {t("auth.no_account", "ليس لديك حساب؟")}{' '}
-          <Link to="/register" className="text-baaqoon-accent hover:text-baaqoon-accentDark font-medium">
-            {t("common.register", "إنشاء حساب")}
+          {t("auth.no_account")}{" "}
+          <Link
+            to="/register"
+            className="text-baaqoon-accent hover:text-baaqoon-gold font-medium"
+          >
+            {t("common.register")}
           </Link>
         </p>
       </div>

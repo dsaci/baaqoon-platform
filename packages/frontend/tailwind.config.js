@@ -1,64 +1,49 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  darkMode: 'class',
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
         baaqoon: {
           // Base — off-white & warm grays (inspired by keffiyeh white)
-          50:  '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
-          400: '#a1a1aa',
-          500: '#71717a',
-          600: '#52525b',
-          700: '#3f3f46',
-          800: '#27272a',
-          900: '#18181b', // Near black (Palestinian flag black)
+          50: "#fafafa",
+          100: "#f4f4f5",
+          200: "#e4e4e7",
+          300: "#d4d4d8",
+          400: "#a1a1aa",
+          500: "#71717a",
+          600: "#52525b",
+          700: "#3f3f46",
+          800: "#27272a",
+          900: "#18181b", // Near black (Palestinian flag black)
 
-          // Palestinian Green & Earthy Olive — the core brand colors
-          accent:     '#394C2A',  // Deep Olive Green (الهوية البصرية الجديدة)
-          accentDark: '#1F2A18',  // Deep Forest Olive (لون البانر السفلي)
-          olive:      '#394C2A',
-          oliveDark:  '#1F2A18',
-          oliveLight: '#EDF2EB',
-          gold:       '#BAAA80',  // Warm Khaki / Olive Gold
-          goldDark:   '#8E8759',
-          navy:       '#19232D',  // Deep Charcoal Navy for headlines
-          bgWarm:     '#FAF7F2',  // Warm Graph Paper background
+          // Palestinian Green — the core accent color
+          accent: "oklch(0.39 0.06 131.86)", // Palestine green
+          gold: "#c9b48a",
+          accentDark: "#005C2E", // Darker green for hover
 
           // Palestinian Red — for alerts, CTAs, live indicators
-          red:        '#CE1126',  // Palestine red
-          redDark:    '#A50E1F',
+          red: "#CE1126", // Palestine red
+          redDark: "#A50E1F",
 
           // Palestinian Black — for headings, borders
-          black:      '#19232D',
-        }
+          black: "#000000",
+        },
       },
       fontFamily: {
-        // Cairo for practical UI, forms, tables, dashboards, and reading comfort
-        sans: ['"Cairo"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
-        // Thmanyah for majestic display titles, headlines, brand identity, and landing page
-        display: ['"Thmanyah Serif Display"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
-        thmanyah: ['"Thmanyah Sans"', '"Thmanyah Serif Display"', '"Cairo"', 'sans-serif'],
-        cairo: ['"Cairo"', '"Tajawal"', 'sans-serif'],
-        serif: ['"Thmanyah Serif Text"', '"Thmanyah Serif Display"', 'serif'],
+        sans: ['"thmanyahsans"', '"Tajawal"', "sans-serif"],
       },
       keyframes: {
-        'fade-in-up': {
-          '0%':   { opacity: '0', transform: 'translateY(16px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
-        'fade-in-up': 'fade-in-up 0.4s ease-out',
+        "fade-in-up": "fade-in-up 0.4s ease-out",
       },
     },
   },
   plugins: [],
-}
+};

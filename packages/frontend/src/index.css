@@ -1,6 +1,44 @@
-@import './fonts/thmanyah.css';
-@import './fonts/cairo.css';
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap'); */
+
+@font-face {
+  font-family: "thmanyahsans";
+  src: url("./assets/fonts/thmanyahsans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "thmanyahsans";
+  src: url("./assets/fonts/thmanyahsans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "thmanyahsans";
+  src: url("./assets/fonts/thmanyahsans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "thmanyahsans";
+  src: url("./assets/fonts/thmanyahsans-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "thmanyahserifdisplay";
+  src: url("./assets/fonts/thmanyahserifdisplay-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -8,12 +46,10 @@
 
 /* ── Global Defaults ─────────────────────────────────────────────────────── */
 :root {
-  --color-green:       #394C2A;  /* Deep Olive Green */
-  --color-olive-dark:  #1F2A18;  /* Deep Forest Olive */
-  --color-gold:        #BAAA80;  /* Warm Olive Gold */
-  --color-red:         #CE1126;
-  --color-black:       #19232D;
-  --color-white:       #FAF7F2;
+  --color-green: #007a3d;
+  --color-red: #ce1126;
+  --color-black: #18181b;
+  --color-white: #fafafa;
 }
 
 html {
@@ -21,42 +57,79 @@ html {
 }
 
 body {
-  font-family: 'Cairo', 'Thmanyah Sans', 'Tajawal', sans-serif;
-  background-color: #FAF7F2;
-  color: #19232D;
+  font-family: "thmanyahsans";
+  background-color: #fafafa;
+  color: #18181b;
   -webkit-font-smoothing: antialiased;
 }
 
-/* High-level display titles, main heroes and brand typography use Thmanyah */
-h1, .font-display, .font-thmanyah-display {
-  font-family: 'Thmanyah Serif Display', 'Thmanyah Sans', 'Cairo', sans-serif;
-}
-
-/* UI headings, card titles, forms, and dashboard metrics use Cairo for eye comfort */
-h2, h3, h4, h5, h6 {
-  font-family: 'Cairo', 'Thmanyah Sans', 'Tajawal', sans-serif;
-}
-
 .dark body {
-  background-color: #0E120D;
-  color: #FAF7F2;
+  background-color: #09090b; /* Zinc 950 */
+  color: #fafafa;
 }
 
-/* ── Graph Paper Background Utility ─────────────────────────────────────── */
+.thmanyahserif {
+  font-family: "thmanyahserifdisplay";
+}
+.keffiyeh {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 14px,
+      rgba(58, 77, 42, 0.04) 14px 15px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 14px,
+      rgba(58, 77, 42, 0.04) 14px 15px
+    );
+}
+.dark .keffiyeh {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 14px,
+      rgba(201, 180, 138, 0.07) 14px 15px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 14px,
+      rgba(201, 180, 138, 0.07) 14px 15px
+    );
+}
 .bg-graph-paper {
-  background-color: #FAF7F2;
-  background-image: 
+  background-color: #faf7f2;
+  background-image:
     linear-gradient(to right, rgba(180, 170, 150, 0.16) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(180, 170, 150, 0.16) 1px, transparent 1px);
   background-size: 26px 26px;
 }
 
 .dark .bg-graph-paper {
-  background-color: #0E120D;
-  background-image: 
+  background-color: #0e120d;
+  background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 26px 26px;
+}
+
+/* ── Palestinian Flag Strip ──────────────────────────────────────────────── */
+.flag-strip {
+  height: 8px;
+  width: 100%;
+  background: linear-gradient(
+    to right,
+    var(--color-red) 0%,
+    var(--color-red) 15%,
+    var(--color-black) 15%,
+    var(--color-black) 43.33%,
+    #ffffff 43.33%,
+    #ffffff 71.66%,
+    var(--color-green) 71.66%,
+    var(--color-green) 100%
+  );
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 50;
 }
 
 /* ── Glass Panel ─────────────────────────────────────────────────────────── */
@@ -79,11 +152,16 @@ h2, h3, h4, h5, h6 {
     0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
-
 /* ── Animations ──────────────────────────────────────────────────────────── */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in-up {
@@ -96,10 +174,22 @@ h2, h3, h4, h5, h6 {
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track  { background: #f4f4f5; }
-::-webkit-scrollbar-thumb  { background: #394C2A; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #1F2A18; }
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f4f4f5;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a4d2a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4d2a;
+}
 
 /* ── Dir LTR for email/password inputs ───────────────────────────────────── */
-.dir-ltr { direction: ltr; text-align: left; }
+.dir-ltr {
+  direction: ltr;
+  text-align: left;
+}
