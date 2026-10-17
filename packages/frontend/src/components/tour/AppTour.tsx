@@ -14,6 +14,15 @@ export default function AppTour() {
   const dontShowAgainRef = useRef(dontShowAgain);
 
   useEffect(() => {
+    if (user?.id) {
+      const stored = localStorage.getItem(`tour_opt_out_all_${user.id}`);
+      if (stored === 'true') {
+        setDontShowAgain(true);
+      }
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
     dontShowAgainRef.current = dontShowAgain;
   }, [dontShowAgain]);
 
@@ -274,12 +283,27 @@ export default function AppTour() {
         {/* Header */}
         <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <h3 className="font-black text-slate-900 dark:text-white text-lg flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 flex items-center justify-center text-sm">
+            <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 flex items-center justify-center text-sm font-bold">
               {index + 1}
             </div>
             {step.title}
           </h3>
-          <button {...closeProps} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+          <button 
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setRun(false);
+              if (user?.id) {
+                localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+                if (dontShowAgainRef.current) {
+                  localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
+                }
+              }
+            }}
+            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            title="إغلاق"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -290,28 +314,77 @@ export default function AppTour() {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-4">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
           
-          {/* Don't show again checkbox (Only show on first or last step) */}
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-            <input 
-              type="checkbox" 
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" 
-            />
-            لا تظهر أدلة الاستخدام مرة أخرى في أي صفحة
-          </label>
+          {/* Don't show again toggle - fully responsive and immediately persists */}
+          <div 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const nextVal = !dontShowAgain;
+              setDontShowAgain(nextVal);
+              dontShowAgainRef.current = nextVal;
+              if (user?.id) {
+                if (nextVal) {
+                  localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
+                  localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+                } else {
+                  localStorage.removeItem(`tour_opt_out_all_${user.id}`);
+                }
+              }
+            }}
+            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700/90 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer select-none group"
+            title="انقر لتفعيل أو إلغاء ظهور أدلة الاستخدام في كامل المنصة"
+          >
+            <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <input 
+                type="checkbox" 
+                checked={dontShowAgain}
+                onChange={() => {}}
+                className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer pointer-events-none" 
+              />
+              <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                لا تظهر أدلة الاستخدام مرة أخرى في أي صفحة
+              </span>
+            </div>
+            {dontShowAgain ? (
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-black px-2 py-0.5 rounded-md">
+                مفعّل ✓
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 font-bold">
+                تعطيل نهائي
+              </span>
+            )}
+          </div>
 
-          <div className="flex justify-between items-center pt-2">
+          <div className="flex justify-between items-center pt-1">
             <div>
-              {index > 0 && (
-                <button {...backProps} className="text-slate-500 font-bold text-sm px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1">
+              {index > 0 ? (
+                <button {...backProps} className="text-slate-500 font-bold text-sm px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 cursor-pointer">
                   <ChevronRight className="w-4 h-4" /> السابق
+                </button>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (user?.id) {
+                      localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
+                      localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+                    }
+                    setDontShowAgain(true);
+                    dontShowAgainRef.current = true;
+                    setRun(false);
+                  }}
+                  className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 font-bold text-xs px-2 py-1.5 transition-colors cursor-pointer"
+                >
+                  تخطي وإغلاق
                 </button>
               )}
             </div>
-            <button {...primaryProps} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-sm px-5 py-2 rounded-xl transition-all shadow-md shadow-violet-500/20 flex items-center gap-1">
+            <button {...primaryProps} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-sm px-5 py-2 rounded-xl transition-all shadow-md shadow-violet-500/20 flex items-center gap-1 cursor-pointer">
               {isLastStep ? 'إنهاء الدليل' : 'التالي'} {!isLastStep && <ChevronLeft className="w-4 h-4" />}
             </button>
           </div>
