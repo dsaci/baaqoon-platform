@@ -14,11 +14,11 @@ export default function AppTour() {
   const dontShowAgainRef = useRef(dontShowAgain);
 
   useEffect(() => {
-    if (user?.id) {
-      const stored = localStorage.getItem(`tour_opt_out_all_${user.id}`);
-      if (stored === 'true') {
-        setDontShowAgain(true);
-      }
+    const isGlobal = localStorage.getItem('tour_opt_out_global') === 'true';
+    const isUser = user?.id ? localStorage.getItem(`tour_opt_out_all_${user.id}`) === 'true' : false;
+    if (isGlobal || isUser) {
+      setDontShowAgain(true);
+      dontShowAgainRef.current = true;
     }
   }, [user?.id]);
 
@@ -31,20 +31,30 @@ export default function AppTour() {
   const pathKey = pathParts.length > 1 ? pathParts[1] : (pathParts[0] || 'home');
 
   useEffect(() => {
+    // 1. If globally opted out, never run automatically
+    if (localStorage.getItem('tour_opt_out_global') === 'true') {
+      setRun(false);
+      return;
+    }
+
     if (!user) return;
 
-    // Check if the user globally opted out of ALL tours, or just this page
-    const globalOptOut = localStorage.getItem(`tour_opt_out_all_${user.id}`);
-    if (globalOptOut === 'true') {
+    // 2. If user-specific opted out, never run automatically
+    if (localStorage.getItem(`tour_opt_out_all_${user.id}`) === 'true') {
       setRun(false);
       return;
     }
 
     const tourKey = `tour_completed_${user.id}_${pathKey}`;
-    if (!localStorage.getItem(tourKey)) {
+    const anyKey = `tour_completed_any_${pathKey}`;
+    if (!localStorage.getItem(tourKey) && !localStorage.getItem(anyKey)) {
       // Small delay to ensure DOM is fully rendered
       const timer = setTimeout(() => {
-        setRun(true);
+        const recheckGlobal = localStorage.getItem('tour_opt_out_global') === 'true';
+        const recheckUser = user?.id ? localStorage.getItem(`tour_opt_out_all_${user.id}`) === 'true' : false;
+        if (!recheckGlobal && !recheckUser) {
+          setRun(true);
+        }
       }, 800);
       return () => clearTimeout(timer);
     }
@@ -228,31 +238,42 @@ export default function AppTour() {
     setSteps(newSteps);
   }, [user, pathKey]);
 
-  // Listen for custom event to trigger tour programmatically
+  // Listen for custom event to trigger or close tour programmatically
   useEffect(() => {
     const handleStartTour = () => {
       restartTour();
     };
+    const handleCloseTour = () => {
+      setRun(false);
+    };
     window.addEventListener('baaqoon:start_tour', handleStartTour);
-    return () => window.removeEventListener('baaqoon:start_tour', handleStartTour);
+    window.addEventListener('baaqoon:close_tour', handleCloseTour);
+    return () => {
+      window.removeEventListener('baaqoon:start_tour', handleStartTour);
+      window.removeEventListener('baaqoon:close_tour', handleCloseTour);
+    };
   }, [user, pathKey]);
 
   const handleJoyrideCallback = (data: any) => {
     const { status, action } = data;
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
     
-    if (finishedStatuses.includes(status) || action === 'close') {
+    if (finishedStatuses.includes(status) || action === 'close' || action === 'skip' || action === 'stop') {
       setRun(false);
       
-      // Save page-specific completion
-      if (user?.id) {
-        localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
-      }
+      try {
+        if (user?.id) {
+          localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+        }
+        localStorage.setItem(`tour_completed_any_${pathKey}`, 'true');
 
-      // If user checked "Don't show again" across the whole app
-      if (dontShowAgainRef.current && user?.id) {
-        localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
-      }
+        if (dontShowAgainRef.current) {
+          if (user?.id) {
+            localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
+          }
+          localStorage.setItem('tour_opt_out_global', 'true');
+        }
+      } catch (_) {}
     }
   };
 
@@ -260,138 +281,164 @@ export default function AppTour() {
     if (steps.length === 0) {
       return;
     }
-    if (user?.id) {
-      localStorage.removeItem(`tour_completed_${user.id}_${pathKey}`);
-      localStorage.removeItem(`tour_opt_out_all_${user.id}`);
-    }
+    try {
+      if (user?.id) {
+        localStorage.removeItem(`tour_completed_${user.id}_${pathKey}`);
+        localStorage.removeItem(`tour_opt_out_all_${user.id}`);
+      }
+      localStorage.removeItem('tour_opt_out_global');
+      localStorage.removeItem(`tour_completed_any_${pathKey}`);
+    } catch (_) {}
     setDontShowAgain(false);
+    dontShowAgainRef.current = false;
     setRun(true);
   };
 
-  // Custom Tooltip Component for better styling and adding the "Don't show again" checkbox
-  const CustomTooltip = ({
-    index,
-    step,
-    backProps,
-    closeProps,
-    primaryProps,
-    tooltipProps,
-    isLastStep,
-  }: TooltipRenderProps) => {
-    return (
-      <div {...tooltipProps} className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-[350px] overflow-hidden border border-slate-200 dark:border-slate-800 animate-fade-in font-sans" dir="rtl">
-        {/* Header */}
-        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-          <h3 className="font-black text-slate-900 dark:text-white text-lg flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 flex items-center justify-center text-sm font-bold">
-              {index + 1}
-            </div>
-            {step.title}
-          </h3>
-          <button 
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setRun(false);
-              if (user?.id) {
-                localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
-                if (dontShowAgainRef.current) {
-                  localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
-                }
-              }
-            }}
-            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            title="إغلاق"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  // Custom Tooltip Component for stable rendering and instant responsiveness
+  const CustomTooltip = React.useCallback(
+    ({
+      index,
+      step,
+      backProps,
+      closeProps,
+      primaryProps,
+      tooltipProps,
+      isLastStep,
+    }: TooltipRenderProps) => {
+      const handleDisablePermanently = (e: React.MouseEvent<HTMLElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          if (user?.id) {
+            localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
+            localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+          }
+          localStorage.setItem('tour_opt_out_global', 'true');
+          localStorage.setItem(`tour_completed_any_${pathKey}`, 'true');
+        } catch (_) {}
 
-        {/* Body */}
-        <div className="p-5 text-slate-600 dark:text-slate-300 text-sm font-bold leading-relaxed">
-          {step.content}
-        </div>
+        setDontShowAgain(true);
+        dontShowAgainRef.current = true;
+        setRun(false);
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
-          
-          {/* Don't show again toggle - fully responsive and immediately persists */}
-          <div 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const nextVal = !dontShowAgain;
-              setDontShowAgain(nextVal);
-              dontShowAgainRef.current = nextVal;
-              if (user?.id) {
-                if (nextVal) {
-                  localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
-                  localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
-                } else {
-                  localStorage.removeItem(`tour_opt_out_all_${user.id}`);
-                }
-              }
-            }}
-            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700/90 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer select-none group"
-            title="انقر لتفعيل أو إلغاء ظهور أدلة الاستخدام في كامل المنصة"
-          >
-            <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 dark:text-slate-200">
-              <input 
-                type="checkbox" 
-                checked={dontShowAgain}
-                onChange={() => {}}
-                className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer pointer-events-none" 
-              />
-              <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                لا تظهر أدلة الاستخدام مرة أخرى في أي صفحة
-              </span>
-            </div>
-            {dontShowAgain ? (
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-black px-2 py-0.5 rounded-md">
-                مفعّل ✓
-              </span>
-            ) : (
-              <span className="text-[10px] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 font-bold">
-                تعطيل نهائي
-              </span>
-            )}
-          </div>
+        if (closeProps?.onClick) {
+          try {
+            closeProps.onClick(e);
+          } catch (_) {}
+        }
+        window.dispatchEvent(new CustomEvent('baaqoon:close_tour'));
+      };
 
-          <div className="flex justify-between items-center pt-1">
-            <div>
-              {index > 0 ? (
-                <button {...backProps} className="text-slate-500 font-bold text-sm px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 cursor-pointer">
-                  <ChevronRight className="w-4 h-4" /> السابق
-                </button>
-              ) : (
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (user?.id) {
-                      localStorage.setItem(`tour_opt_out_all_${user.id}`, 'true');
-                      localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
-                    }
-                    setDontShowAgain(true);
-                    dontShowAgainRef.current = true;
-                    setRun(false);
-                  }}
-                  className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 font-bold text-xs px-2 py-1.5 transition-colors cursor-pointer"
-                >
-                  تخطي وإغلاق
-                </button>
-              )}
-            </div>
-            <button {...primaryProps} className="bg-violet-600 hover:bg-violet-700 text-white font-black text-sm px-5 py-2 rounded-xl transition-all shadow-md shadow-violet-500/20 flex items-center gap-1 cursor-pointer">
-              {isLastStep ? 'إنهاء الدليل' : 'التالي'} {!isLastStep && <ChevronLeft className="w-4 h-4" />}
+      const handleCloseCurrentTour = (e: React.MouseEvent<HTMLElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          if (user?.id) {
+            localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+          }
+          localStorage.setItem(`tour_completed_any_${pathKey}`, 'true');
+        } catch (_) {}
+
+        setRun(false);
+        if (closeProps?.onClick) {
+          try {
+            closeProps.onClick(e);
+          } catch (_) {}
+        }
+      };
+
+      return (
+        <div 
+          {...tooltipProps} 
+          className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-[360px] max-w-[92vw] overflow-hidden border border-slate-200 dark:border-slate-800 animate-fade-in font-sans" 
+          dir="rtl"
+        >
+          {/* Header */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <h3 className="font-black text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 flex items-center justify-center text-xs sm:text-sm font-bold shrink-0">
+                {index + 1}
+              </div>
+              <span className="truncate">{step.title}</span>
+            </h3>
+            <button 
+              type="button"
+              onClick={handleCloseCurrentTour}
+              className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              title="إغلاق الدليل"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Body */}
+          <div className="p-5 text-slate-600 dark:text-slate-300 text-sm font-bold leading-relaxed">
+            {step.content}
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-3">
+            
+            {/* Direct 1-Click Permanent Opt-Out Button */}
+            <button
+              type="button"
+              onClick={handleDisablePermanently}
+              className="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 active:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+              title="إغلاق هذا الدليل فوراً ومنعه من الظهور التلقائي في أي شاشة"
+            >
+              <span className="text-sm">🚫</span>
+              <span>تعطيل وعدم ظهور الدليل مرة أخرى في أي صفحة</span>
+            </button>
+
+            {/* Navigation buttons */}
+            <div className="flex justify-between items-center pt-1">
+              <div>
+                {index > 0 ? (
+                  <button 
+                    type="button"
+                    {...backProps} 
+                    className="text-slate-600 dark:text-slate-400 font-bold text-sm px-3 py-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4" /> السابق
+                  </button>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={handleCloseCurrentTour}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold text-xs px-2 py-1.5 transition-colors cursor-pointer"
+                  >
+                    تخطي هذه الصفحة
+                  </button>
+                )}
+              </div>
+              <button 
+                type="button"
+                {...primaryProps} 
+                onClick={(e) => {
+                  if (isLastStep) {
+                    try {
+                      if (user?.id) {
+                        localStorage.setItem(`tour_completed_${user.id}_${pathKey}`, 'true');
+                      }
+                      localStorage.setItem(`tour_completed_any_${pathKey}`, 'true');
+                    } catch (_) {}
+                    setRun(false);
+                  }
+                  if (primaryProps?.onClick) {
+                    primaryProps.onClick(e);
+                  }
+                }}
+                className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-black text-sm px-5 py-2 rounded-xl transition-all shadow-md shadow-violet-500/20 flex items-center gap-1 cursor-pointer"
+              >
+                {isLastStep ? 'إنهاء الدليل' : 'التالي'} {!isLastStep && <ChevronLeft className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    );
-  };
+      );
+    },
+    [user?.id, pathKey]
+  );
 
   if (!user) return null;
 
@@ -404,6 +451,10 @@ export default function AppTour() {
           continuous={true}
           tooltipComponent={CustomTooltip}
           onEvent={handleJoyrideCallback}
+          options={{
+            overlayClickAction: 'close',
+            showProgress: false,
+          }}
         />
       )}
       
