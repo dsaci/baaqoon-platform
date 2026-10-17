@@ -18,10 +18,16 @@ export default {
           800: "#27272a",
           900: "#18181b", // Near black (Palestinian flag black)
 
-          // Palestinian Green — the core accent color
+          // Palestinian Green & Accent (Obay's logo colors + Olive palette)
           accent: "oklch(0.39 0.06 131.86)", // Palestine green
           gold: "#c9b48a",
+          goldDark: "#8E8759",
           accentDark: "#005C2E", // Darker green for hover
+          olive: "#394C2A",
+          oliveDark: "#1F2A18",
+          oliveLight: "#EDF2EB",
+          navy: "#19232D",
+          bgWarm: "#FAF7F2",
 
           // Palestinian Red — for alerts, CTAs, live indicators
           red: "#CE1126", // Palestine red
@@ -32,7 +38,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"thmanyahsans"', '"Tajawal"', "sans-serif"],
+        sans: ['"Cairo"', '"thmanyahsans"', '"Thmanyah Sans"', '"Tajawal"', 'sans-serif'],
+        display: ['"Thmanyah Serif Display"', '"thmanyahserifdisplay"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
+        thmanyah: ['"thmanyahsans"', '"Thmanyah Sans"', '"Cairo"', 'sans-serif'],
+        cairo: ['"Cairo"', '"Tajawal"', 'sans-serif'],
+        serif: ['"thmanyahserifdisplay"', '"Thmanyah Serif Text"', 'serif'],
       },
       keyframes: {
         "fade-in-up": {

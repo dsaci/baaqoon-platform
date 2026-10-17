@@ -506,13 +506,12 @@ export default function LandingPage() {
               <span className="text-white thmanyahserif">منصة باقون</span>
             </p>
 
-            <label
-              href="#"
+            <span
               className="inline-flex items-center gap-2 text-sm font-bold text-baaqoon-gold hover:text-baaqoon-gold transition-colors"
             >
               صُنع بالأمل من فلسطين
               <Heart className="w-4 h-4 text-baaqoon-gold" />
-            </label>
+            </span>
           </div>
         </div>
       </footer>
