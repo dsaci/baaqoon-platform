@@ -159,11 +159,13 @@ export default function SupervisorDashboard() {
     <div dir={isRtl ? "rtl" : "ltr"} className="min-h-screen bg-baaqoon-50 dark:bg-baaqoon-950 p-6 font-sans">
       <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-baaqoon-900 dark:text-white flex items-center gap-3">
-            <Activity className="w-8 h-8 text-baaqoon-accent" />
-            مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (selectedDashboardSubjectId ? (statsData?.allSubjects?.find((s: any) => s.id === selectedDashboardSubjectId)?.nameAr || statsData?.supervisedSubject?.nameAr) : (statsData?.allSubjects && statsData.allSubjects.length > 1 ? statsData.allSubjects.map((s: any) => s.nameAr).join(' و ') : (statsData?.supervisedSubject?.nameAr || 'غير محدد')))}
+          <h1 className="text-2xl sm:text-3xl font-black text-baaqoon-900 dark:text-white flex items-center gap-3">
+            <Activity className="w-8 h-8 text-baaqoon-accent shrink-0" />
+            <span className="text-baaqoon-900 dark:text-white">
+              مرحباً بك {user?.firstName} {user?.lastName} - {user?.primaryRole === 'super_admin' || user?.primaryRole === 'admin' ? 'إشراف عام ومتابعة المواد (الإدارة)' : 'إشراف مادة: ' + (selectedDashboardSubjectId ? (statsData?.allSubjects?.find((s: any) => s.id === selectedDashboardSubjectId)?.nameAr || statsData?.supervisedSubject?.nameAr) : (statsData?.allSubjects && statsData.allSubjects.length > 1 ? statsData.allSubjects.map((s: any) => s.nameAr).join(' و ') : (statsData?.supervisedSubject?.nameAr || 'غير محدد')))}
+            </span>
           </h1>
-          <p className="text-baaqoon-700 dark:text-baaqoon-300 mt-2 font-bold">
+          <p className="text-baaqoon-700 dark:text-slate-300 mt-2 font-bold">
             إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
           </p>
         </div>
@@ -438,39 +440,39 @@ export default function SupervisorDashboard() {
           {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="glass-panel p-6 flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-indigo-50 text-indigo-500">
+          <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-baaqoon-500">الأفواج</p>
-            <p className="text-2xl font-bold text-baaqoon-900">{isLoading ? '...' : statsData?.totalCohorts || 0}</p>
+            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">الأفواج</p>
+            <p className="text-2xl font-black text-baaqoon-900 dark:text-white">{isLoading ? '...' : statsData?.totalCohorts || 0}</p>
           </div>
         </div>
         <div className="glass-panel p-6 flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-emerald-50 text-emerald-500">
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-baaqoon-500">إجمالي الطلبة</p>
-            <p className="text-2xl font-bold text-baaqoon-900">{isLoading ? '...' : statsData?.totalStudents || 0}</p>
+            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">إجمالي الطلبة</p>
+            <p className="text-2xl font-black text-baaqoon-900 dark:text-white">{isLoading ? '...' : statsData?.totalStudents || 0}</p>
           </div>
         </div>
         <div className="glass-panel p-6 flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-amber-50 text-amber-500">
+          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-baaqoon-500">المعلمين</p>
-            <p className="text-2xl font-bold text-baaqoon-900">{isLoading ? '...' : statsData?.totalTeachers || 0}</p>
+            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">المعلمين</p>
+            <p className="text-2xl font-black text-baaqoon-900 dark:text-white">{isLoading ? '...' : statsData?.totalTeachers || 0}</p>
           </div>
         </div>
         <div className="glass-panel p-6 flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-baaqoon-100 text-baaqoon-accent">
+          <div className="p-3 rounded-lg bg-baaqoon-100 dark:bg-baaqoon-800 text-baaqoon-accent dark:text-emerald-400">
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-baaqoon-500">التقييمات الأخيرة</p>
-            <p className="text-2xl font-bold text-baaqoon-900">{isLoading ? '...' : statsData?.recentAssessments?.length || 0}</p>
+            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">التقييمات الأخيرة</p>
+            <p className="text-2xl font-black text-baaqoon-900 dark:text-white">{isLoading ? '...' : statsData?.recentAssessments?.length || 0}</p>
           </div>
         </div>
       </div>

@@ -17,6 +17,7 @@ export default {
           700: "#3f3f46",
           800: "#27272a",
           900: "#18181b", // Near black (Palestinian flag black)
+          950: "#09090b", // Deep black for dark mode backgrounds
 
           // Palestinian Green & Accent (Obay's logo colors + Olive palette)
           accent: "oklch(0.39 0.06 131.86)", // Palestine green

@@ -124,7 +124,7 @@ export default function AdminDatabasePage() {
                         </span>
                       </div>
                     </td>
-                    <td className="p-4 text-slate-500 text-sm">
+                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">
                       {new Date(u.createdAt).toLocaleDateString('ar-EG')}
                     </td>
                   </tr>
@@ -252,11 +252,11 @@ export default function AdminDatabasePage() {
       <div className="space-y-6 animate-fade-in-up font-sans" dir="rtl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2 flex items-center gap-3">
-              <Database className="w-8 h-8 text-violet-500" />
-              قاعدة البيانات المركزية
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 flex items-center gap-3">
+              <Database className="w-8 h-8 text-violet-500 shrink-0" />
+              <span className="text-slate-900 dark:text-white">قاعدة البيانات المركزية</span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 font-bold">
+            <p className="text-slate-600 dark:text-slate-300 font-bold">
               استعراض وتحليل جميع البيانات المسجلة في منصة باقون.
             </p>
           </div>

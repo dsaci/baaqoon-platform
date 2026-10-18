@@ -107,10 +107,19 @@ import LandingPage from "./features/landing/pages/LandingPage";
 
 import { api } from "./lib/axios";
 
+import { useThemeStore } from "./store/useThemeStore";
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 function App() {
   const { user, token, initialize, logout } = useAuthStore();
+  const { isDark } = useThemeStore();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+  }, [isDark]);
 
   useEffect(() => {
     const initAuth = async () => {

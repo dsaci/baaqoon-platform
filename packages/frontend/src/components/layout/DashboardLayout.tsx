@@ -632,23 +632,23 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 md:p-8 relative z-10 bg-baaqoon-50 dark:bg-baaqoon-950">
+        <div className="flex-1 overflow-auto p-4 md:p-8 relative z-10 bg-baaqoon-50 dark:bg-baaqoon-950 dark:text-slate-100">
           {/* Missing Contact / Subject Info Urgent Banner */}
           {hasIncompleteContact && (
-            <div className={`mb-6 p-4 rounded-2xl ${isMissingSubject ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-purple-500/20 border-purple-400/50 dark:border-purple-500/40' : 'bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/15 border-amber-500/30 dark:border-amber-500/40'} border backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-xs`} dir={isRtl ? 'rtl' : 'ltr'}>
-              <div className="flex items-start sm:items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${isMissingSubject ? 'bg-purple-600 shadow-purple-600/30' : 'bg-amber-500 shadow-amber-500/30'} text-white flex items-center justify-center shrink-0 shadow-md`}>
+            <div className={`mb-6 p-4.5 rounded-2xl ${isMissingSubject ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-purple-500/20 border-purple-400/50 dark:bg-purple-950/80 dark:border-purple-500/70 dark:shadow-purple-950/50' : 'bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/20 border-amber-500/40 dark:bg-amber-950/80 dark:border-amber-500/70 dark:shadow-amber-950/50'} border backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-md`} dir={isRtl ? 'rtl' : 'ltr'}>
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className={`w-11 h-11 rounded-xl ${isMissingSubject ? 'bg-purple-600 dark:bg-purple-500 shadow-purple-600/30' : 'bg-amber-500 dark:bg-amber-500 shadow-amber-500/30'} text-white flex items-center justify-center shrink-0 shadow-md`}>
                   <ShieldAlert className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className={`text-sm font-black ${isMissingSubject ? 'text-purple-950 dark:text-purple-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                  <h4 className={`text-sm sm:text-base font-black ${isMissingSubject ? 'text-purple-950 dark:text-purple-100' : 'text-amber-950 dark:text-amber-100'}`}>
                     {isRtl 
                       ? (isMissingSubject 
                           ? `تنبيه أكاديمي هام: حسابك يفتقر إلى ${missingContactText}` 
                           : `تنبيه أمني هام: حسابك يفتقر إلى ${missingContactText}`)
                       : `Important Alert: Your account is missing ${missingContactText}`}
                   </h4>
-                  <p className={`text-xs ${isMissingSubject ? 'text-purple-900/80 dark:text-purple-300/80' : 'text-amber-800/80 dark:text-amber-300/80'} font-medium mt-0.5`}>
+                  <p className={`text-xs sm:text-sm ${isMissingSubject ? 'text-purple-900/90 dark:text-purple-200' : 'text-amber-900/90 dark:text-amber-200'} font-bold mt-1 leading-relaxed`}>
                     {isRtl 
                       ? (isMissingSubject 
                           ? 'يرجى تحديد مادة التدريس الخاصة بك فوراً لتتمكن إدارة المنصة والمشرفون من تفويجك وإسناد الحصص والطلاب إليك والظهور في جدول الإسناد الأكاديمي.' 
@@ -659,7 +659,7 @@ export default function DashboardLayout() {
               </div>
               <button
                 onClick={() => setIsCompleteContactOpen(true)}
-                className={`px-5 py-2.5 ${isMissingSubject ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-600/20' : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 shadow-amber-600/20'} text-white text-xs font-black rounded-xl shadow-lg whitespace-nowrap transition-all self-stretch sm:self-auto text-center`}
+                className={`px-5 py-2.5 ${isMissingSubject ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-600/20 dark:bg-purple-500 dark:hover:bg-purple-400 dark:text-white' : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 shadow-amber-600/20 dark:bg-amber-400 dark:hover:bg-amber-300 dark:text-slate-950 dark:border-amber-300/50'} text-white text-xs sm:text-sm font-black rounded-xl shadow-lg whitespace-nowrap transition-all self-stretch sm:self-auto text-center cursor-pointer`}
               >
                 {isRtl ? (isMissingSubject ? 'تحديد مادة التدريس واستكمال البيانات' : 'استكمال البيانات الآن') : 'Complete Info Now'}
               </button>

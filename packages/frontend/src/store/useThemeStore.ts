@@ -18,11 +18,28 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       isDark: isNightTime(),
       isAuto: true,
-      toggleTheme: () => set((state) => ({ isDark: !state.isDark, isAuto: false })),
-      setTheme: (isDark) => set({ isDark, isAuto: false }),
+      toggleTheme: () =>
+        set((state) => {
+          const nextDark = !state.isDark;
+          if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('dark', nextDark);
+          }
+          return { isDark: nextDark, isAuto: false };
+        }),
+      setTheme: (isDark) => {
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.toggle('dark', isDark);
+        }
+        set({ isDark, isAuto: false });
+      },
     }),
     {
       name: 'baaqoon-theme-storage',
+      onRehydrateStorage: () => (state) => {
+        if (state && typeof document !== 'undefined') {
+          document.documentElement.classList.toggle('dark', state.isDark);
+        }
+      },
     }
   )
 );

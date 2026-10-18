@@ -191,12 +191,14 @@ function DistributionAdminPageInner() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white">الإسناد الأكاديمي وتوزيع المشرفين</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="text-slate-900 dark:text-white">الإسناد الأكاديمي وتوزيع المشرفين</span>
+            </h1>
             {isRefetching && (
               <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />
             )}
           </div>
-          <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">
+          <p className="text-slate-600 dark:text-slate-300 font-bold text-sm">
             إدارة وتعيين المشرفين والمنسقين الأكاديميين (مشرف واحد أو أكثر لكل مادة) ومتابعة الأساتذة المعينين في الأفواج.
           </p>
         </div>
