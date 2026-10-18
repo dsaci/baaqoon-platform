@@ -9,11 +9,13 @@ import { useTranslation } from 'react-i18next';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
+import { useTimeGreeting } from '../../../hooks/useTimeGreeting';
 
 const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfVU_ItAAAAAOaVvnGpT0xyf51mjiZxavYp1b2k";
 const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function LoginPage() {
+  const timeGreeting = useTimeGreeting();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +91,12 @@ export default function LoginPage() {
           <div className="relative inline-block">
             <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-20 h-20 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
+          </div>
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold shadow-xs animate-fade-in">
+              <span>{timeGreeting.icon}</span>
+              <span>{timeGreeting.text}</span>
+            </span>
           </div>
           <h2 className="text-3xl font-black text-[#19232D] dark:text-white">
             {t("auth.sign_in_title", "تسجيل الدخول")}

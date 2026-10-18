@@ -37,9 +37,11 @@ import UserAvatar from "../shared/UserAvatar";
 import AppTour from "../tour/AppTour";
 import PlatformGuideModal from "../guide/PlatformGuideModal";
 import NotificationBell from "./NotificationBell";
+import { useTimeGreeting } from "../../hooks/useTimeGreeting";
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
+  const timeGreeting = useTimeGreeting();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -314,20 +316,26 @@ export default function DashboardLayout() {
               : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center justify-between md:justify-center border-b border-baaqoon-100 dark:border-baaqoon-800 px-6 gap-3 shrink-0">
-          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <div className="py-3.5 flex items-center justify-between md:justify-center border-b border-baaqoon-100 dark:border-baaqoon-800 px-5 gap-3 shrink-0">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             <img
               src={logo}
               alt="باقون"
-              className="w-10 h-10 mix-blend-multiply dark:mix-blend-normal object-contain"
+              className="w-10 h-10 mix-blend-multiply dark:mix-blend-normal object-contain rounded-xl shrink-0"
             />
-            <span className="text-xl font-bold text-baaqoon-900 dark:text-white">
-              {isRtl ? "باقون" : "Baaqoon"}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl font-black text-baaqoon-900 dark:text-white leading-tight">
+                {isRtl ? "باقون" : "Baaqoon"}
+              </span>
+              <span className="text-[11px] font-bold text-baaqoon-accent dark:text-emerald-400 flex items-center gap-1 mt-0.5 whitespace-nowrap animate-fade-in">
+                <span>{timeGreeting.icon}</span>
+                <span>{timeGreeting.text}</span>
+              </span>
+            </div>
           </Link>
           {/* Mobile Close Button */}
           <button
-            className="md:hidden text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white"
+            className="md:hidden text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-900 dark:hover:text-white p-1"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <X className="w-6 h-6" />
@@ -460,15 +468,21 @@ export default function DashboardLayout() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <img
                 src={logo}
                 alt="باقون"
-                className="w-8 h-8 mix-blend-multiply dark:mix-blend-normal object-contain"
+                className="w-9 h-9 mix-blend-multiply dark:mix-blend-normal object-contain rounded-xl shrink-0"
               />
-              <span className="text-xl font-bold text-baaqoon-900 dark:text-white">
-                {isRtl ? "باقون" : "Baaqoon"}
-              </span>
+              <div className="flex flex-col">
+                <span className="text-base font-black text-baaqoon-900 dark:text-white leading-tight">
+                  {isRtl ? "باقون" : "Baaqoon"}
+                </span>
+                <span className="text-[10px] font-bold text-baaqoon-accent dark:text-emerald-400 flex items-center gap-1 leading-none mt-0.5">
+                  <span>{timeGreeting.icon}</span>
+                  <span>{timeGreeting.text}</span>
+                </span>
+              </div>
             </div>
           </div>
 

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
+import { useTimeGreeting } from '../../../hooks/useTimeGreeting';
 
 const BRANCHES = [
   { value: 'scientific', label: 'العلمي' },
@@ -22,6 +23,7 @@ const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LfVU_ItAAA
 const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function RegisterPage() {
+  const timeGreeting = useTimeGreeting();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -173,6 +175,12 @@ export default function RegisterPage() {
           <div className="relative inline-block">
             <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-16 h-16 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
+          </div>
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold shadow-xs animate-fade-in">
+              <span>{timeGreeting.icon}</span>
+              <span>{timeGreeting.text}</span>
+            </span>
           </div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white">
             {t("auth.new_account", "حساب جديد")}
