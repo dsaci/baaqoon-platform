@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
 import { Medal, BellRing } from 'lucide-react';
-import { Users, Calendar, Clock, CheckCircle, PlayCircle, FileText, Video } from 'lucide-react';
+import { Users, Calendar, Clock, CheckCircle, PlayCircle, FileText, Video, BookOpen, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
@@ -20,6 +20,7 @@ export default function TeacherDashboard() {
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAddRecordedModalOpen, setIsAddRecordedModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['teacher_sessions_dashboard'],
@@ -37,7 +38,7 @@ export default function TeacherDashboard() {
     }
   });
 
-  const activeCohortId = myCohorts?.[0]?.id;
+  const activeCohortId = selectedCohortId || myCohorts?.[0]?.id;
 
   const { data: progressData } = useQuery({
     queryKey: ['cohortProgress', activeCohortId],
@@ -76,6 +77,57 @@ export default function TeacherDashboard() {
         <p className="text-slate-500 dark:text-slate-400 font-bold">
           {t('dashboard.teacher_overview', 'إليك نظرة عامة على نشاطك اليوم في منصة باقون.')}
         </p>
+      </div>
+
+      {/* بطاقة التبعية الأكاديمية والمنهاج الفلسطيني المعتمد للأستاذ */}
+      <div className="bg-gradient-to-r from-emerald-700 via-teal-800 to-indigo-900 text-white p-6 sm:p-7 rounded-[2rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3.5 py-1 rounded-full text-xs font-black bg-white/20 backdrop-blur-md border border-white/30 text-white shadow-sm flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-emerald-200" />
+                المادة والمنهاج المعتمد للأستاذ
+              </span>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-400/30 text-emerald-100 border border-emerald-300/40">
+                منهاج وزارة التربية والتعليم الفلسطينية 🇵🇸
+              </span>
+            </div>
+            
+            <h2 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
+              <span>{user?.supervisedSubject?.nameAr || 'اللغة العربية وآدابها'}</span>
+            </h2>
+            
+            <p className="text-sm font-bold text-emerald-100/90 max-w-2xl leading-relaxed">
+              مرتبط رسمياً بالمنهاج الفلسطيني المعتمد (القسم الأدبي والعلمي - مرحلة الثانوية العامة / التوجيهي) مع إسناد الحصص الذكية وبنك الأسئلة والتوزيع السنوي والشهري المعتمد.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto">
+            <Link
+              to="/teacher/curriculum"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>بناء الحصص الذكية</span>
+            </Link>
+            <Link
+              to="/teacher/textbooks"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <FileText className="w-4 h-4 text-white" />
+              <span>كتب الوزارة PDF</span>
+            </Link>
+            <Link
+              to="/teacher/distribution"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>التوزيع السنوي</span>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Smart Syllabus Accountability & Progress Tracker */}
@@ -315,6 +367,30 @@ export default function TeacherDashboard() {
               </span>
             )}
           </div>
+
+          {/* تبديل الأفواج إذا كان للأستاذ أكثر من فوج مسند */}
+          {myCohorts && myCohorts.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 mb-6 p-2.5 bg-slate-100/70 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 px-2">معاينة منهاج الفوج:</span>
+              {myCohorts.map((c: any) => {
+                const isSelected = activeCohortId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedCohortId(c.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 scale-105'
+                        : 'bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {!progressData ? (

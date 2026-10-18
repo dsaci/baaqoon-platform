@@ -9,7 +9,7 @@ export class UsersService {
   async findById(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { roles: true },
+      include: { roles: true, supervisedSubject: true },
     });
 
     if (!user) {
@@ -22,7 +22,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { roles: true },
+      include: { roles: true, supervisedSubject: true },
     });
   }
 
@@ -41,7 +41,7 @@ export class UsersService {
     }
     return this.prisma.user.findFirst({
       where: { OR },
-      include: { roles: true },
+      include: { roles: true, supervisedSubject: true },
     });
   }
 

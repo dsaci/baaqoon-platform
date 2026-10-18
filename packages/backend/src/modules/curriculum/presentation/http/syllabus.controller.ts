@@ -90,7 +90,7 @@ export class SyllabusController {
     const cohortReports = [];
 
     for (const cohort of cohorts) {
-      const course = await this.prisma.course.findUnique({
+      let course = await this.prisma.course.findUnique({
         where: { id: cohort.courseId },
         include: {
           distributions: {
@@ -100,6 +100,26 @@ export class SyllabusController {
           }
         }
       });
+
+      // Self-healing fallback: if course has no distributions, find from subject
+      if (!course?.distributions?.length && course?.subjectId) {
+        const fallbackCourse = await this.prisma.course.findFirst({
+          where: {
+            subjectId: course.subjectId,
+            distributions: { some: {} }
+          },
+          include: {
+            distributions: {
+              include: {
+                months: true
+              }
+            }
+          }
+        });
+        if (fallbackCourse?.distributions?.length) {
+          course = fallbackCourse;
+        }
+      }
 
       const dist = course?.distributions?.[0];
       const currentMonthPlan = dist?.months?.find(
