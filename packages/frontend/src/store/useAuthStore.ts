@@ -14,6 +14,13 @@ export interface User {
   nationality?: string;
   avatarUrl?: string;
   supervisedSubjectId?: string;
+  supervisedSubject?: {
+    id: string;
+    code: string;
+    nameAr: string;
+    nameEn?: string | null;
+    iconUrl?: string | null;
+  };
   gradeLevel?: 'grade_11' | 'grade_12';
   academicBranch?: string;
   curriculumType?: string;

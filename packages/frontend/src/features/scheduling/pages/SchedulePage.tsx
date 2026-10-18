@@ -296,7 +296,7 @@ export default function SchedulePage() {
                     <button
                       onClick={handleBuildSession}
                       disabled={!selectedCohortId}
-                      className="px-5 py-2.5 bg-baaqoon-100 hover:bg-baaqoon-200 text-baaqoon-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="px-5 py-2.5 bg-baaqoon-100 hover:bg-baaqoon-200 dark:bg-baaqoon-800 dark:hover:bg-baaqoon-700 text-baaqoon-800 dark:text-baaqoon-100 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <Calendar className="w-5 h-5" />
                       حفظ في الجدول الأسبوعي

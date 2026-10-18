@@ -44,7 +44,7 @@ export default function ActivityLogsView() {
       </h2>
 
       {(!logs || logs.length === 0) ? (
-        <div className="text-center p-12 text-slate-500 font-bold border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+        <div className="text-center p-12 text-slate-500 dark:text-slate-400 font-bold border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
           لا يوجد نشاط مسجل حتى الآن.
         </div>
       ) : (
@@ -62,7 +62,7 @@ export default function ActivityLogsView() {
                       {getRoleLabel(log.user.primaryRole)}
                     </span>
                   </h4>
-                  <span className="text-xs text-slate-500 flex items-center gap-1 font-mono" dir="ltr">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-mono" dir="ltr">
                     <Clock className="w-3 h-3" />
                     {format(new Date(log.createdAt), 'hh:mm a', { locale: ar })}
                   </span>

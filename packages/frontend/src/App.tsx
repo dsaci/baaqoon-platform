@@ -107,10 +107,27 @@ import LandingPage from "./features/landing/pages/LandingPage";
 
 import { api } from "./lib/axios";
 
+import { useThemeStore } from "./store/useThemeStore";
+
 // ─── App Router ───────────────────────────────────────────────────────────────
 function App() {
   const { user, token, initialize, logout } = useAuthStore();
+  const { isDark, refreshSystemTheme } = useThemeStore();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+  }, [isDark]);
+
+  // Automatically adapt theme according to time of day when in 'system' mode
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshSystemTheme();
+    }, 30000); // Check every 30 seconds
+    return () => clearInterval(timer);
+  }, [refreshSystemTheme]);
 
   useEffect(() => {
     const initAuth = async () => {

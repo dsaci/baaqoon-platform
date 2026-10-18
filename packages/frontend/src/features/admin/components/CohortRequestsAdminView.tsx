@@ -171,7 +171,7 @@ export default function CohortRequestsAdminView() {
                 </button>
                 <button 
                   onClick={() => { setRejectId(null); setRejectReason(''); }}
-                  className="px-4 py-2 bg-slate-200 text-slate-800 font-bold rounded-lg hover:bg-slate-300"
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                 >
                   إلغاء
                 </button>

@@ -195,7 +195,7 @@ export default function AdminDashboard() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           {passwordRequests.length > 0 && (
-            <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative flex items-center gap-3 animate-pulse">
+            <div className="mb-4 bg-red-100 dark:bg-red-950/70 border-2 border-red-400 dark:border-red-600/70 text-red-800 dark:text-red-100 px-4 py-3 rounded-xl relative flex items-center gap-3 animate-pulse">
               <span className="flex h-3 w-3 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
@@ -204,10 +204,10 @@ export default function AdminDashboard() {
             </div>
           )}
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 flex items-center gap-3">
-            <span className="w-2.5 h-8 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-full"></span>
-            مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋
+            <span className="w-2.5 h-8 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-full shrink-0"></span>
+            <span className="text-slate-900 dark:text-white">مرحباً بك {user?.firstName} {user?.lastName} - مدير المنصة 👋</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-bold">
+          <p className="text-slate-600 dark:text-slate-300 font-bold">
             لوحة التحكم المركزية لإدارة الموارد البشرية، الأفواج التربوية، والإشراف على متابعة المنهاج.
           </p>
         </div>
@@ -498,24 +498,24 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <button
               onClick={() => navigate('/admin/reports')}
-              className="p-5 rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+              className="p-5 rounded-2xl border border-purple-200 dark:border-purple-800/80 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/40 dark:to-slate-900 text-right hover:shadow-md transition-all group cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <BarChart3 className="w-5 h-5" />
               </div>
               <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإحصائيات والتقارير الشاملة</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">مؤشرات الأداء، نسب المناهج، والتوزع الديموغرافي</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">مؤشرات الأداء، نسب المناهج، والتوزع الديموغرافي</p>
             </button>
 
             <button
               onClick={() => navigate('/admin/database')}
-              className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50/50 to-white dark:from-slate-800/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+              className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50/50 to-white dark:from-slate-900 dark:to-slate-950 text-right hover:shadow-md transition-all group cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Database className="w-5 h-5" />
               </div>
-              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">إدارة النظام وقاعدة البيانات</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">تسيير المنصة الرئيسية، الأقسام، والمواد التعليمية</p>
+              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">قاعدة البيانات المركزية وإدارة النظام</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">تسيير المنصة الرئيسية، الأقسام، والمواد التعليمية</p>
             </button>
 
             <button
@@ -523,13 +523,13 @@ export default function AdminDashboard() {
                 setActiveTab('cohorts');
                 setCohortSubTab('distribution');
               }}
-              className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-900 text-right hover:shadow-md transition-all group"
+              className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/80 bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/40 dark:to-slate-900 text-right hover:shadow-md transition-all group cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Users2 className="w-5 h-5" />
               </div>
-              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإسناد وتوزيع المشرفين</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">توزيع المهام والمشرفين على المواد (مشرف أو أكثر لكل مادة)</p>
+              <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">الإسناد الأكاديمي وتوزيع المشرفين</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">توزيع المهام والمشرفين على المواد (مشرف أو أكثر لكل مادة)</p>
             </button>
           </div>
 
@@ -600,7 +600,7 @@ export default function AdminDashboard() {
                 className={`px-4 py-2 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${
                   cohortSubTab === 'distribution'
                     ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-600/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 <Shield className="w-4 h-4" />

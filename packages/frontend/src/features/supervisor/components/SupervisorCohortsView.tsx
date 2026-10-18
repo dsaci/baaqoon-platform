@@ -1073,7 +1073,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                   className={`py-2 px-3 rounded-xl text-xs font-black transition-all ${
                     vacancyAction === 'assign_teacher'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   1. إسناد أستاذ بديل للفوج
@@ -1084,7 +1084,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                   className={`py-2 px-3 rounded-xl text-xs font-black transition-all ${
                     vacancyAction === 'bulk_transfer'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   2. ضم الطلبة إلى فوج آخر متاح

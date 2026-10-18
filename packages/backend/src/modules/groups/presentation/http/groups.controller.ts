@@ -1843,7 +1843,7 @@ export class GroupsController {
 
     if (!cohort) return { units: [] };
 
-    const curriculumVersion = await this.prisma.curriculumVersion.findUnique({
+    let curriculumVersion = cohort.curriculumVersionId ? await this.prisma.curriculumVersion.findUnique({
       where: { id: cohort.curriculumVersionId },
       include: {
         units: {
@@ -1853,9 +1853,35 @@ export class GroupsController {
           orderBy: { orderIndex: 'asc' }
         }
       }
-    });
+    }) : null;
 
-    if (!curriculumVersion) return { units: [] };
+    // Self-healing fallback: if version is missing or has 0 units, find published version for the subject
+    if (!curriculumVersion || curriculumVersion.units.length === 0) {
+      if (cohort.courseId) {
+        const course = await this.prisma.course.findUnique({ where: { id: cohort.courseId } });
+        if (course?.subjectId) {
+          const fallback = await this.prisma.curriculumVersion.findFirst({
+            where: {
+              course: { subjectId: course.subjectId },
+              units: { some: {} }
+            },
+            include: {
+              units: {
+                include: {
+                  lessons: { orderBy: { orderIndex: 'asc' } }
+                },
+                orderBy: { orderIndex: 'asc' }
+              }
+            }
+          });
+          if (fallback && fallback.units.length > 0) {
+            curriculumVersion = fallback;
+          }
+        }
+      }
+    }
+
+    if (!curriculumVersion || curriculumVersion.units.length === 0) return { units: [] };
 
     // Calculate progress
     const completedLessonIds = new Set(
