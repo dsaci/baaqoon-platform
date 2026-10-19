@@ -61,6 +61,13 @@ export default function TextbooksPage() {
       res.data.forEach((subject: any, idx: number) => {
         if (subject.courses) {
           subject.courses.forEach((course: any) => {
+            const tb = course.textbooks?.[0];
+            const downloadUrl = (tb?.pdfUrl && tb.pdfUrl.startsWith('http'))
+              ? tb.pdfUrl
+              : (subject.iconUrl && subject.iconUrl.startsWith('http'))
+                ? subject.iconUrl
+                : `${MOE_BASE}/${subject.iconUrl || ''}`;
+
             books.push({
               id: course.id,
               nameAr: course.title || subject.nameAr,
@@ -68,7 +75,7 @@ export default function TextbooksPage() {
               branch: course.academicBranch || "scientific",
               gradeLevel: course.gradeLevel || "grade_12",
               curriculumType: course.curriculumType || "governmental",
-              downloadUrl: (subject.iconUrl && subject.iconUrl.startsWith('http')) ? subject.iconUrl : `${MOE_BASE}/${subject.iconUrl || ''}`,
+              downloadUrl,
               color: colors[idx % colors.length],
             });
           });
@@ -107,22 +114,34 @@ export default function TextbooksPage() {
             <BookOpen className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">المكتبة الرقمية</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-1">المكتبة الرقمية والمناهج المعتمدة</h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
-              الكتب المدرسية الرسمية — وزارة التربية والتعليم العالي الفلسطينية (2025)
+              الكتب المدرسية الرسمية — المنهاج الفلسطيني الحكومي والمنهاج الأزهري المعتمد لطلبة غزة (2025 - 2026)
             </p>
           </div>
         </div>
 
-        <a
-          href="https://moe.edu.ps/class12/books"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-5 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 hover:-translate-y-0.5 shrink-0"
-        >
-          <ExternalLink className="w-4 h-4" />
-          موقع الوزارة
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="https://drive.google.com/drive/folders/10Yf1_QhYoPXd4hrpewwSjYQwsFJOMVjK?usp=drive_link"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 hover:-translate-y-0.5 shrink-0 text-xs sm:text-sm"
+          >
+            <ExternalLink className="w-4 h-4" />
+            مجلد المنهاج الأزهري (Drive)
+          </a>
+
+          <a
+            href="https://moe.edu.ps/class12/books"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 hover:-translate-y-0.5 shrink-0 text-xs sm:text-sm"
+          >
+            <ExternalLink className="w-4 h-4" />
+            موقع الوزارة الحكومي
+          </a>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}

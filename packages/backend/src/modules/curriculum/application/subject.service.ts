@@ -41,6 +41,7 @@ export class SubjectService {
       include: {
         courses: {
           include: {
+            textbooks: true,
             versions: {
               where: { status: 'published' },
               include: {
