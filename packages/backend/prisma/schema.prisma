@@ -54,6 +54,8 @@ model User {
   supervisedSubject   Subject?                  @relation("SubjectSupervisors", fields: [supervisedSubjectId], references: [id])
   createdRecordedLessons RecordedLesson[]       @relation("CreatedRecordedLessons")
   recordedLessonViews    RecordedLessonView[]   @relation("StudentRecordedLessonViews")
+  volunteerApplicationsReviewed VolunteerApplication[] @relation("ReviewedApplications")
+  volunteerApplicationConverted VolunteerApplication[] @relation("ConvertedUser")
 
   @@map("users")
   @@schema("users")
@@ -87,6 +89,7 @@ model Subject {
   CohortRequest      CohortRequest[]
   supervisors        User[]           @relation("SubjectSupervisors")
   recordedLessons    RecordedLesson[]
+  volunteerApplications VolunteerApplication[]
 
   @@map("subjects")
   @@schema("curriculum")
@@ -841,4 +844,52 @@ model RecordedLessonView {
   @@map("recorded_lesson_views")
   @@schema("curriculum")
 }
+
+model VolunteerApplication {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  isExistingBaaqoonTeacher Boolean   @default(false) @map("isExistingBaaqoonTeacher")
+  fullNameAr               String?   @map("fullNameAr") @db.VarChar(150)
+  fullNameEn               String?   @map("fullNameEn") @db.VarChar(150)
+  age                      Int?
+  gender                   String?   @db.VarChar(20)
+  email                    String    @db.VarChar(255)
+  phone                    String    @db.VarChar(50)
+  telegramId               String?   @map("telegramId") @db.VarChar(100)
+  nationality              String?   @default("الجزائر") @db.VarChar(100)
+  teachingField            String?   @default("high_school") @map("teachingField") @db.VarChar(100)
+  specialty                String?   @db.VarChar(150)
+  university               String?   @db.VarChar(150)
+  graduationYear           String?   @map("graduationYear") @db.VarChar(50)
+  hasExperience            Boolean?  @default(true) @map("hasExperience")
+  experienceYears          String?   @map("experienceYears") @db.VarChar(50)
+  experienceDetails        String?   @map("experienceDetails") @db.Text
+  subjects                 String[]  @default([])
+  otherSubjects            String?   @map("otherSubjects") @db.Text
+  preferredPlatform        String?   @map("preferredPlatform") @db.VarChar(50)
+  sessionsPerWeek          String?   @map("sessionsPerWeek") @db.VarChar(50)
+  availableTimes           String[]  @default([]) @map("availableTimes")
+  availableDays            String[]  @default([]) @map("availableDays")
+  preferredLanguage        String?   @map("preferredLanguage") @db.VarChar(50)
+  deviceType               String[]  @default([]) @map("deviceType")
+  internetReliability      String?   @map("internetReliability") @db.VarChar(50)
+  motivation               String?   @db.Text
+  discoveryChannel         String?   @map("discoveryChannel") @db.VarChar(150)
+  additionalNotes          String?   @map("additionalNotes") @db.Text
+  status                   String    @default("pending") @db.VarChar(50)
+  assignedSubjectId        String?   @map("assignedSubjectId") @db.Uuid
+  convertedUserId          String?   @map("convertedUserId") @db.Uuid
+  reviewedById             String?   @map("reviewedById") @db.Uuid
+  reviewedAt               DateTime? @map("reviewedAt") @db.Timestamptz(6)
+  internalNotes            String?   @map("internalNotes") @db.Text
+  createdAt                DateTime  @default(now()) @map("createdAt") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updatedAt") @db.Timestamptz(6)
+
+  assignedSubject          Subject?  @relation(fields: [assignedSubjectId], references: [id], onDelete: SetNull)
+  convertedUser            User?     @relation("ConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
+  reviewedBy               User?     @relation("ReviewedApplications", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@map("volunteer_applications")
+  @@schema("users")
+}
+
 

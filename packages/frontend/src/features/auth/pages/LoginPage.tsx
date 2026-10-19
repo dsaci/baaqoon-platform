@@ -212,6 +212,16 @@ export default function LoginPage() {
             {t("common.register", "إنشاء حساب")}
           </Link>
         </p>
+
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
+          <Link 
+            to="/volunteer"
+            className="inline-flex items-center gap-1.5 text-xs font-black text-baaqoon-700 dark:text-baaqoon-300 hover:text-baaqoon-900 bg-baaqoon-50 dark:bg-baaqoon-900/40 px-3.5 py-2 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700/80 transition-all shadow-sm"
+          >
+            <span>🌿</span>
+            <span>معلم ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

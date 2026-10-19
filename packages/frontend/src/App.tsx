@@ -7,6 +7,9 @@ import logo from "./assets/logo.jpg";
 import LoginPage from "./features/auth/pages/LoginPage";
 import ComingSoonPage from "./features/shared/pages/ComingSoonPage";
 import RegisterPage from "./features/auth/pages/RegisterPage";
+import VolunteerPortalPage from "./features/auth/pages/VolunteerPortalPage";
+import VolunteerManagementPage from "./features/admin/pages/VolunteerManagementPage";
+import SupervisorVolunteersPage from "./features/supervisor/pages/SupervisorVolunteersPage";
 
 // Layout
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -158,6 +161,8 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/volunteer" element={<VolunteerPortalPage />} />
+      <Route path="/apply-teacher" element={<VolunteerPortalPage />} />
 
       {/* Fullscreen Virtual Classroom (no sidebar) */}
       <Route
@@ -231,6 +236,7 @@ function App() {
         <Route path="distribution" element={<DistributionAdminPage />} />
         <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="database" element={<AdminDatabasePage />} />
+        <Route path="volunteers" element={<VolunteerManagementPage />} />
       </Route>
       {/* ── Supervisor Routes (الإشراف) ──────────────────────────────────────── */}
       <Route
@@ -248,6 +254,7 @@ function App() {
         <Route path="recorded-lessons" element={<RecordedLessonsPage />} />
         <Route path="teachers" element={<SupervisorTeachersPage />} />
         <Route path="cohorts" element={<SupervisorCohortsPage />} />
+        <Route path="volunteers" element={<SupervisorVolunteersPage />} />
         <Route path="schedule" element={<TimetablePage />} />
         <Route path="exam-prep" element={<ExamPrepPage />} />
       </Route>
