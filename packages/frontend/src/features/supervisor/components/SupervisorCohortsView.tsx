@@ -32,6 +32,8 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
   }, [initialSubjectId]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cohortFilter, setCohortFilter] = useState<'all' | 'vacant' | 'teacher_vacant' | 'full'>('all');
+  const [gradeFilter, setGradeFilter] = useState<'all' | 'grade_11' | 'grade_12'>('all');
+  const [curriculumFilter, setCurriculumFilter] = useState<'all' | 'governmental' | 'azhari'>('all');
   const [expandedCohortId, setExpandedCohortId] = useState<string | null>(null);
 
   // Modals state
@@ -139,17 +141,42 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
     }
   }, [isCreateModalOpen, courses, formData.courseId]);
 
+  // Selected course in creation modal
+  const selectedCourseInModal = courses.find((c: any) => c.id === formData.courseId);
+  const effectiveSubjectIdForModal = selectedCourseInModal?.subjectId || selectedSubjectId;
+
   // Fetch delegated teachers
   const { data: teachers = [] } = useQuery({
-    queryKey: ['supervisor_delegated_teachers', selectedSubjectId],
+    queryKey: ['supervisor_delegated_teachers', effectiveSubjectIdForModal],
     queryFn: async () => {
-      const url = selectedSubjectId 
-        ? `/groups/supervisor/delegated/teachers?subjectId=${selectedSubjectId}`
+      const url = effectiveSubjectIdForModal 
+        ? `/groups/supervisor/delegated/teachers?subjectId=${effectiveSubjectIdForModal}`
         : '/groups/supervisor/delegated/teachers';
       const res = await api.get(url);
       return res.data;
     }
   });
+
+  // Combine teachers from delegated query and subject teachers meta to guarantee complete coverage
+  const availableTeachers = React.useMemo(() => {
+    const map = new Map<string, any>();
+    (teachers || []).forEach((t: any) => map.set(t.id, t));
+    (subjectTeachersData?.teachers || []).forEach((t: any) => {
+      if (!map.has(t.id)) {
+        map.set(t.id, {
+          id: t.id,
+          firstName: t.firstName,
+          lastName: t.lastName,
+          email: t.email,
+          phone: t.phone,
+          primaryRole: t.primaryRole,
+          status: t.status,
+          nationality: t.nationality
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [teachers, subjectTeachersData?.teachers]);
 
   // Fetch all eligible students for creation
   const { data: allPlatformStudents = [] } = useQuery({
@@ -332,6 +359,9 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
     if (cohortFilter === 'teacher_vacant') return c.isTeacherVacant;
     if (cohortFilter === 'full') return c.availableSeats === 0;
 
+    if (gradeFilter !== 'all' && c.course?.gradeLevel !== gradeFilter) return false;
+    if (curriculumFilter !== 'all' && c.course?.curriculumType !== curriculumFilter) return false;
+
     return true;
   });
 
@@ -500,60 +530,109 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
       </div>
 
       {/* 3. Search & Capacity Filter Tabs */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
-          <input
-            type="text"
-            placeholder="بحث باسم الفوج، الكود، الأستاذ..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl pr-10 pl-4 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+      <div className="flex flex-col gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="بحث باسم الفوج، الكود، الأستاذ..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl pr-10 pl-4 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <Filter className="w-4 h-4 text-slate-400 mr-1 flex-shrink-0" />
+            <button
+              onClick={() => setCohortFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                cohortFilter === 'all'
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              جميع الأفواج ({cohortsList.length})
+            </button>
+            <button
+              onClick={() => setCohortFilter('vacant')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                cohortFilter === 'vacant'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              بها أماكن شاغرة ({cohortsList.filter(c => c.availableSeats > 0).length})
+            </button>
+            <button
+              onClick={() => setCohortFilter('teacher_vacant')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                cohortFilter === 'teacher_vacant'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              شغور أستاذ ({cohortsList.filter(c => c.isTeacherVacant).length})
+            </button>
+            <button
+              onClick={() => setCohortFilter('full')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                cohortFilter === 'full'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              مكتملة العدد ({cohortsList.filter(c => c.availableSeats === 0).length})
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <Filter className="w-4 h-4 text-slate-400 mr-1 flex-shrink-0" />
-          <button
-            onClick={() => setCohortFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
-              cohortFilter === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            جميع الأفواج ({cohortsList.length})
-          </button>
-          <button
-            onClick={() => setCohortFilter('vacant')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
-              cohortFilter === 'vacant'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            بها أماكن شاغرة ({cohortsList.filter(c => c.availableSeats > 0).length})
-          </button>
-          <button
-            onClick={() => setCohortFilter('teacher_vacant')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
-              cohortFilter === 'teacher_vacant'
-                ? 'bg-rose-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            شغور أستاذ ({cohortsList.filter(c => c.isTeacherVacant).length})
-          </button>
-          <button
-            onClick={() => setCohortFilter('full')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
-              cohortFilter === 'full'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            مكتملة العدد ({cohortsList.filter(c => c.availableSeats === 0).length})
-          </button>
+        {/* Level and Curriculum quick filter pills */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-slate-500 dark:text-slate-400 text-[11px] ml-1">تصفية المستوى:</span>
+            <button
+              onClick={() => setGradeFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${gradeFilter === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              كل المستويات
+            </button>
+            <button
+              onClick={() => setGradeFilter('grade_11')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${gradeFilter === 'grade_11' ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              الصف 11 (حادي عشر)
+            </button>
+            <button
+              onClick={() => setGradeFilter('grade_12')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${gradeFilter === 'grade_12' ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              الصف 12 (توجيهي)
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-slate-500 dark:text-slate-400 text-[11px] ml-1">تصفية المنهج:</span>
+            <button
+              onClick={() => setCurriculumFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${curriculumFilter === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              كل المناهج
+            </button>
+            <button
+              onClick={() => setCurriculumFilter('governmental')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${curriculumFilter === 'governmental' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              منهاج حكومي
+            </button>
+            <button
+              onClick={() => setCurriculumFilter('azhari')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${curriculumFilter === 'azhari' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            >
+              منهاج أزهري
+            </button>
+          </div>
         </div>
       </div>
 
@@ -599,14 +678,28 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                           {cohort.code}
                         </span>
+                        {cohort.course?.gradeLevel && (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                            {cohort.course.gradeLevel === 'grade_11' ? 'الصف 11 (حادي عشر)' : 'الصف 12 (توجيهي)'}
+                          </span>
+                        )}
                         {cohort.course?.academicBranch && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             {cohort.course.academicBranch === 'scientific' ? 'فرع علمي' : 'فرع أدبي'}
                           </span>
                         )}
+                        {cohort.course?.curriculumType && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {cohort.course.curriculumType === 'governmental' ? 'منهاج حكومي فلسطيني' : 'منهاج أزهري'}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-500 mt-1 font-semibold">
-                        المقرر: {cohort.course?.title || 'مقرر مادة التخصص'} • المنهج: {cohort.course?.curriculumType === 'governmental' ? 'حكومي فلسطيني' : 'أزهري'}
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-semibold flex items-center gap-2 flex-wrap">
+                        <span>المقرر: <strong className="text-slate-700 dark:text-slate-200">{cohort.course?.title || 'مقرر مادة التخصص'}</strong></span>
+                        <span>•</span>
+                        <span>المستوى: <strong className="text-purple-700 dark:text-purple-400">{cohort.course?.gradeLevel === 'grade_11' ? 'الصف الحادي عشر' : 'الصف الثاني عشر / توجيهي'}</strong></span>
+                        <span>•</span>
+                        <span>المنهج: <strong className="text-emerald-700 dark:text-emerald-400">{cohort.course?.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'}</strong></span>
                       </div>
                     </div>
 
@@ -905,24 +998,73 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
             </div>
 
             <div className="p-6 space-y-4 text-right">
+              {/* Cohort Spec Banner */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <span>مواصفات الفوج والمقرر:</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-black">{selectedCohortForAddStudent.availableSeats} مقعد شاغر</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedCohortForAddStudent.course?.gradeLevel && (
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {selectedCohortForAddStudent.course.gradeLevel === 'grade_11' ? 'الصف 11 (حادي عشر)' : 'الصف 12 (توجيهي)'}
+                    </span>
+                  )}
+                  {selectedCohortForAddStudent.course?.academicBranch && (
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {selectedCohortForAddStudent.course.academicBranch === 'scientific' ? 'الفرع العلمي' : 'الفرع الأدبي'}
+                    </span>
+                  )}
+                  {selectedCohortForAddStudent.course?.curriculumType && (
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      {selectedCohortForAddStudent.course.curriculumType === 'governmental' ? 'منهاج حكومي فلسطيني' : 'منهاج أزهري'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  اختر الطالب للإضافة:
+                  اختر الطالب للإضافة (يتم عرض الطلاب المتوافقين مع مواصفات الفوج):
                 </label>
-                <select
-                  value={studentToAddId}
-                  onChange={(e) => setStudentToAddId(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">-- اختر طالباً من قائمة الانتظار أو المنصة --</option>
-                  {allPlatformStudents
-                    .filter((s: any) => !selectedCohortForAddStudent.enrolledStudents?.some((e: any) => e.id === s.id))
-                    .map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.firstName} {s.lastName} ({s.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} - {s.email || s.phone || 'مسجل'})
-                      </option>
-                    ))}
-                </select>
+                {(() => {
+                  const isCohortScientific = selectedCohortForAddStudent.course?.academicBranch === 'scientific';
+                  const isCohortLiterary = selectedCohortForAddStudent.course?.academicBranch === 'literary';
+
+                  const eligibleStudents = allPlatformStudents
+                    .filter((s: any) => {
+                      if (selectedCohortForAddStudent.enrolledStudents?.some((e: any) => e.id === s.id)) return false;
+                      if (isCohortScientific && s.academicBranch === 'literary') return false;
+                      if (isCohortLiterary && s.academicBranch === 'scientific') return false;
+                      return true;
+                    })
+                    .sort((a: any, b: any) => {
+                      const aMatch = (a.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel ? 2 : 0) + (a.curriculumType === selectedCohortForAddStudent.course?.curriculumType ? 1 : 0);
+                      const bMatch = (b.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel ? 2 : 0) + (b.curriculumType === selectedCohortForAddStudent.course?.curriculumType ? 1 : 0);
+                      return bMatch - aMatch;
+                    });
+
+                  return (
+                    <select
+                      value={studentToAddId}
+                      onChange={(e) => setStudentToAddId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">-- اختر طالباً من قائمة الانتظار أو المنصة ({eligibleStudents.length} طالب مؤهل) --</option>
+                      {eligibleStudents.map((s: any) => {
+                        const isExactGrade = s.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel;
+                        const gradeText = s.gradeLevel === 'grade_11' ? 'صف 11' : s.gradeLevel === 'grade_12' ? 'صف 12' : (s.gradeLevel || 'غير محدد');
+                        const branchText = s.academicBranch === 'scientific' ? 'علمي' : s.academicBranch === 'literary' ? 'أدبي' : (s.academicBranch || 'عام');
+                        const currText = s.curriculumType === 'governmental' ? 'حكومي' : 'أزهري';
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.firstName} {s.lastName} {isExactGrade ? '⭐' : ''} (فرع: {branchText} • مستوى: {gradeText} • منهج: {currText})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
               </div>
 
               <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 font-bold">
@@ -1377,21 +1519,32 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                         onChange={(e) => {
                           const cId = e.target.value;
                           const selectedC = courses.find((c: any) => c.id === cId);
+                          const newBranch = selectedC?.academicBranch || '';
                           setFormData({
                             ...formData,
                             courseId: cId,
                             curriculumType: selectedC?.curriculumType || '',
-                            academicBranch: selectedC?.academicBranch || ''
+                            academicBranch: newBranch
                           });
+                          if (newBranch === 'scientific') {
+                            setStudentBranchFilter('scientific');
+                          } else if (newBranch === 'literary') {
+                            setStudentBranchFilter('literary');
+                          }
                         }}
                         className="w-full pr-10 pl-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
                       >
                         <option value="">-- اضغط لاختيار المقرر الدراسي المعتمد --</option>
-                        {courses.map((course: any) => (
-                          <option key={course.id} value={course.id}>
-                            {course.title || course.nameAr} - {course.academicBranch === 'scientific' ? 'الفرع العلمي' : 'الفرع الأدبي'} ({course.curriculumType === 'governmental' ? 'منهاج حكومي' : 'منهاج أزهري'})
-                          </option>
-                        ))}
+                        {courses.map((course: any) => {
+                          const gradeText = course.gradeLevel === 'grade_11' ? 'الصف 11 (حادي عشر)' : course.gradeLevel === 'grade_12' ? 'الصف 12 (توجيهي)' : (course.gradeLevel || '');
+                          const branchText = course.academicBranch === 'scientific' ? 'علمي' : course.academicBranch === 'literary' ? 'أدبي' : (course.academicBranch || '');
+                          const currText = course.curriculumType === 'governmental' ? 'منهاج حكومي فلسطيني' : 'منهاج أزهري';
+                          return (
+                            <option key={course.id} value={course.id}>
+                              {course.title || course.nameAr} • {gradeText} • {branchText} ({currText})
+                            </option>
+                          );
+                        })}
                       </select>
                       <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
@@ -1418,6 +1571,11 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
+                          {selectedC.gradeLevel && (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                              {selectedC.gradeLevel === 'grade_11' ? 'الصف 11 (حادي عشر)' : 'الصف 12 (توجيهي)'}
+                            </span>
+                          )}
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
                             {selectedC.academicBranch === 'scientific' ? 'الفرع العلمي' : 'الفرع الأدبي'}
                           </span>
@@ -1482,15 +1640,15 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                         اختر أستاذ المادة المسؤول عن الفوج <span className="text-rose-500">*</span>
                       </h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        الأساتذة المعتمدون لمادة التخصص ({teachers.length} أستاذ)
+                        الأساتذة المعتمدون لمادة التخصص ({availableTeachers.length} أستاذ)
                       </p>
                     </div>
                     {/* Search */}
-                    <div className="relative sm:w-60">
+                    <div className="relative sm:w-64">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input 
-                        type="text"
-                        placeholder="بحث بالاسم أو البريد..."
+                        type="text" 
+                        placeholder="بحث بالاسم أو البريد أو الهاتف..."
                         value={teacherSearch}
                         onChange={(e) => setTeacherSearch(e.target.value)}
                         className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1500,12 +1658,14 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
 
                   {/* Teachers Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
-                    {teachers
+                    {availableTeachers
                       .filter((t: any) => {
                         if (!teacherSearch.trim()) return true;
                         const q = teacherSearch.toLowerCase();
                         const full = `${t.firstName} ${t.lastName}`.toLowerCase();
-                        return full.includes(q) || (t.email && t.email.toLowerCase().includes(q));
+                        return full.includes(q) || 
+                               (t.email && t.email.toLowerCase().includes(q)) ||
+                               (t.phone && t.phone.toLowerCase().includes(q));
                       })
                       .map((teacher: any) => {
                         const isSelected = formData.teacherId === teacher.id;
@@ -1528,11 +1688,16 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                                 أ.
                               </div>
                               <div>
-                                <div className="font-bold text-xs text-slate-900 dark:text-white">
-                                  أ. {teacher.firstName} {teacher.lastName}
+                                <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  <span>أ. {teacher.firstName} {teacher.lastName}</span>
+                                  {teacher.nationality && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">
+                                      {teacher.nationality}
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="text-[10px] text-slate-400 truncate max-w-[150px]" dir="ltr">
-                                  {teacher.email}
+                                <div className="text-[10px] text-slate-400 truncate max-w-[160px]" dir="ltr">
+                                  {teacher.email || teacher.phone || 'مسجل'}
                                 </div>
                               </div>
                             </div>
@@ -1548,7 +1713,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                       })}
                   </div>
 
-                  {teachers.length === 0 && (
+                  {availableTeachers.length === 0 && (
                     <div className="text-center py-8 text-slate-400 text-xs">
                       لا يوجد أساتذة مسندون لهذه المادة حالياً
                     </div>
@@ -1559,137 +1724,190 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
               {/* STEP 3: تفويج وإسناد الطلبة */}
               {step === 3 && (
                 <div className="space-y-4 animate-fade-in">
-                  {/* Controls Header */}
-                  <div className="flex flex-col gap-2.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          تم اختيار <span className="text-indigo-600 dark:text-indigo-400 font-black">{selectedStudents.length}</span> من أصل <span className="font-black">{formData.maxStudents}</span> مقعد
-                        </span>
-                        {selectedStudents.length > formData.maxStudents && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                            تجاوزت السعة المقترحة
-                          </span>
+                  {(() => {
+                    const selectedCourse = courses.find((c: any) => c.id === formData.courseId);
+                    const isScientificCourse = selectedCourse?.academicBranch === 'scientific';
+                    const isLiteraryCourse = selectedCourse?.academicBranch === 'literary';
+
+                    const baseFilteredStudents = allPlatformStudents.filter((st: any) => {
+                      if (isScientificCourse && st.academicBranch === 'literary') return false;
+                      if (isLiteraryCourse && st.academicBranch === 'scientific') return false;
+                      return true;
+                    });
+
+                    return (
+                      <>
+                        {/* Notice Banner */}
+                        {isScientificCourse && (
+                          <div className="p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 text-xs text-blue-900 dark:text-blue-200 font-bold flex items-center gap-2">
+                            <Info className="w-4 h-4 flex-shrink-0 text-blue-600" />
+                            <span>
+                              مقرر «{selectedCourse?.title}» مخصص للفرع العلمي (تم استبعاد طلاب الفرع الأدبي تلقائياً لمنع التضارب الأكاديمي).
+                            </span>
+                          </div>
                         )}
-                      </div>
+                        {isLiteraryCourse && (
+                          <div className="p-3 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-xs text-amber-900 dark:text-amber-200 font-bold flex items-center gap-2">
+                            <Info className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                            <span>
+                              مقرر «{selectedCourse?.title}» مخصص للفرع الأدبي (تم استبعاد طلاب الفرع العلمي تلقائياً لمنع التضارب الأكاديمي).
+                            </span>
+                          </div>
+                        )}
 
-                      {/* Filter branch tabs */}
-                      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setStudentBranchFilter('all')}
-                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                        >
-                          الكل
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStudentBranchFilter('scientific')}
-                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'scientific' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                        >
-                          علمي
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStudentBranchFilter('literary')}
-                          className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'literary' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                        >
-                          أدبي
-                        </button>
-                      </div>
-                    </div>
+                        {/* Controls Header */}
+                        <div className="flex flex-col gap-2.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                تم اختيار <span className="text-indigo-600 dark:text-indigo-400 font-black">{selectedStudents.length}</span> من أصل <span className="font-black">{formData.maxStudents}</span> مقعد
+                              </span>
+                              {selectedStudents.length > formData.maxStudents && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                  تجاوزت السعة المقترحة
+                                </span>
+                              )}
+                            </div>
 
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                      {/* Search */}
-                      <div className="relative w-full sm:w-60">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input 
-                          type="text"
-                          placeholder="بحث باسم الطالب أو الهاتف..."
-                          value={studentSearch}
-                          onChange={(e) => setStudentSearch(e.target.value)}
-                          className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-
-                      {/* Select/Deselect All */}
-                      {(() => {
-                        const visibleStudents = allPlatformStudents.filter((st: any) => {
-                          if (studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
-                          if (!studentSearch.trim()) return true;
-                          const q = studentSearch.toLowerCase();
-                          const full = `${st.firstName} ${st.lastName}`.toLowerCase();
-                          return full.includes(q) || (st.phone && st.phone.includes(q));
-                        });
-                        const isAllVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((st: any) => selectedStudents.includes(st.id));
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isAllVisibleSelected) {
-                                const visibleIds = visibleStudents.map((s: any) => s.id);
-                                setSelectedStudents(prev => prev.filter(id => !visibleIds.includes(id)));
-                              } else {
-                                const visibleIds = visibleStudents.map((s: any) => s.id);
-                                setSelectedStudents(prev => Array.from(new Set([...prev, ...visibleIds])));
-                              }
-                            }}
-                            className="text-xs font-bold text-indigo-600 hover:underline mr-auto sm:mr-0"
-                          >
-                            {isAllVisibleSelected ? 'إلغاء تحديد الظاهرين' : `تحديد الكل الظاهر (${visibleStudents.length})`}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Students Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                    {allPlatformStudents
-                      .filter((st: any) => {
-                        if (studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
-                        if (!studentSearch.trim()) return true;
-                        const q = studentSearch.toLowerCase();
-                        const full = `${st.firstName} ${st.lastName}`.toLowerCase();
-                        return full.includes(q) || (st.phone && st.phone.includes(q));
-                      })
-                      .map((st: any) => {
-                        const isSelected = selectedStudents.includes(st.id);
-                        return (
-                          <div 
-                            key={st.id}
-                            onClick={() => {
-                              setSelectedStudents(prev => 
-                                prev.includes(st.id) ? prev.filter(id => id !== st.id) : [...prev, st.id]
-                              );
-                            }}
-                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                              isSelected
-                                ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-xs ring-1 ring-indigo-500'
-                                : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                isSelected 
-                                  ? 'bg-indigo-600 border-indigo-600 text-white' 
-                                  : 'border-slate-300 dark:border-slate-600'
-                              }`}>
-                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                              </div>
-                              <div>
-                                <div className="font-bold text-slate-800 dark:text-white leading-tight">
-                                  {st.firstName} {st.lastName}
-                                </div>
-                                <div className="text-[10px] text-slate-400 mt-0.5">
-                                  {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'} {st.curriculumType === 'al_azhar' ? '• أزهري' : ''} {st.phone ? `• ${st.phone}` : ''}
-                                </div>
-                              </div>
+                            {/* Filter branch tabs */}
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
+                              {!isLiteraryCourse && (
+                                <button
+                                  type="button"
+                                  onClick={() => setStudentBranchFilter('scientific')}
+                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'scientific' || isScientificCourse ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  {isScientificCourse ? 'طلبة الفرع العلمي' : 'علمي'}
+                                </button>
+                              )}
+                              {!isScientificCourse && (
+                                <button
+                                  type="button"
+                                  onClick={() => setStudentBranchFilter('literary')}
+                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'literary' || isLiteraryCourse ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  {isLiteraryCourse ? 'طلبة الفرع الأدبي' : 'أدبي'}
+                                </button>
+                              )}
+                              {!isScientificCourse && !isLiteraryCourse && (
+                                <button
+                                  type="button"
+                                  onClick={() => setStudentBranchFilter('all')}
+                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                >
+                                  الكل
+                                </button>
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
-                  </div>
+
+                          <div className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                            {/* Search */}
+                            <div className="relative w-full sm:w-64">
+                              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <input 
+                                type="text"
+                                placeholder="بحث باسم الطالب أو الهاتف..."
+                                value={studentSearch}
+                                onChange={(e) => setStudentSearch(e.target.value)}
+                                className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                            </div>
+
+                            {/* Select/Deselect All */}
+                            {(() => {
+                              const visibleStudents = baseFilteredStudents.filter((st: any) => {
+                                if (!isScientificCourse && !isLiteraryCourse && studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
+                                if (!studentSearch.trim()) return true;
+                                const q = studentSearch.toLowerCase();
+                                const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                                return full.includes(q) || (st.phone && st.phone.includes(q));
+                              });
+                              const isAllVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((st: any) => selectedStudents.includes(st.id));
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isAllVisibleSelected) {
+                                      const visibleIds = visibleStudents.map((s: any) => s.id);
+                                      setSelectedStudents(prev => prev.filter(id => !visibleIds.includes(id)));
+                                    } else {
+                                      const visibleIds = visibleStudents.map((s: any) => s.id);
+                                      setSelectedStudents(prev => Array.from(new Set([...prev, ...visibleIds])));
+                                    }
+                                  }}
+                                  className="text-xs font-bold text-indigo-600 hover:underline mr-auto sm:mr-0"
+                                >
+                                  {isAllVisibleSelected ? 'إلغاء تحديد الظاهرين' : `تحديد الكل الظاهر (${visibleStudents.length})`}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Students Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                          {baseFilteredStudents
+                            .filter((st: any) => {
+                              if (!isScientificCourse && !isLiteraryCourse && studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
+                              if (!studentSearch.trim()) return true;
+                              const q = studentSearch.toLowerCase();
+                              const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                              return full.includes(q) || (st.phone && st.phone.includes(q));
+                            })
+                            .map((st: any) => {
+                              const isSelected = selectedStudents.includes(st.id);
+                              return (
+                                <div 
+                                  key={st.id}
+                                  onClick={() => {
+                                    setSelectedStudents(prev => 
+                                      prev.includes(st.id) ? prev.filter(id => id !== st.id) : [...prev, st.id]
+                                    );
+                                  }}
+                                  className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                                    isSelected
+                                      ? 'border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-xs ring-1 ring-indigo-500'
+                                      : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                      isSelected 
+                                        ? 'bg-indigo-600 border-indigo-600 text-white' 
+                                        : 'border-slate-300 dark:border-slate-600'
+                                    }`}>
+                                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-1.5 flex-wrap">
+                                        <span>{st.firstName} {st.lastName}</span>
+                                        {st.gradeLevel && (
+                                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                            {st.gradeLevel === 'grade_11' ? 'صف 11' : 'صف 12'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                                        <span className={`px-1.5 py-0.2 rounded font-bold ${st.academicBranch === 'scientific' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
+                                          {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'}
+                                        </span>
+                                        {st.curriculumType && (
+                                          <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                            {st.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'}
+                                          </span>
+                                        )}
+                                        {st.phone && <span dir="ltr">{st.phone}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

@@ -933,16 +933,35 @@ export class GroupsController {
     });
     const cohortTeacherIds = instructors.map(i => i.teacherId);
 
+    let supervisorSubjectUserIds: string[] = [];
+    if (isSupervisor && supervisorSubjectIds.length > 0) {
+      try {
+        const rows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT user_id FROM users.supervisor_subjects WHERE subject_id = ANY($1::uuid[])`,
+          supervisorSubjectIds
+        );
+        supervisorSubjectUserIds = rows.map(r => r.user_id);
+      } catch (_) {}
+    }
+
+    const roleCondition = {
+      OR: [
+        { primaryRole: { in: ['teacher', 'subject_supervisor'] as any } },
+        { roles: { some: { role: { in: ['teacher', 'subject_supervisor'] as any } } } }
+      ]
+    };
+
     let teacherWhere: any = {
-      OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+      ...roleCondition
     };
     if (isSupervisor && supervisorSubjectIds.length > 0) {
       teacherWhere = {
         AND: [
-          { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
+          roleCondition,
           {
             OR: [
               { supervisedSubjectId: { in: supervisorSubjectIds } },
+              ...(supervisorSubjectUserIds.length > 0 ? [{ id: { in: supervisorSubjectUserIds } }] : []),
               {
                 AND: [
                   { id: { in: cohortTeacherIds } },
@@ -1029,11 +1048,30 @@ export class GroupsController {
 
     let totalTeachers = 0;
     if (isSupervisor && supervisorSubjectIds.length > 0) {
+      let assignedUserIds: string[] = [];
+      try {
+        const rows: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT user_id FROM users.supervisor_subjects WHERE subject_id = ANY($1::uuid[])`,
+          supervisorSubjectIds
+        );
+        assignedUserIds = rows.map(r => r.user_id);
+      } catch (_) {}
+
       const subjectTeachers = await this.prisma.user.findMany({
         where: {
           AND: [
-            { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
-            { supervisedSubjectId: { in: supervisorSubjectIds } }
+            {
+              OR: [
+                { primaryRole: { in: ['teacher', 'subject_supervisor'] as any } },
+                { roles: { some: { role: { in: ['teacher', 'subject_supervisor'] as any } } } }
+              ]
+            },
+            {
+              OR: [
+                { supervisedSubjectId: { in: supervisorSubjectIds } },
+                ...(assignedUserIds.length > 0 ? [{ id: { in: assignedUserIds } }] : [])
+              ]
+            }
           ]
         },
         select: { id: true }
@@ -1041,7 +1079,12 @@ export class GroupsController {
       totalTeachers = new Set([...subjectTeachers.map(t => t.id), ...cohortTeacherIds]).size;
     } else {
       totalTeachers = await this.prisma.user.count({
-        where: { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] }
+        where: {
+          OR: [
+            { primaryRole: { in: ['teacher', 'subject_supervisor'] as any } },
+            { roles: { some: { role: { in: ['teacher', 'subject_supervisor'] as any } } } }
+          ]
+        }
       });
     }
 
@@ -1167,16 +1210,35 @@ export class GroupsController {
     });
     const instructorTeacherIds = cohortInstructors.map(ci => ci.teacherId);
 
+    let supervisorSubjectUserIds: string[] = [];
+    if (activeSubjectId) {
+      try {
+        const assignedUsers: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT user_id FROM users.supervisor_subjects WHERE subject_id = $1::uuid`,
+          activeSubjectId
+        );
+        supervisorSubjectUserIds = assignedUsers.map(r => r.user_id);
+      } catch (_) {}
+    }
+
+    const roleCondition = {
+      OR: [
+        { primaryRole: { in: ['teacher', 'subject_supervisor'] as any } },
+        { roles: { some: { role: { in: ['teacher', 'subject_supervisor'] as any } } } }
+      ]
+    };
+
     let teacherWhere: any = {
-      OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
+      ...roleCondition
     };
     if (activeSubjectId) {
       teacherWhere = {
         AND: [
-          { OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }] },
+          roleCondition,
           {
             OR: [
               { supervisedSubjectId: activeSubjectId },
+              ...(supervisorSubjectUserIds.length > 0 ? [{ id: { in: supervisorSubjectUserIds } }] : []),
               {
                 AND: [
                   { id: { in: instructorTeacherIds } },
@@ -2490,12 +2552,16 @@ export class GroupsController {
       activeSubjectId = querySubjectId || user.supervisedSubjectId || null;
     }
 
+    const roleCondition = {
+      OR: [
+        { primaryRole: { in: ['teacher', 'subject_supervisor'] as any } },
+        { roles: { some: { role: { in: ['teacher', 'subject_supervisor'] as any } } } }
+      ]
+    };
+
     let whereClause: any = {
       status: 'active',
-      OR: [
-        { primaryRole: 'teacher' },
-        { roles: { some: { role: 'teacher' } } }
-      ]
+      ...roleCondition
     };
 
     if (activeSubjectId) {
@@ -2514,24 +2580,55 @@ export class GroupsController {
       });
       const instructorIdsInSubject = cohortInstructors.map(i => i.teacherId);
 
+      // Also include teachers assigned via supervisor_subjects table
+      let supervisorSubjectUserIds: string[] = [];
+      try {
+        const assignedSubjectUsers: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT user_id FROM users.supervisor_subjects WHERE subject_id = $1::uuid`,
+          activeSubjectId
+        );
+        supervisorSubjectUserIds = assignedSubjectUsers.map(r => r.user_id);
+      } catch (_) {}
+
       whereClause = {
         status: 'active',
-        OR: [
-          // Teachers explicitly assigned to this subject
+        AND: [
+          roleCondition,
           {
-            supervisedSubjectId: activeSubjectId,
-            OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
-          },
-          // Teachers who teach cohorts of this subject (even if supervisedSubjectId is null/different)
-          ...(instructorIdsInSubject.length > 0 ? [{
-            id: { in: instructorIdsInSubject },
-            OR: [{ primaryRole: 'teacher' }, { roles: { some: { role: 'teacher' } } }]
-          }] : [])
+            OR: [
+              // Teachers explicitly assigned to this subject
+              { supervisedSubjectId: activeSubjectId },
+              // Teachers assigned via supervisor_subjects
+              ...(supervisorSubjectUserIds.length > 0 ? [{ id: { in: supervisorSubjectUserIds } }] : []),
+              // Teachers who teach cohorts of this subject (even if supervisedSubjectId is null/different)
+              ...(instructorIdsInSubject.length > 0 ? [{ id: { in: instructorIdsInSubject } }] : [])
+            ]
+          }
         ]
       };
     } else if (isSupervisor) {
       if (supervisorSubjectIds.length > 0) {
-        whereClause.supervisedSubjectId = { in: supervisorSubjectIds };
+        let allSupervisorSubjectUserIds: string[] = [];
+        try {
+          const rows: any[] = await this.prisma.$queryRawUnsafe(
+            `SELECT user_id FROM users.supervisor_subjects WHERE subject_id = ANY($1::uuid[])`,
+            supervisorSubjectIds
+          );
+          allSupervisorSubjectUserIds = rows.map(r => r.user_id);
+        } catch (_) {}
+
+        whereClause = {
+          status: 'active',
+          AND: [
+            roleCondition,
+            {
+              OR: [
+                { supervisedSubjectId: { in: supervisorSubjectIds } },
+                ...(allSupervisorSubjectUserIds.length > 0 ? [{ id: { in: allSupervisorSubjectUserIds } }] : [])
+              ]
+            }
+          ]
+        };
       } else {
         return [];
       }
@@ -2555,7 +2652,7 @@ export class GroupsController {
       orderBy: [
         { firstName: 'asc' }
       ],
-      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, email: true, phone: true, lastLoginAt: true, createdAt: true }
+      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, gradeLevel: true, email: true, phone: true, lastLoginAt: true, createdAt: true }
     });
   }
 
@@ -2625,7 +2722,7 @@ export class GroupsController {
       }),
       this.prisma.user.findMany({
         where: { id: { in: studentIds } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true, lastLoginAt: true, createdAt: true }
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
       })
     ]);
 
@@ -2677,6 +2774,7 @@ export class GroupsController {
           code: course?.code,
           curriculumType: course?.curriculumType,
           academicBranch: course?.academicBranch,
+          gradeLevel: course?.gradeLevel,
           subject: course?.subject
         },
         teacher: instructor || null,
@@ -2686,7 +2784,7 @@ export class GroupsController {
 
     const allActiveStudents = await this.prisma.user.findMany({
       where: { primaryRole: 'student', status: 'active' },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true, lastLoginAt: true, createdAt: true }
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
     });
 
     const enrolledStudentIdSet = new Set(studentIds);
