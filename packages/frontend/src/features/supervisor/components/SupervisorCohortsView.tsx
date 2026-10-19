@@ -1078,7 +1078,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                         const currText = s.curriculumType === 'governmental' ? 'حكومي' : 'أزهري';
                         return (
                           <option key={s.id} value={s.id}>
-                            {isCrossBranch ? `⚠️ [استثناء - فرع ${branchText}] ` : ''}{s.firstName} {s.lastName} {isExactGrade ? '⭐' : ''} (فرع: {branchText} • مستوى: {gradeText} • منهج: {currText})
+                            {isCrossBranch ? `⚠️ [استثناء - فرع ${branchText}] ` : ''}{s.firstNameAr || s.firstName} {s.lastNameAr || s.lastName} {s.firstNameEn || s.lastNameEn ? `(${s.firstNameEn || ''} ${s.lastNameEn || ''})` : ''} {isExactGrade ? '⭐' : ''} (فرع: {branchText} • مستوى: {gradeText} • منهج: {currText})
                           </option>
                         );
                       })}
@@ -1682,7 +1682,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                       .filter((t: any) => {
                         if (!teacherSearch.trim()) return true;
                         const q = teacherSearch.toLowerCase();
-                        const full = `${t.firstName} ${t.lastName}`.toLowerCase();
+                        const full = `${t.firstName || ''} ${t.lastName || ''} ${t.firstNameAr || ''} ${t.lastNameAr || ''} ${t.firstNameEn || ''} ${t.lastNameEn || ''}`.toLowerCase();
                         return full.includes(q) || 
                                (t.email && t.email.toLowerCase().includes(q)) ||
                                (t.phone && t.phone.toLowerCase().includes(q));
@@ -1708,8 +1708,13 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                                 أ.
                               </div>
                               <div>
-                                <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
-                                  <span>أ. {teacher.firstName} {teacher.lastName}</span>
+                                <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                                  <span>أ. {teacher.firstNameAr || teacher.firstName} {teacher.lastNameAr || teacher.lastName}</span>
+                                  {(teacher.firstNameEn || teacher.lastNameEn) && (
+                                    <span className="text-[10px] text-slate-400 font-sans font-normal" dir="ltr">
+                                      ({teacher.firstNameEn} {teacher.lastNameEn})
+                                    </span>
+                                  )}
                                   {teacher.nationality && (
                                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">
                                       {teacher.nationality}
@@ -1854,7 +1859,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                                 if (!isScientificCourse && !isLiteraryCourse && studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
                                 if (!studentSearch.trim()) return true;
                                 const q = studentSearch.toLowerCase();
-                                const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                                const full = `${st.firstName || ''} ${st.lastName || ''} ${st.firstNameAr || ''} ${st.lastNameAr || ''} ${st.firstNameEn || ''} ${st.lastNameEn || ''}`.toLowerCase();
                                 return full.includes(q) || (st.phone && st.phone.includes(q));
                               });
                               const isAllVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((st: any) => selectedStudents.includes(st.id));
@@ -1886,7 +1891,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                               if (!isScientificCourse && !isLiteraryCourse && studentBranchFilter !== 'all' && st.academicBranch !== studentBranchFilter) return false;
                               if (!studentSearch.trim()) return true;
                               const q = studentSearch.toLowerCase();
-                              const full = `${st.firstName} ${st.lastName}`.toLowerCase();
+                              const full = `${st.firstName || ''} ${st.lastName || ''} ${st.firstNameAr || ''} ${st.lastNameAr || ''} ${st.firstNameEn || ''} ${st.lastNameEn || ''}`.toLowerCase();
                               return full.includes(q) || (st.phone && st.phone.includes(q));
                             })
                             .map((st: any) => {
@@ -1915,7 +1920,12 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                                     </div>
                                     <div>
                                       <div className="font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-1.5 flex-wrap">
-                                        <span>{st.firstName} {st.lastName}</span>
+                                        <span>{st.firstNameAr || st.firstName} {st.lastNameAr || st.lastName}</span>
+                                        {(st.firstNameEn || st.lastNameEn) && (
+                                          <span className="text-[10px] text-slate-400 font-sans font-normal" dir="ltr">
+                                            ({st.firstNameEn} {st.lastNameEn})
+                                          </span>
+                                        )}
                                         {st.gradeLevel && (
                                           <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                                             {st.gradeLevel === 'grade_11' ? 'صف 11' : 'صف 12'}

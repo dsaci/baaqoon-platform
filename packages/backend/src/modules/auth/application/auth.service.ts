@@ -99,14 +99,26 @@ export class AuthService {
     }
 
     // 3. Strict Duplicate Prevention & Collision Check (Email, Phone, and Full Name per Role)
-    const { normalizedEmail, normalizedPhone, cleanFirstName, cleanLastName } =
-      await assertNoDuplicateUser(this.prisma, {
-        email: data.email,
-        phone: data.phone,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        primaryRole: data.primaryRole,
-      });
+    const {
+      normalizedEmail,
+      normalizedPhone,
+      cleanFirstName,
+      cleanLastName,
+      cleanFirstNameAr,
+      cleanLastNameAr,
+      cleanFirstNameEn,
+      cleanLastNameEn,
+    } = await assertNoDuplicateUser(this.prisma, {
+      email: data.email,
+      phone: data.phone,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      firstNameAr: data.firstNameAr,
+      lastNameAr: data.lastNameAr,
+      firstNameEn: data.firstNameEn,
+      lastNameEn: data.lastNameEn,
+      primaryRole: data.primaryRole,
+    });
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
@@ -119,6 +131,10 @@ export class AuthService {
         passwordHash: hashedPassword,
         firstName: cleanFirstName,
         lastName: cleanLastName,
+        firstNameAr: cleanFirstNameAr,
+        lastNameAr: cleanLastNameAr,
+        firstNameEn: cleanFirstNameEn,
+        lastNameEn: cleanLastNameEn,
         primaryRole: data.primaryRole,
         status: accountStatus,
         phone: normalizedPhone || null,

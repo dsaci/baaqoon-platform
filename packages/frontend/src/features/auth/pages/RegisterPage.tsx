@@ -27,6 +27,10 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    firstNameAr: '',
+    lastNameAr: '',
+    firstNameEn: '',
+    lastNameEn: '',
     email: '',
     phone: '',
     nationality: '',
@@ -73,16 +77,18 @@ export default function RegisterPage() {
       return;
     }
 
-    const cleanFirstName = (formData.firstName || '').trim();
-    const cleanLastName = (formData.lastName || '').trim();
+    const cleanFirstNameAr = (formData.firstNameAr || formData.firstName || '').trim();
+    const cleanLastNameAr = (formData.lastNameAr || formData.lastName || '').trim();
+    const cleanFirstNameEn = (formData.firstNameEn || '').trim();
+    const cleanLastNameEn = (formData.lastNameEn || '').trim();
 
-    if (!cleanFirstName || !cleanLastName) {
-      setError('الاسم الأول واسم العائلة كلاهما إجباري لاستكمال التسجيل');
+    if (!cleanFirstNameAr || !cleanLastNameAr) {
+      setError('الاسم واللقب باللغة العربية كلاهما إجباري لاستكمال التسجيل');
       return;
     }
 
-    if (cleanFirstName.length < 2 || cleanLastName.length < 2) {
-      setError('يجب أن يتكون كل من الاسم الأول واسم العائلة من حرفين على الأقل');
+    if (!cleanFirstNameEn || !cleanLastNameEn) {
+      setError('الاسم واللقب بالحروف اللاتينية (English / Latin) كلاهما إجباري لتسهيل الفرز والاعتماد الدولي');
       return;
     }
 
@@ -116,8 +122,12 @@ export default function RegisterPage() {
       
       const payload = { 
         ...formData,
-        firstName: cleanFirstName,
-        lastName: cleanLastName,
+        firstName: cleanFirstNameAr,
+        lastName: cleanLastNameAr,
+        firstNameAr: cleanFirstNameAr,
+        lastNameAr: cleanLastNameAr,
+        firstNameEn: cleanFirstNameEn,
+        lastNameEn: cleanLastNameEn,
         email: formData.email.trim().toLowerCase(),
         phone: formattedPhone,
         recaptchaToken: tokenToSend 
@@ -198,32 +208,82 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleRegister} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                {t('auth.first_name', 'الاسم الأول')}
-              </label>
-              <input 
-                type="text" 
-                name="firstName"
-                required
-                value={formData.firstName}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
-              />
+          {/* الاسم واللقب بالعربية */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3 text-right">
+            <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-slate-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+              <span>الاسم واللقب باللغة العربية (الأحرف العربية)</span>
             </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                {t('auth.last_name', 'اسم العائلة')}
-              </label>
-              <input 
-                type="text" 
-                name="lastName"
-                required
-                value={formData.lastName}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  الاسم الأول (بالعربية) <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="firstNameAr"
+                  required
+                  placeholder="مثال: أحمد / سهام"
+                  value={formData.firstNameAr}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  اللقب / العائلة (بالعربية) <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="lastNameAr"
+                  required
+                  placeholder="مثال: الخطيب / مالكي"
+                  value={formData.lastNameAr}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* الاسم واللقب باللاتينية / الإنجليزية */}
+          <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-3">
+            <div className="flex items-center justify-between text-xs font-black text-indigo-950 dark:text-indigo-200">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                <span>الاسم واللقب بالحروف اللاتينية (Latin / English)</span>
+              </div>
+              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">لتسهيل الفرز والفلترة</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3" dir="ltr">
+              <div className="space-y-1 text-left">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  First Name (Latin) <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="firstNameEn"
+                  required
+                  placeholder="e.g. Ahmed / Sihem"
+                  value={formData.firstNameEn}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal text-left"
+                />
+              </div>
+              <div className="space-y-1 text-left">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Last Name (Latin) <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  name="lastNameEn"
+                  required
+                  placeholder="e.g. Alkhatib / Malki"
+                  value={formData.lastNameEn}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal text-left"
+                />
+              </div>
             </div>
           </div>
 

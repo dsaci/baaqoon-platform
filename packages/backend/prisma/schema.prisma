@@ -16,6 +16,10 @@ model User {
   passwordHash        String                    @db.VarChar(255)
   firstName           String                    @db.VarChar(100)
   lastName            String                    @db.VarChar(100)
+  firstNameAr         String?                   @db.VarChar(100)
+  lastNameAr          String?                   @db.VarChar(100)
+  firstNameEn         String?                   @db.VarChar(100)
+  lastNameEn          String?                   @db.VarChar(100)
   avatarUrl           String?                   @db.Text
   primaryRole         UserRole
   status              UserStatus                @default(pending)

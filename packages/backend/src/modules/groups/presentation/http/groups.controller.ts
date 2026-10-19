@@ -2756,7 +2756,7 @@ export class GroupsController {
 
     return this.prisma.user.findMany({
       where: whereClause,
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, primaryRole: true }
+      select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, email: true, phone: true, primaryRole: true }
     });
   }
 
@@ -2772,7 +2772,7 @@ export class GroupsController {
       orderBy: [
         { firstName: 'asc' }
       ],
-      select: { id: true, firstName: true, lastName: true, academicBranch: true, curriculumType: true, gradeLevel: true, email: true, phone: true, lastLoginAt: true, createdAt: true }
+      select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, academicBranch: true, curriculumType: true, gradeLevel: true, email: true, phone: true, lastLoginAt: true, createdAt: true }
     });
   }
 
@@ -2838,11 +2838,11 @@ export class GroupsController {
     const [teachers, students] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: teacherIds } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, avatarUrl: true, lastLoginAt: true, createdAt: true }
+        select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, email: true, phone: true, status: true, avatarUrl: true, lastLoginAt: true, createdAt: true }
       }),
       this.prisma.user.findMany({
         where: { id: { in: studentIds } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
+        select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, email: true, phone: true, status: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
       })
     ]);
 
@@ -2904,7 +2904,7 @@ export class GroupsController {
 
     const allActiveStudents = await this.prisma.user.findMany({
       where: { primaryRole: 'student', status: 'active' },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
+      select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, email: true, phone: true, academicBranch: true, curriculumType: true, gradeLevel: true, lastLoginAt: true, createdAt: true }
     });
 
     const enrolledStudentIdSet = new Set(studentIds);

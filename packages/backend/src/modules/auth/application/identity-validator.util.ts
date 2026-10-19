@@ -180,8 +180,12 @@ export async function assertNoDuplicateUser(
   data: {
     email?: string | null;
     phone?: string | null;
-    firstName: string;
-    lastName: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    firstNameAr?: string | null;
+    lastNameAr?: string | null;
+    firstNameEn?: string | null;
+    lastNameEn?: string | null;
     primaryRole: string;
     excludeUserId?: string;
   }
@@ -190,14 +194,23 @@ export async function assertNoDuplicateUser(
   normalizedPhone: string;
   cleanFirstName: string;
   cleanLastName: string;
+  cleanFirstNameAr: string | null;
+  cleanLastNameAr: string | null;
+  cleanFirstNameEn: string | null;
+  cleanLastNameEn: string | null;
 }> {
   const normalizedEmail = normalizeEmail(data.email);
   const { normalized: normalizedPhone, tail: phoneTail } = normalizePhone(data.phone);
-  const cleanFirstName = (data.firstName || '').trim();
-  const cleanLastName = (data.lastName || '').trim();
+  const cleanFirstNameAr = (data.firstNameAr || '').trim();
+  const cleanLastNameAr = (data.lastNameAr || '').trim();
+  const cleanFirstNameEn = (data.firstNameEn || '').trim();
+  const cleanLastNameEn = (data.lastNameEn || '').trim();
+
+  const cleanFirstName = cleanFirstNameAr || cleanFirstNameEn || (data.firstName || '').trim();
+  const cleanLastName = cleanLastNameAr || cleanLastNameEn || (data.lastName || '').trim();
 
   if (!cleanFirstName || !cleanLastName) {
-    throw new ConflictException('الاسم الأول واسم العائلة كلاهما إجباري للتسجيل');
+    throw new ConflictException('الاسم واللقب كلاهما إجباري للتسجيل');
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -298,5 +311,9 @@ export async function assertNoDuplicateUser(
     normalizedPhone,
     cleanFirstName,
     cleanLastName,
+    cleanFirstNameAr: cleanFirstNameAr || null,
+    cleanLastNameAr: cleanLastNameAr || null,
+    cleanFirstNameEn: cleanFirstNameEn || null,
+    cleanLastNameEn: cleanLastNameEn || null,
   };
 }
