@@ -390,6 +390,13 @@ export class VolunteerController {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
+        assignedSubject: {
+          select: {
+            id: true,
+            nameAr: true,
+            code: true,
+          },
+        },
         convertedUser: {
           select: {
             id: true,
@@ -406,6 +413,14 @@ export class VolunteerController {
             lastName: true,
           },
         },
+        supervisorReviewedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -418,7 +433,306 @@ export class VolunteerController {
   }
 
   /**
-   * 5. Protected: Update application status or review notes
+   * 5. Protected (Supervisor Review): Supervisor approves/recommends or rejects with justification
+   */
+  @Patch('applications/:id/supervisor-review')
+  @UseGuards(JwtAuthGuard)
+  async supervisorReview(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { decision: 'approved' | 'rejected'; supervisorNotes?: string; rejectionReason?: string },
+  ) {
+    const user = req.user;
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
+    const isAdmin = ['super_admin', 'admin'].includes(user.primaryRole);
+
+    if (!isSupervisor && !isAdmin) {
+      throw new UnauthorizedException('دراسة ملفات المعلمين متاحة للمشرف الأكاديمي أو إدارة المنصة فقط');
+    }
+
+    if (!body.decision || !['approved', 'rejected'].includes(body.decision)) {
+      throw new BadRequestException('يجب تحديد قرار المشرف (قبول وترشيح أو اعتذار ورفض)');
+    }
+
+    if (body.decision === 'rejected' && (!body.rejectionReason || !body.rejectionReason.trim())) {
+      throw new BadRequestException('⛔ تنبيه إلزامي: كتابة مبرر الرفض إجبارية للمشرف لتوثيق أسباب عدم ملاءمة الملف.');
+    }
+
+    const application = await this.prisma.volunteerApplication.findUnique({
+      where: { id },
+    });
+    if (!application) {
+      throw new NotFoundException('الاستمارة غير موجودة');
+    }
+
+    const newStatus = body.decision === 'approved' ? 'supervisor_approved' : 'supervisor_rejected';
+
+    const updated = await this.prisma.volunteerApplication.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        supervisorReviewedById: user.id,
+        supervisorReviewedAt: new Date(),
+        supervisorDecision: body.decision,
+        supervisorNotes: body.supervisorNotes?.trim() || null,
+        supervisorRejectionReason: body.decision === 'rejected' ? body.rejectionReason?.trim() : null,
+        updatedAt: new Date(),
+      },
+      include: {
+        supervisorReviewedBy: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    // Notify all Admins about the supervisor's review
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { primaryRole: { in: ['admin', 'super_admin'] as any }, status: 'active' },
+        select: { id: true },
+      });
+
+      const applicantName = application.fullNameAr || application.fullNameEn || application.email;
+      const supervisorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'المشرف الأكاديمي';
+      const decisionArabic = body.decision === 'approved' ? '✅ توصية بالقبول' : '❌ اعتذار ورفض بمبرر';
+
+      for (const admin of admins) {
+        await this.prisma.notification.create({
+          data: {
+            userId: admin.id,
+            title: `دراسة ملف معلم: ${decisionArabic} من المشرف ${supervisorName}`,
+            body: `أتم أ. ${supervisorName} دراسة ملف المتطوع «${applicantName}» (${application.subjects?.join('، ')}). القرار: ${decisionArabic}. بانتظار التأكيد والاعتماد النهائي منك.`,
+            type: 'academic_update' as any,
+            actionUrl: '/admin/volunteers',
+          },
+        });
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: body.decision === 'approved' 
+        ? 'تم تسجيل توصية القبول بنجاح، والملف بانتظار التأكيد النهائي من مدير المنصة.'
+        : 'تم تسجيل رفض المشرف مع المبرر بنجاح، ورفع التقرير لإدارة المنصة.',
+      application: updated,
+    };
+  }
+
+  /**
+   * 6. Protected (Admin Final Decision & Activation): Admin confirms & activates or final-rejects
+   */
+  @Post('applications/:id/admin-confirm')
+  @UseGuards(JwtAuthGuard)
+  async adminConfirm(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { 
+      action: 'activate' | 'reject'; 
+      assignedSubjectId?: string; 
+      adminNotes?: string; 
+      customPassword?: string;
+    },
+  ) {
+    const adminUser = req.user;
+    if (!['super_admin', 'admin'].includes(adminUser.primaryRole)) {
+      throw new UnauthorizedException('التأكيد النهائي وتفعيل حسابات المعلمين متاح لمدير المنصة فقط');
+    }
+
+    const application = await this.prisma.volunteerApplication.findUnique({
+      where: { id },
+    });
+    if (!application) {
+      throw new NotFoundException('الاستمارة غير موجودة');
+    }
+
+    if (body.action === 'reject') {
+      const updated = await this.prisma.volunteerApplication.update({
+        where: { id },
+        data: {
+          status: 'rejected',
+          reviewedById: adminUser.id,
+          reviewedAt: new Date(),
+          internalNotes: body.adminNotes || application.internalNotes,
+        },
+      });
+      return { success: true, message: 'تم تسجيل الرفض النهائي للطلب', application: updated };
+    }
+
+    // Action: 'activate'
+    if (application.convertedUserId) {
+      throw new BadRequestException('هذا المعلم تم تفعيل حسابه بالفعل مسبقاً');
+    }
+
+    // Check if user already exists with this email or phone
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ email: application.email }, { phone: application.phone }],
+      },
+    });
+
+    // Resolve subject to assign
+    let subjectIdToAssign = body.assignedSubjectId || application.assignedSubjectId;
+    if (!subjectIdToAssign && application.subjects && application.subjects.length > 0) {
+      const matchedSubject = await this.prisma.subject.findFirst({
+        where: {
+          OR: [
+            { nameAr: { in: application.subjects } },
+            { nameEn: { in: application.subjects } },
+          ],
+        },
+      });
+      if (matchedSubject) {
+        subjectIdToAssign = matchedSubject.id;
+      }
+    }
+
+    if (existingUser) {
+      // User already exists: ensure teacher role is granted and subject is assigned
+      if (existingUser.primaryRole !== 'teacher' && existingUser.primaryRole !== 'admin' && existingUser.primaryRole !== 'super_admin') {
+        await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            primaryRole: 'teacher' as any,
+            supervisedSubjectId: subjectIdToAssign || existingUser.supervisedSubjectId,
+          },
+        });
+      } else if (subjectIdToAssign && !existingUser.supervisedSubjectId) {
+        await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: { supervisedSubjectId: subjectIdToAssign },
+        });
+      }
+
+      try {
+        await this.prisma.userRoleAssignment.upsert({
+          where: { userId_role: { userId: existingUser.id, role: 'teacher' as any } },
+          update: {},
+          create: { userId: existingUser.id, role: 'teacher' as any },
+        });
+      } catch (_) {}
+
+      await this.prisma.volunteerApplication.update({
+        where: { id },
+        data: {
+          convertedUserId: existingUser.id,
+          assignedSubjectId: subjectIdToAssign,
+          status: 'approved',
+          reviewedById: adminUser.id,
+          reviewedAt: new Date(),
+          internalNotes: body.adminNotes || application.internalNotes,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'تم ربط الاستمارة بالحساب وتأكيد اعتماده كمعلم رسمي بنجاح!',
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          phone: existingUser.phone,
+          firstName: existingUser.firstName,
+          lastName: existingUser.lastName,
+        },
+      };
+    }
+
+    // Create new Teacher user
+    const initialPassword = body.customPassword || `Baaqoon@${Math.floor(100000 + Math.random() * 900000)}`;
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
+
+    const namePartsAr = (application.fullNameAr || '').trim().split(/\s+/);
+    const firstNameAr = namePartsAr[0] || 'أستاذ';
+    const lastNameAr = namePartsAr.slice(1).join(' ') || 'متطوع';
+
+    const namePartsEn = (application.fullNameEn || '').trim().split(/\s+/);
+    const firstNameEn = namePartsEn[0] || '';
+    const lastNameEn = namePartsEn.slice(1).join(' ') || '';
+
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: application.email,
+        phone: application.phone,
+        firstName: firstNameAr,
+        lastName: lastNameAr,
+        firstNameAr,
+        lastNameAr,
+        firstNameEn: firstNameEn || null,
+        lastNameEn: lastNameEn || null,
+        passwordHash,
+        primaryRole: 'teacher' as any,
+        status: 'active' as any,
+        mustChangePassword: true,
+        nationality: application.nationality || 'الجزائر',
+        supervisedSubjectId: subjectIdToAssign || null,
+      },
+    });
+
+    try {
+      await this.prisma.userRoleAssignment.create({
+        data: {
+          userId: newUser.id,
+          role: 'teacher' as any,
+        },
+      });
+    } catch (_) {}
+
+    await this.prisma.volunteerApplication.update({
+      where: { id },
+      data: {
+        convertedUserId: newUser.id,
+        assignedSubjectId: subjectIdToAssign,
+        status: 'approved',
+        reviewedById: adminUser.id,
+        reviewedAt: new Date(),
+        internalNotes: body.adminNotes || application.internalNotes,
+      },
+    });
+
+    // Notify the supervisor who reviewed the application
+    if (application.supervisorReviewedById) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: application.supervisorReviewedById,
+            title: `تم الاعتماد النهائي: أ. ${application.fullNameAr || application.fullNameEn}`,
+            body: `اعتمد مدير المنصة توصيتكم وتم إنشاء حساب الأستاذ رسميًا في مادتكم.`,
+            type: 'academic_update' as any,
+            actionUrl: '/supervisor/teachers',
+          },
+        });
+      } catch (_) {}
+    }
+
+    const { passwordHash: _, ...safeUser } = newUser;
+
+    return {
+      success: true,
+      message: `تم اعتماد وتفعيل حساب المعلم بنجاح! كلمة المرور المبدئية: ${initialPassword}`,
+      user: safeUser,
+      initialPassword,
+    };
+  }
+
+  /**
+   * 7. Protected (Admin only): Convert volunteer application to official Teacher account (alias)
+   */
+  @Post('applications/:id/convert-to-teacher')
+  @UseGuards(JwtAuthGuard)
+  async convertToTeacherAccount(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { customPassword?: string; assignedSubjectId?: string; adminNotes?: string },
+  ) {
+    return this.adminConfirm(req, id, {
+      action: 'activate',
+      customPassword: body.customPassword,
+      assignedSubjectId: body.assignedSubjectId,
+      adminNotes: body.adminNotes,
+    });
+  }
+
+  /**
+   * 8. Protected: Legacy status update
    */
   @Patch('applications/:id/status')
   @UseGuards(JwtAuthGuard)
@@ -450,125 +764,5 @@ export class VolunteerController {
     });
 
     return { success: true, application: updated };
-  }
-
-  /**
-   * 6. Protected (Admin only): Convert volunteer application to official Teacher account
-   */
-  @Post('applications/:id/convert-to-teacher')
-  @UseGuards(JwtAuthGuard)
-  async convertToTeacherAccount(
-    @Req() req: any,
-    @Param('id') id: string,
-    @Body() body: { customPassword?: string },
-  ) {
-    const adminUser = req.user;
-    if (!['super_admin', 'admin'].includes(adminUser.primaryRole)) {
-      throw new UnauthorizedException('تحويل الاستمارة إلى حساب معلم متاح للإدارة فقط');
-    }
-
-    const application = await this.prisma.volunteerApplication.findUnique({
-      where: { id },
-    });
-    if (!application) {
-      throw new NotFoundException('الاستمارة غير موجودة');
-    }
-
-    if (application.convertedUserId) {
-      throw new BadRequestException('هذه الاستمارة تم تحويلها مسبقاً إلى حساب معلم');
-    }
-
-    // Check if user already exists with this email or phone
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: application.email }, { phone: application.phone }],
-      },
-    });
-
-    if (existingUser) {
-      // Just link the application to the existing user
-      await this.prisma.volunteerApplication.update({
-        where: { id },
-        data: {
-          convertedUserId: existingUser.id,
-          status: 'approved',
-          reviewedById: adminUser.id,
-          reviewedAt: new Date(),
-        },
-      });
-      return {
-        success: true,
-        message: 'تم ربط الاستمارة بالحساب المسجل مسبقاً بنجاح!',
-        user: {
-          id: existingUser.id,
-          email: existingUser.email,
-          phone: existingUser.phone,
-          firstName: existingUser.firstName,
-          lastName: existingUser.lastName,
-        },
-      };
-    }
-
-    // Generate initial password
-    const initialPassword = body.customPassword || `Baaqoon@${Math.floor(100000 + Math.random() * 900000)}`;
-    const passwordHash = await bcrypt.hash(initialPassword, 12);
-
-    // Split name into parts if needed
-    const namePartsAr = (application.fullNameAr || '').trim().split(/\s+/);
-    const firstNameAr = namePartsAr[0] || 'أستاذ';
-    const lastNameAr = namePartsAr.slice(1).join(' ') || 'متطوع';
-
-    const namePartsEn = (application.fullNameEn || '').trim().split(/\s+/);
-    const firstNameEn = namePartsEn[0] || '';
-    const lastNameEn = namePartsEn.slice(1).join(' ') || '';
-
-    // Create teacher user
-    const newUser = await this.prisma.user.create({
-      data: {
-        email: application.email,
-        phone: application.phone,
-        firstName: firstNameAr,
-        lastName: lastNameAr,
-        firstNameAr,
-        lastNameAr,
-        firstNameEn: firstNameEn || null,
-        lastNameEn: lastNameEn || null,
-        passwordHash,
-        primaryRole: 'teacher' as any,
-        status: 'active' as any,
-        mustChangePassword: true,
-        nationality: application.nationality || 'الجزائر',
-      },
-    });
-
-    // Create user role assignment
-    try {
-      await this.prisma.userRoleAssignment.create({
-        data: {
-          userId: newUser.id,
-          role: 'teacher' as any,
-        },
-      });
-    } catch (_) {}
-
-    // Update application
-    await this.prisma.volunteerApplication.update({
-      where: { id },
-      data: {
-        convertedUserId: newUser.id,
-        status: 'approved',
-        reviewedById: adminUser.id,
-        reviewedAt: new Date(),
-      },
-    });
-
-    const { passwordHash: _, ...safeUser } = newUser;
-
-    return {
-      success: true,
-      message: `تم إنشاء حساب المعلم بنجاح! كلمة المرور المبدئية هي: ${initialPassword}`,
-      user: safeUser,
-      initialPassword,
-    };
   }
 }

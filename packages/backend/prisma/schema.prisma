@@ -55,6 +55,7 @@ model User {
   createdRecordedLessons RecordedLesson[]       @relation("CreatedRecordedLessons")
   recordedLessonViews    RecordedLessonView[]   @relation("StudentRecordedLessonViews")
   volunteerApplicationsReviewed VolunteerApplication[] @relation("ReviewedApplications")
+  volunteerApplicationsSupervisorReviewed VolunteerApplication[] @relation("SupervisorReviewedApplications")
   volunteerApplicationConverted VolunteerApplication[] @relation("ConvertedUser")
 
   @@map("users")
@@ -881,12 +882,18 @@ model VolunteerApplication {
   reviewedById             String?   @map("reviewedById") @db.Uuid
   reviewedAt               DateTime? @map("reviewedAt") @db.Timestamptz(6)
   internalNotes            String?   @map("internalNotes") @db.Text
+  supervisorReviewedById   String?   @map("supervisorReviewedById") @db.Uuid
+  supervisorReviewedAt     DateTime? @map("supervisorReviewedAt") @db.Timestamptz(6)
+  supervisorDecision       String?   @map("supervisorDecision") @db.VarChar(50)
+  supervisorNotes          String?   @map("supervisorNotes") @db.Text
+  supervisorRejectionReason String?  @map("supervisorRejectionReason") @db.Text
   createdAt                DateTime  @default(now()) @map("createdAt") @db.Timestamptz(6)
   updatedAt                DateTime  @updatedAt @map("updatedAt") @db.Timestamptz(6)
 
   assignedSubject          Subject?  @relation(fields: [assignedSubjectId], references: [id], onDelete: SetNull)
   convertedUser            User?     @relation("ConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
   reviewedBy               User?     @relation("ReviewedApplications", fields: [reviewedById], references: [id], onDelete: SetNull)
+  supervisorReviewedBy     User?     @relation("SupervisorReviewedApplications", fields: [supervisorReviewedById], references: [id], onDelete: SetNull)
 
   @@map("volunteer_applications")
   @@schema("users")

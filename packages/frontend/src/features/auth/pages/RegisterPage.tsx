@@ -200,15 +200,82 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {error && (
-          <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-lg flex items-start gap-3 text-red-700 dark:text-red-400">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-        )}
+        {/* Top Banner: Volunteer Portal Link at the top */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border-2 border-emerald-500/30 dark:border-emerald-700/50 text-center shadow-sm">
+          <Link 
+            to="/volunteer"
+            className="flex items-center justify-center gap-2 text-xs sm:text-sm font-black text-emerald-800 dark:text-emerald-300 hover:text-emerald-900 transition-transform hover:scale-[1.01]"
+          >
+            <span className="text-base">🌿</span>
+            <span>معلم ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
+          </Link>
+          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 font-medium">
+            بوابة اعتماد المعلمين وتدقيق الملفات الأكاديمية لتدريس طلبة غزة
+          </p>
+        </div>
 
-        <form onSubmit={handleRegister} className="space-y-4">
-          {/* الاسم واللقب بالعربية */}
+        {/* Intelligent Tab Switcher: Student vs Teacher */}
+        <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 text-xs font-black">
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, primaryRole: 'student' }))}
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              formData.primaryRole === 'student'
+                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <span>🎓</span>
+            <span>تسجيل طالب(ة)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, primaryRole: 'teacher' }))}
+            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              formData.primaryRole === 'teacher'
+                ? 'bg-white dark:bg-slate-900 text-baaqoon-700 dark:text-baaqoon-300 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <span>🌿</span>
+            <span>انضمام معلّم(ة)</span>
+          </button>
+        </div>
+
+        {formData.primaryRole === 'teacher' ? (
+          <div className="p-6 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-center space-y-4 animate-fade-in">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto text-2xl shadow-inner">
+              🌿
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                أهلاً وسهلاً بك يا أستاذنا الفاضل
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                نظراً لخصوصية تدريس طلبة قطاع غزة وفق المنهاج المعتمد، فإن انضمام المعلمين وتسكين الأفواج يتم حصرياً عبر <strong>بوابة اعتماد وتدقيق ملفات المعلمين المتطوعين</strong> لدراسة التخصص والتفرغ وتعيين الطلاب المناسبين.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                to="/volunteer"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
+              >
+                <span>الانتقال إلى استمارة اعتماد المعلمين الرسمية 👈</span>
+              </Link>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              * إذا كنت تدرس حالياً في برنامج باقون، يمكنك استخدام البوابة لتأكيد وتفعيل حسابك المباشر.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleRegister} className="space-y-4">
+            {error && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-lg flex items-start gap-3 text-red-700 dark:text-red-400">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
+            {/* الاسم واللقب بالعربية */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3 text-right">
             <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-slate-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
@@ -615,6 +682,7 @@ export default function RegisterPage() {
             {isLoading ? t('auth.creating', 'جاري الإنشاء...') : t('auth.create_account_btn', 'إنشاء حساب')}
           </button>
         </form>
+        )}
 
         <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
           {t('auth.already_have_account', 'لديك حساب بالفعل؟')}{' '}
@@ -622,16 +690,6 @@ export default function RegisterPage() {
             {t('auth.sign_in_link', 'سجل دخولك')}
           </Link>
         </p>
-
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
-          <Link 
-            to="/volunteer"
-            className="inline-flex items-center gap-1.5 text-xs font-black text-baaqoon-700 dark:text-baaqoon-300 hover:text-baaqoon-900 bg-baaqoon-50 dark:bg-baaqoon-900/40 px-3.5 py-2 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700/80 transition-all shadow-sm"
-          >
-            <span>🌿</span>
-            <span>معلم ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
-          </Link>
-        </div>
 
       </div>
     </div>
