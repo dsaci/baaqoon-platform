@@ -1,22 +1,24 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { BookOpen, UserPlus, Loader2, AlertCircle, Shield, Home } from 'lucide-react';
+import { 
+  BookOpen, UserPlus, Loader2, AlertCircle, Shield, Home, 
+  GraduationCap, Lock, User, Mail, Phone, Globe, Sparkles, CheckCircle2 
+} from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import logo from '../../../assets/logo.png';
 import { api } from '../../../lib/axios';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 import { useTimeGreeting } from '../../../hooks/useTimeGreeting';
 
 const BRANCHES = [
-  { value: 'scientific', label: 'العلمي' },
-  { value: 'literary', label: 'الأدبي' },
-  { value: 'entrepreneurship', label: 'الريادة والأعمال' },
-  { value: 'industrial', label: 'الصناعي' },
-  { value: 'sharia', label: 'الشرعي' },
+  { value: 'scientific', label: 'العلمي', icon: '🔬' },
+  { value: 'literary', label: 'الأدبي', icon: '📚' },
+  { value: 'sharia', label: 'الشرعي', icon: '⚖️' },
+  { value: 'entrepreneurship', label: 'الريادة والأعمال', icon: '💼' },
+  { value: 'industrial', label: 'الصناعي', icon: '⚙️' },
 ];
 
 const PRIMARY_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LckbPYtAAAAANhDOFaVaiJxTjDUfavW9CqZTOhe";
@@ -24,6 +26,8 @@ const GOOGLE_DEV_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function RegisterPage() {
   const timeGreeting = useTimeGreeting();
+  const [selectedRoleTab, setSelectedRoleTab] = useState<'student' | 'teacher'>('student');
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -33,14 +37,13 @@ export default function RegisterPage() {
     lastNameEn: '',
     email: '',
     phone: '',
-    nationality: '',
+    nationality: 'فلسطيني',
     countryCode: '+970',
     password: '',
     primaryRole: 'student',
     branch: 'scientific',
     curriculumType: 'governmental',
-    gradeLevel: 'grade_11',
-    supervisedSubjectId: '',
+    gradeLevel: 'grade_12',
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -53,18 +56,8 @@ export default function RegisterPage() {
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
-
-  const { data: subjects = [] } = useQuery({
-    queryKey: ['subjects-list'],
-    queryFn: async () => {
-      const res = await api.get('/curriculum/subjects');
-      return res.data;
-    },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always'
-  });
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +81,7 @@ export default function RegisterPage() {
     }
 
     if (!cleanFirstNameEn || !cleanLastNameEn) {
-      setError('الاسم واللقب بالحروف اللاتينية (English / Latin) كلاهما إجباري لتسهيل الفرز والاعتماد الدولي');
+      setError('الاسم واللقب بالحروف اللاتينية (English / Latin) كلاهما إجباري لتوثيق الشهادات والفرز');
       return;
     }
 
@@ -99,15 +92,6 @@ export default function RegisterPage() {
 
     if (!formData.nationality) {
       setError('تحديد الجنسية إجباري لاستكمال التسجيل');
-      return;
-    }
-
-    if ((formData.primaryRole === 'teacher' || formData.primaryRole === 'subject_supervisor') && (!formData.supervisedSubjectId || !formData.supervisedSubjectId.trim())) {
-      setError(
-        formData.primaryRole === 'teacher'
-          ? '⛔ تنبيه إلزامي: تحديد مادة التدريس إجباري قطعي لإتمام التسجيل. لا يمكن استخدام المنصة أو إنشاء حساب معلم بدون اختيار مادة التخصص الأكاديمي.'
-          : '⛔ تنبيه إلزامي: تحديد مادة التنسيق والإشراف إجباري قطعي للمشرف الأكاديمي لإتمام التسجيل.'
-      );
       return;
     }
 
@@ -130,19 +114,15 @@ export default function RegisterPage() {
         lastNameEn: cleanLastNameEn,
         email: formData.email.trim().toLowerCase(),
         phone: formattedPhone,
+        primaryRole: 'student',
         recaptchaToken: tokenToSend 
       };
       
-      const response = await api.post('/auth/register', payload);
+      await api.post('/auth/register', payload);
       
-      if (formData.primaryRole === 'student') {
-        alert('تم إنشاء حساب الطالب بنجاح! يمكنك الآن تسجيل الدخول مباشرة ومتابعة حصصك وأفواجك.');
-      } else {
-        alert('تم استلام طلب التسجيل بنجاح! حسابك الآن قيد المراجعة الإدارية وسنقوم بتفعيله قريباً.');
-      }
+      alert('تم إنشاء حساب الطالب بنجاح! يمكنك الآن تسجيل الدخول مباشرة ومتابعة حصصك وأفواجك.');
       navigate('/login');
     } catch (err: any) {
-      // Reset reCAPTCHA on failure so user can retry with a fresh token
       recaptchaRef.current?.reset();
       setCaptchaToken(null);
       setError(err.response?.data?.message || 'حدث خطأ أثناء إنشاء الحساب');
@@ -155,19 +135,14 @@ export default function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const isStudent = formData.primaryRole === 'student';
-
-  const { t, i18n } = useTranslation();
-  const isRtl = i18n.language === 'ar';
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-graph-paper py-12 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
-      {/* Ambient Fog & Atmospheric Blur Orbs (البلور والضبابية) */}
+      {/* Ambient Fog Orbs */}
       <div className="absolute -top-24 -right-24 w-[600px] h-[600px] bg-[#394C2A]/25 dark:bg-[#394C2A]/35 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute -bottom-24 -left-24 w-[600px] h-[600px] bg-[#BAAA80]/35 dark:bg-[#BAAA80]/20 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#FAF2DF]/70 dark:bg-[#202919]/40 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Theme and Lang controls at the top */}
+      {/* Top Bar Controls */}
       <div className="absolute top-8 right-4 left-4 flex items-center justify-between pointer-events-none z-40 max-w-5xl mx-auto">
         <Link to="/" className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-[#121711]/80 backdrop-blur-xl border border-white/60 dark:border-zinc-800 rounded-xl text-sm font-bold text-[#19232D] dark:text-zinc-200 hover:bg-[#F5F2EA] dark:hover:bg-zinc-800 transition-colors shadow-xs">
           <Home className="w-4 h-4 text-[#394C2A] dark:text-[#A8C794]" />
@@ -179,515 +154,503 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="relative w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-[#121711]/85 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/60 dark:border-zinc-800 space-y-6 animate-fade-in-up mt-8 mb-8 z-10">
+      {/* Main Register Card - Spacious, Clean & Beautiful */}
+      <div className="relative w-full max-w-2xl p-6 sm:p-10 bg-white/90 dark:bg-[#121711]/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/60 dark:border-zinc-800 space-y-6 animate-fade-in-up mt-8 mb-8 z-10 font-sans">
         
-        <div className="text-center space-y-3">
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
           <div className="relative inline-block">
             <div className="absolute inset-0 bg-[#BAAA80] blur-lg opacity-25 rounded-full"></div>
             <img src={logo} alt="باقون" className="relative w-16 h-16 mx-auto mix-blend-multiply dark:mix-blend-normal object-contain rounded-2xl" />
           </div>
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold shadow-xs animate-fade-in">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-black shadow-xs animate-fade-in">
               <span>{timeGreeting.icon}</span>
               <span>{timeGreeting.text}</span>
             </span>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-            {t("auth.new_account", "حساب جديد")}
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            حساب جديد في منصة باقون
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">
-            {t("auth.new_account_subtitle", "انضم إلى مجتمع منصة باقون")}
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto leading-relaxed">
+            البوابة التعليمية لدعم طلبة قطاع غزة في المرحلة الثانوية
           </p>
         </div>
 
-        {/* Top Banner: Volunteer Portal Link at the top */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border-2 border-emerald-500/30 dark:border-emerald-700/50 text-center shadow-sm">
-          <Link 
-            to="/volunteer"
-            className="flex items-center justify-center gap-2 text-xs sm:text-sm font-black text-emerald-800 dark:text-emerald-300 hover:text-emerald-900 transition-transform hover:scale-[1.01]"
-          >
-            <span className="text-base">🌿</span>
-            <span>معلم ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
-          </Link>
-          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 font-medium">
-            بوابة اعتماد المعلمين وتدقيق الملفات الأكاديمية لتدريس طلبة غزة
-          </p>
-        </div>
-
-        {/* Intelligent Tab Switcher: Student vs Teacher */}
-        <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 text-xs font-black">
+        {/* Top Single Clear Role Switcher: Student vs Teacher */}
+        <div className="p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80 grid grid-cols-2 gap-2 max-w-md mx-auto">
           <button
             type="button"
-            onClick={() => setFormData(prev => ({ ...prev, primaryRole: 'student' }))}
-            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              formData.primaryRole === 'student'
-                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+            onClick={() => setSelectedRoleTab('student')}
+            className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+              selectedRoleTab === 'student'
+                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-md scale-[1.01]'
+                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            <span>🎓</span>
-            <span>تسجيل طالب(ة)</span>
+            <GraduationCap className="w-4 h-4" />
+            <span>🎓 أنا طالب(ة)</span>
           </button>
+          
           <button
             type="button"
-            onClick={() => setFormData(prev => ({ ...prev, primaryRole: 'teacher' }))}
-            className={`py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              formData.primaryRole === 'teacher'
-                ? 'bg-white dark:bg-slate-900 text-baaqoon-700 dark:text-baaqoon-300 shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+            onClick={() => setSelectedRoleTab('teacher')}
+            className={`py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+              selectedRoleTab === 'teacher'
+                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-md scale-[1.01]'
+                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             <span>🌿</span>
-            <span>انضمام معلّم(ة)</span>
+            <span>أنا معلّم(ة) متطوع(ة)</span>
           </button>
         </div>
 
-        {formData.primaryRole === 'teacher' ? (
-          <div className="p-6 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-center space-y-4 animate-fade-in">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto text-2xl shadow-inner">
+        {/* ─── CASE A: TEACHER VIEW (PRESTIGIOUS & CLEAR GUIDANCE) ─── */}
+        {selectedRoleTab === 'teacher' ? (
+          <div className="p-6 sm:p-8 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-center space-y-5 animate-fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto text-3xl shadow-inner">
               🌿
             </div>
-            <div className="space-y-1">
-              <h3 className="font-black text-slate-900 dark:text-white text-base">
-                أهلاً وسهلاً بك يا أستاذنا الفاضل
+            
+            <div className="space-y-2 max-w-lg mx-auto">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg">
+                أهلاً وسهلاً بكم أساتذتنا الكرام في رحاب مبادرة غزة
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                نظراً لخصوصية تدريس طلبة قطاع غزة وفق المنهاج المعتمد، فإن انضمام المعلمين وتسكين الأفواج يتم حصرياً عبر <strong>بوابة اعتماد وتدقيق ملفات المعلمين المتطوعين</strong> لدراسة التخصص والتفرغ وتعيين الطلاب المناسبين.
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                نظراً لخصوصية تدريس طلبة قطاع غزة وفق المنهاج الفلسطيني والأزهري المعتمد، فإن تسجيل المعلمين وإسناد الأفواج التعليمية يمر عبر <strong>بوابة اعتماد وتدقيق ملفات المعلمين المتطوعين</strong> لفرز التخصصات وأوقات التفرغ وتعيين المجموعات الدراسية المناسبة.
               </p>
             </div>
-            <div className="pt-2">
+
+            <div className="pt-2 max-w-md mx-auto">
               <Link
                 to="/volunteer"
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
+                className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
               >
-                <span>الانتقال إلى استمارة اعتماد المعلمين الرسمية 👈</span>
+                <span>الانتقال إلى استمارة وبوابة اعتماد المعلمين 👈</span>
               </Link>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              * إذا كنت تدرس حالياً في برنامج باقون، يمكنك استخدام البوابة لتأكيد وتفعيل حسابك المباشر.
-            </p>
+
+            <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 font-bold max-w-md mx-auto">
+              💡 هل أنت معلم تدرس حالياً في برنامج باقون؟ يمكنك استخدام نفس البوابة لتأكيد وتحديث حسابك السريع دون إعادة ملء البيانات.
+            </div>
           </div>
         ) : (
-          <form onSubmit={handleRegister} className="space-y-4">
+          
+          /* ─── CASE B: STUDENT REGISTRATION FORM (CLEAN, 3-SECTION WIZARD FORM) ─── */
+          <form onSubmit={handleRegister} className="space-y-6">
+            
             {error && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-lg flex items-start gap-3 text-red-700 dark:text-red-400">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <p className="text-sm font-medium">{error}</p>
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-start gap-3 text-rose-700 dark:text-rose-300 text-xs font-bold animate-fade-in">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+                <p className="leading-relaxed">{error}</p>
               </div>
             )}
-            {/* الاسم واللقب بالعربية */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3 text-right">
-            <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-slate-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-              <span>الاسم واللقب باللغة العربية (الأحرف العربية)</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  الاسم الأول (بالعربية) <span className="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="firstNameAr"
-                  required
-                  placeholder="مثال: أحمد / سهام"
-                  value={formData.firstNameAr}
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  اللقب / العائلة (بالعربية) <span className="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="lastNameAr"
-                  required
-                  placeholder="مثال: الخطيب / مالكي"
-                  value={formData.lastNameAr}
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* الاسم واللقب باللاتينية / الإنجليزية */}
-          <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-3">
-            <div className="flex items-center justify-between text-xs font-black text-indigo-950 dark:text-indigo-200">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
-                <span>الاسم واللقب بالحروف اللاتينية (Latin / English)</span>
-              </div>
-              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">لتسهيل الفرز والفلترة</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3" dir="ltr">
-              <div className="space-y-1 text-left">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  First Name (Latin) <span className="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="firstNameEn"
-                  required
-                  placeholder="e.g. Ahmed / Sihem"
-                  value={formData.firstNameEn}
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal text-left"
-                />
-              </div>
-              <div className="space-y-1 text-left">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Last Name (Latin) <span className="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="lastNameEn"
-                  required
-                  placeholder="e.g. Alkhatib / Malki"
-                  value={formData.lastNameEn}
-                  onChange={handleChange}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-normal text-left"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t("auth.account_type", "نوع الحساب")}
-            </label>
-            <select 
-              name="primaryRole"
-              value={formData.primaryRole}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
-            >
-              <option value="student" className="dark:bg-baaqoon-800">{t("roles.student", "طالب / طالبة")}</option>
-              <option value="teacher" className="dark:bg-baaqoon-800">{t("roles.teacher", "أستاذ / أستاذة")}</option>
-              <option value="subject_supervisor" className="dark:bg-baaqoon-800">{t("roles.supervisor", "مشرف / موجه تربوي")}</option>
-            </select>
-          </div>
-
-          {/* Supervised Subject - shown only for subject_supervisor and teacher */}
-          {(formData.primaryRole === 'subject_supervisor' || formData.primaryRole === 'teacher') && (
-            <div className="space-y-2 p-3.5 bg-gradient-to-r from-rose-50/80 via-amber-50/40 to-white dark:from-rose-950/30 dark:via-amber-950/20 dark:to-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-800/80 animate-fade-in-up">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-black text-rose-950 dark:text-rose-200">
-                  {formData.primaryRole === 'teacher' ? (
-                    <span>مادة التدريس والتخصص الأكاديمي</span>
-                  ) : (
-                    <span>مادة التنسيق والإشراف الأكاديمي</span>
-                  )}
-                </label>
-                <span className="text-[11px] font-black text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/60 px-2 py-0.5 rounded-md">
-                  * إجباري حتمي للتسجيل
+            {/* القسم الأول: الاسم الكامل بالعربية واللاتينية */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/70 pb-3">
+                <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <User className="w-4 h-4 text-emerald-600" />
+                  ١. الاسم الكامل (بالعربية واللاتينية)
                 </span>
+                <span className="text-[10px] text-slate-400 font-bold">مطلوب للشهادات والفرز الأكاديمي</span>
               </div>
-              <select 
-                name="supervisedSubjectId"
-                value={formData.supervisedSubjectId}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-black focus:ring-4 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all shadow-xs"
-                required
-              >
-                <option value="">
-                  {formData.primaryRole === 'teacher' 
-                    ? '-- اضغط هنا لاختيار مادة التدريس الرسمية --'
-                    : '-- اضغط هنا لاختيار مادة التنسيق والإشراف --'}
-                </option>
-                {subjects.map((s: any) => (
-                  <option key={s.id} value={s.id} className="dark:bg-slate-800 py-1 font-bold">
-                    {s.nameAr} ({s.code})
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-rose-700 dark:text-rose-300 font-bold">
-                🔒 قرار إداري ملزم: لن تتمكن من الدخول للمنصة أو إنشاء حساب أستاذ إلا بتحديد المادة للتفويج المباشر وإسناد الحصص.
-              </p>
-            </div>
-          )}
 
-          {/* Branch, Grade Level & Curriculum selection - shown only for students */}
-          {isStudent && (
-            <div className="space-y-4 animate-fade-in-up">
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                  {t("auth.grade_level", "الصف الدراسي")}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    الاسم الأول (بالعربية) <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="firstNameAr"
+                    required
+                    placeholder="مثال: أحمد"
+                    value={formData.firstNameAr}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    اللقب / العائلة (بالعربية) <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="lastNameAr"
+                    required
+                    placeholder="مثال: الخطيب"
+                    value={formData.lastNameAr}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1" dir="ltr">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 text-left">
+                    First Name (Latin) <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="firstNameEn"
+                    required
+                    placeholder="e.g. Ahmed"
+                    value={formData.firstNameEn}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+                  />
+                </div>
+
+                <div className="space-y-1" dir="ltr">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 text-left">
+                    Last Name (Latin) <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    name="lastNameEn"
+                    required
+                    placeholder="e.g. Alkhatib"
+                    value={formData.lastNameEn}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* القسم الثاني: المسار الدراسي والمنهاج */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/70 pb-3">
+                <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-emerald-600" />
+                  ٢. المسار الأكاديمي والمنهاج المعتمد
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold">لتسكينك في الفوج والمقررات المناسبة</span>
+              </div>
+
+              {/* 1. نوع المنهاج */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  نوع المنهاج المدرسي:
                 </label>
-                <select 
-                  name="gradeLevel"
-                  value={formData.gradeLevel}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
-                >
-                  <option value="grade_11" className="dark:bg-baaqoon-800">{t("auth.grade_11", "الصف الحادي عشر (11)")}</option>
-                  <option value="grade_12" className="dark:bg-baaqoon-800">{t("auth.grade_12", "الصف الثاني عشر (التوجيهي - 12)")}</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, curriculumType: 'governmental' }))}
+                    className={`py-3 px-4 rounded-2xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      formData.curriculumType === 'governmental'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🏛️</span>
+                    <span>المنهاج الفلسطيني (العام الحكومي)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, curriculumType: 'azhari' }))}
+                    className={`py-3 px-4 rounded-2xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      formData.curriculumType === 'azhari'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🕌</span>
+                    <span>المنهاج الأزهري المعتمد لغزة</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                    {t("auth.branch", "الفرع الدراسي")}
+              {/* 2. الصف الدراسي */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  الصف الدراسي:
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, gradeLevel: 'grade_12' }))}
+                    className={`py-2.5 px-4 rounded-xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      formData.gradeLevel === 'grade_12'
+                        ? 'bg-baaqoon-800 text-white border-baaqoon-800 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>🎓</span>
+                    <span>الصف الثاني عشر (التوجيهي - 12)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, gradeLevel: 'grade_11' }))}
+                    className={`py-2.5 px-4 rounded-xl border text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      formData.gradeLevel === 'grade_11'
+                        ? 'bg-baaqoon-800 text-white border-baaqoon-800 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>📖</span>
+                    <span>الصف الحادي عشر (11)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. الفرع الدراسي */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  الفرع الدراسي:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {BRANCHES.map(b => (
+                    <button
+                      key={b.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, branch: b.value }))}
+                      className={`py-2 px-3 rounded-xl border text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                        formData.branch === b.value
+                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span>{b.icon}</span>
+                      <span>{b.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* القسم الثالث: بيانات الاتصال والحساب */}
+            <div className="p-5 sm:p-6 rounded-3xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/70 pb-3">
+                <span className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-emerald-600" />
+                  ٣. بيانات الاتصال والأمان
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold">للتواصل واسترجاع الحساب</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* البريد الإلكتروني */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    البريد الإلكتروني <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="email" 
+                    name="email"
+                    required
+                    placeholder="student@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* الهاتف والواتساب */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    رقم الواتساب والهاتف <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex gap-1.5" dir="ltr">
+                    <select 
+                      name="countryCode" 
+                      value={formData.countryCode} 
+                      onChange={handleChange}
+                      className="w-28 px-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-[11px] font-bold outline-none"
+                    >
+                      <option value="+970">🇵🇸 +970</option>
+                      <option value="+972">🇵🇸 +972</option>
+                      <option value="+20">🇪🇬 +20</option>
+                      <option value="+962">🇯🇴 +962</option>
+                      <option value="+213">🇩🇿 +213</option>
+                      <option value="+966">🇸🇦 +966</option>
+                      <option value="+971">🇦🇪 +971</option>
+                      <option value="+974">🇶🇦 +974</option>
+                      <option value="+965">🇰🇼 +965</option>
+                      <option value="+968">🇴🇲 +968</option>
+                      <option value="+973">🇧🇭 +973</option>
+                      <option value="+961">🇱🇧 +961</option>
+                      <option value="+963">🇸🇾 +963</option>
+                      <option value="+964">🇮🇶 +964</option>
+                      <option value="+967">🇾🇪 +967</option>
+                      <option value="+216">🇹🇳 +216</option>
+                      <option value="+212">🇲🇦 +212</option>
+                      <option value="+249">🇸🇩 +249</option>
+                      <option value="+218">🇱🇾 +218</option>
+                      <option value="+222">🇲🇷 +222</option>
+                      <option value="+44">🇬🇧 +44</option>
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+49">🇩🇪 +49</option>
+                      <option value="+33">🇫🇷 +33</option>
+                      <option value="+90">🇹🇷 +90</option>
+                      <option value="+46">🇸🇪 +46</option>
+                      <option value="+31">🇳🇱 +31</option>
+                      <option value="+32">🇧🇪 +32</option>
+                      <option value="+41">🇨🇭 +41</option>
+                      <option value="+39">🇮🇹 +39</option>
+                      <option value="+34">🇪🇸 +34</option>
+                      <option value="+60">🇲🇾 +60</option>
+                      <option value="+7">🇷🇺 +7</option>
+                    </select>
+                    <input 
+                      type="tel" 
+                      name="phone"
+                      required
+                      placeholder="0591234567"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* الجنسية */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    الجنسية <span className="text-rose-500">*</span>
                   </label>
                   <select 
-                    name="branch"
-                    value={formData.branch}
+                    name="nationality" 
+                    required
+                    value={formData.nationality} 
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold outline-none"
                   >
-                    {BRANCHES.map(b => (
-                      <option key={b.value} value={b.value} className="dark:bg-baaqoon-800">
-                        {t(`auth.branches.${b.value}`, b.label)}
-                      </option>
-                    ))}
+                    <option value="فلسطيني">فلسطيني</option>
+                    <option value="أردني">أردني</option>
+                    <option value="مصري">مصري</option>
+                    <option value="جزائري">جزائري</option>
+                    <option value="سعودي">سعودي</option>
+                    <option value="إماراتي">إماراتي</option>
+                    <option value="قطري">قطري</option>
+                    <option value="كويتي">كويتي</option>
+                    <option value="عماني">عماني</option>
+                    <option value="بحريني">بحريني</option>
+                    <option value="تونسي">تونسي</option>
+                    <option value="مغربي">مغربي</option>
+                    <option value="سوداني">سوداني</option>
+                    <option value="ليبي">ليبي</option>
+                    <option value="يمني">يمني</option>
+                    <option value="عراقي">عراقي</option>
+                    <option value="سوري">سوري</option>
+                    <option value="لبناني">لبناني</option>
+                    <option value="موريتاني">موريتاني</option>
+                    <option value="بريطاني">بريطاني</option>
+                    <option value="تركي">تركي</option>
+                    <option value="أمريكي">أمريكي</option>
+                    <option value="كندي">كندي</option>
+                    <option value="ألماني">ألماني</option>
+                    <option value="فرنسي">فرنسي</option>
+                    <option value="سويدي">سويدي</option>
+                    <option value="هولندي">هولندي</option>
+                    <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
                   </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-                    {t("auth.curriculum_type", "المنهج (نوع المدرسة)")}
+
+                {/* كلمة المرور */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    كلمة المرور (8 خانات على الأقل) <span className="text-rose-500">*</span>
                   </label>
-                  <select 
-                    name="curriculumType"
-                    value={formData.curriculumType}
+                  <input 
+                    type="password" 
+                    name="password"
+                    required
+                    minLength={8}
+                    value={formData.password}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white"
-                  >
-                    <option value="governmental" className="dark:bg-baaqoon-800">{t("auth.gov_curriculum", "منهج عام (حكومي)")}</option>
-                    <option value="azhari" className="dark:bg-baaqoon-800">{t("auth.azhari_curriculum", "منهج أزهري معتمد")}</option>
-                  </select>
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left"
+                    dir="ltr"
+                  />
                 </div>
               </div>
             </div>
-          )}
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.email', 'البريد الإلكتروني')} <span className="text-rose-500 font-bold">* (إجباري لاستكمال التسجيل)</span>
-            </label>
-            <input 
-              type="email" 
-              name="email"
-              required
-              placeholder="name@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.phone', 'رقم الهاتف (الواتساب)')} <span className="text-rose-500 font-bold">* (إجباري لاستكمال التسجيل)</span>
-            </label>
-            <div className="flex gap-2" dir="ltr">
-              <select
-                name="countryCode"
-                value={formData.countryCode}
-                onChange={handleChange}
-                className="px-2.5 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-xs font-bold w-48 shrink-0"
-              >
-                <optgroup label="🇵🇸 فلسطين">
-                  <option value="+970" className="dark:bg-baaqoon-800">🇵🇸 فلسطين (+970)</option>
-                  <option value="+972" className="dark:bg-baaqoon-800">🇵🇸 فلسطين - الداخل (+972)</option>
-                </optgroup>
-                <optgroup label="🌍 دول الاغتراب والدول الشائعة">
-                  <option value="+44" className="dark:bg-baaqoon-800">🇬🇧 بريطانيا (+44)</option>
-                  <option value="+1-CA" className="dark:bg-baaqoon-800">🇨🇦 كندا (+1)</option>
-                  <option value="+1-US" className="dark:bg-baaqoon-800">🇺🇸 الولايات المتحدة (+1)</option>
-                  <option value="+49" className="dark:bg-baaqoon-800">🇩🇪 ألمانيا (+49)</option>
-                  <option value="+33" className="dark:bg-baaqoon-800">🇫🇷 فرنسا (+33)</option>
-                  <option value="+90" className="dark:bg-baaqoon-800">🇹🇷 تركيا (+90)</option>
-                  <option value="+46" className="dark:bg-baaqoon-800">🇸🇪 السويد (+46)</option>
-                  <option value="+31" className="dark:bg-baaqoon-800">🇳🇱 هولندا (+31)</option>
-                  <option value="+32" className="dark:bg-baaqoon-800">🇧🇪 بلجيكا (+32)</option>
-                  <option value="+41" className="dark:bg-baaqoon-800">🇨🇭 سويسرا (+41)</option>
-                  <option value="+43" className="dark:bg-baaqoon-800">🇦🇹 النمسا (+43)</option>
-                  <option value="+34" className="dark:bg-baaqoon-800">🇪🇸 إسبانيا (+34)</option>
-                  <option value="+39" className="dark:bg-baaqoon-800">🇮🇹 إيطاليا (+39)</option>
-                  <option value="+47" className="dark:bg-baaqoon-800">🇳🇴 النرويج (+47)</option>
-                  <option value="+45" className="dark:bg-baaqoon-800">🇩🇰 الدنمارك (+45)</option>
-                  <option value="+60" className="dark:bg-baaqoon-800">🇲🇾 ماليزيا (+60)</option>
-                  <option value="+61" className="dark:bg-baaqoon-800">🇦🇺 أستراليا (+61)</option>
-                  <option value="+7" className="dark:bg-baaqoon-800">🇷🇺 روسيا (+7)</option>
-                </optgroup>
-                <optgroup label="🏛️ الدول العربية">
-                  <option value="+962" className="dark:bg-baaqoon-800">🇯🇴 الأردن (+962)</option>
-                  <option value="+20" className="dark:bg-baaqoon-800">🇪🇬 مصر (+20)</option>
-                  <option value="+213" className="dark:bg-baaqoon-800">🇩🇿 الجزائر (+213)</option>
-                  <option value="+966" className="dark:bg-baaqoon-800">🇸🇦 السعودية (+966)</option>
-                  <option value="+971" className="dark:bg-baaqoon-800">🇦🇪 الإمارات (+971)</option>
-                  <option value="+974" className="dark:bg-baaqoon-800">🇶🇦 قطر (+974)</option>
-                  <option value="+965" className="dark:bg-baaqoon-800">🇰🇼 الكويت (+965)</option>
-                  <option value="+968" className="dark:bg-baaqoon-800">🇴🇲 سلطنة عُمان (+968)</option>
-                  <option value="+973" className="dark:bg-baaqoon-800">🇧🇭 البحرين (+973)</option>
-                  <option value="+961" className="dark:bg-baaqoon-800">🇱🇧 لبنان (+961)</option>
-                  <option value="+963" className="dark:bg-baaqoon-800">🇸🇾 سوريا (+963)</option>
-                  <option value="+964" className="dark:bg-baaqoon-800">🇮🇶 العراق (+964)</option>
-                  <option value="+967" className="dark:bg-baaqoon-800">🇾🇪 اليمن (+967)</option>
-                  <option value="+216" className="dark:bg-baaqoon-800">🇹🇳 تونس (+216)</option>
-                  <option value="+212" className="dark:bg-baaqoon-800">🇲🇦 المغرب (+212)</option>
-                  <option value="+249" className="dark:bg-baaqoon-800">🇸🇩 السودان (+249)</option>
-                  <option value="+218" className="dark:bg-baaqoon-800">🇱🇾 ليبيا (+218)</option>
-                  <option value="+222" className="dark:bg-baaqoon-800">🇲🇷 موريتانيا (+222)</option>
-                </optgroup>
-              </select>
-              <input 
-                type="tel" 
-                name="phone"
-                required
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder={
-                  formData.countryCode === '+44' ? '7123456789' :
-                  formData.countryCode.startsWith('+1') ? '4161234567' :
-                  formData.countryCode === '+20' ? '1012345678' :
-                  '591234567'
-                }
-                className="flex-1 px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left font-mono"
+            {/* ميثاق الاحترام المتبادل */}
+            <div className="flex items-start gap-2.5 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/40">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={agreeToTerms}
+                onChange={(e) => setAgreeToTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 cursor-pointer"
               />
+              <label htmlFor="terms" className="text-xs text-emerald-900 dark:text-emerald-300 leading-relaxed font-medium cursor-pointer">
+                أتعهد بالاحترام المتبادل والمحافظة على بيئة تعليمية آمنة وداعمة لطلبتنا الأعزاء في غزة، والالتزام بحضور الحصص المقررة.
+              </label>
             </div>
-            <p className="text-[11px] text-baaqoon-500 dark:text-baaqoon-400 mt-1">
-              🔒 يُشترط إدخال البريد الإلكتروني ورقم الهاتف معاً لتوثيق الحساب وضمان استرجاعه عند الحاجة.
-            </p>
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('auth.nationality', 'الجنسية')} <span className="text-rose-500 font-bold">* (إجباري)</span>
-            </label>
-            <select 
-              name="nationality" 
-              required
-              value={formData.nationality} 
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all"
-            >
-              <option value="">{t('auth.unspecified', '-- اختر الجنسية --')}</option>
-              <option value="فلسطيني">فلسطيني</option>
-              <option value="أردني">أردني</option>
-              <option value="مصري">مصري</option>
-              <option value="سعودي">سعودي</option>
-              <option value="إماراتي">إماراتي</option>
-              <option value="كويتي">كويتي</option>
-              <option value="عماني">عماني</option>
-              <option value="قطري">قطري</option>
-              <option value="بحريني">بحريني</option>
-              <option value="يمني">يمني</option>
-              <option value="عراقي">عراقي</option>
-              <option value="سوري">سوري</option>
-              <option value="لبناني">لبناني</option>
-              <option value="سوداني">سوداني</option>
-              <option value="ليبي">ليبي</option>
-              <option value="تونسي">تونسي</option>
-              <option value="جزائري">جزائري</option>
-              <option value="مغربي">مغربي</option>
-              <option value="موريتاني">موريتاني</option>
-              <option value="بريطاني">بريطاني</option>
-              <option value="كندي">كندي</option>
-              <option value="أمريكي">أمريكي</option>
-              <option value="تركي">تركي</option>
-              <option value="ألماني">ألماني</option>
-              <option value="فرنسي">فرنسي</option>
-              <option value="سويدي">سويدي</option>
-              <option value="هولندي">هولندي</option>
-              <option value="أجنبي (أخرى)">أجنبي (أخرى)</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-baaqoon-700 dark:text-baaqoon-300">
-              {t('common.password', 'كلمة المرور')}
-            </label>
-            <input 
-              type="password" 
-              name="password"
-              required
-              minLength={8}
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-700 bg-white dark:bg-baaqoon-800/50 text-baaqoon-900 dark:text-white focus:ring-2 focus:ring-baaqoon-accent/50 focus:border-baaqoon-accent outline-none transition-all text-left dir-ltr"
-            />
-          </div>
-
-          <div className="flex items-start gap-2 bg-baaqoon-50 dark:bg-baaqoon-800/30 p-3 rounded-lg border border-baaqoon-100 dark:border-baaqoon-800">
-            <input
-              type="checkbox"
-              id="terms"
-              checked={agreeToTerms}
-              onChange={(e) => setAgreeToTerms(e.target.checked)}
-              className="mt-1 flex-shrink-0 w-4 h-4 text-baaqoon-accent border-gray-300 rounded focus:ring-baaqoon-accent"
-            />
-            <label htmlFor="terms" className="text-xs text-baaqoon-700 dark:text-baaqoon-300 leading-relaxed">
-              {t('auth.terms_pledge', 'أتعهد بالاحترام المتبادل والمحافظة على بيئة تعليمية آمنة. نتفهم ظروف الحرب الصعبة، ونسعى لتوفير هذه البيئة الداعمة لجميع الطلبة.')}
-            </label>
-          </div>
-
-          <div className="flex flex-col items-center justify-center my-4 dir-ltr space-y-1">
-            {!captchaError ? (
-              <div className="flex flex-col items-center">
-                <ReCAPTCHA
-                  key={activeSiteKey}
-                  ref={recaptchaRef}
-                  sitekey={activeSiteKey}
-                  hl={isRtl ? 'ar' : 'en'}
-                  onChange={(token) => {
-                    setCaptchaToken(token);
-                    setCaptchaError(false);
-                    setError(null);
-                  }}
-                  onExpired={() => setCaptchaToken(null)}
-                  onErrored={() => {
-                    console.warn('Primary reCAPTCHA key errored. Switching to Google verified local key.');
-                    if (activeSiteKey !== GOOGLE_DEV_SITE_KEY) {
-                      setActiveSiteKey(GOOGLE_DEV_SITE_KEY);
-                      setIsSwitchedToDevKey(true);
-                    } else {
-                      setCaptchaError(true);
-                      setCaptchaToken('recaptcha-fallback-token');
-                    }
-                  }}
-                />
-                {isSwitchedToDevKey && !captchaToken && (
-                  <p className="text-[10px] text-slate-400 font-bold mt-1 text-center dir-rtl">
-                    🔒 تم تفعيل التحقق الأمني بمفتاح Google المعتمد (بيئة التطوير).
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🛡️</span>
-                  <span>تم تفعيل التسجيل الآمن البديل بنجاح</span>
+            {/* reCAPTCHA */}
+            <div className="flex flex-col items-center justify-center my-3 dir-ltr space-y-1">
+              {!captchaError ? (
+                <div className="flex flex-col items-center">
+                  <ReCAPTCHA
+                    key={activeSiteKey}
+                    ref={recaptchaRef}
+                    sitekey={activeSiteKey}
+                    hl={isRtl ? 'ar' : 'en'}
+                    onChange={(token) => {
+                      setCaptchaToken(token);
+                      setCaptchaError(false);
+                      setError(null);
+                    }}
+                    onExpired={() => setCaptchaToken(null)}
+                    onErrored={() => {
+                      if (activeSiteKey !== GOOGLE_DEV_SITE_KEY) {
+                        setActiveSiteKey(GOOGLE_DEV_SITE_KEY);
+                        setIsSwitchedToDevKey(true);
+                      } else {
+                        setCaptchaError(true);
+                        setCaptchaToken('recaptcha-fallback-token');
+                      }
+                    }}
+                  />
+                  {isSwitchedToDevKey && !captchaToken && (
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 text-center dir-rtl">
+                      🔒 تم تفعيل التحقق الأمني بمفتاح Google المعتمد.
+                    </p>
+                  )}
                 </div>
-              </div>
-            )}
-            {captchaToken && !captchaError && (
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
-                ✓ تم التحقق الأمني بنجاح
-              </span>
-            )}
-          </div>
+              ) : (
+                <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-800 dark:text-emerald-200 text-right dir-rtl space-y-1 w-full max-w-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🛡️</span>
+                    <span>تم تفعيل التسجيل الآمن البديل بنجاح</span>
+                  </div>
+                </div>
+              )}
+              {captchaToken && !captchaError && (
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>تم التحقق الأمني بنجاح</span>
+                </span>
+              )}
+            </div>
 
-          <button
-            type="submit"
-            disabled={isLoading || (!captchaToken && !captchaError) || !agreeToTerms}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${
-              isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'
-            } from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl transition-all mt-4 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5`}
-          >
-            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <UserPlus className="w-6 h-6" />}
-            {isLoading ? t('auth.creating', 'جاري الإنشاء...') : t('auth.create_account_btn', 'إنشاء حساب')}
-          </button>
-        </form>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading || (!captchaToken && !captchaError) || !agreeToTerms}
+              className="w-full flex items-center justify-center gap-2 px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-base rounded-2xl shadow-xl shadow-emerald-600/25 transition-all hover:-translate-y-0.5 cursor-pointer"
+            >
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+              <span>{isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب طالب وبدء التعلم'}</span>
+            </button>
+
+          </form>
         )}
 
-        <p className="text-center text-sm text-baaqoon-500 dark:text-baaqoon-400">
-          {t('auth.already_have_account', 'لديك حساب بالفعل؟')}{' '}
-          <Link to="/login" className="text-baaqoon-accent hover:underline font-medium">
-            {t('auth.sign_in_link', 'سجل دخولك')}
+        {/* Footer Login Link */}
+        <p className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+          لديك حساب بالفعل؟{' '}
+          <Link to="/login" className="text-emerald-700 dark:text-emerald-400 hover:underline font-black">
+            سجل دخولك هنا
           </Link>
         </p>
 
