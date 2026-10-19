@@ -26,7 +26,8 @@ import {
   Play,
   ShieldCheck,
   User,
-  GraduationCap
+  GraduationCap,
+  Send
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import ComingSoonSection from '../../../components/ui/ComingSoonSection';
@@ -63,6 +64,9 @@ export default function StudentDashboard() {
 
   const [selectedRecordedLesson, setSelectedRecordedLesson] = useState<any>(null);
   const [isRecordedPlayerOpen, setIsRecordedPlayerOpen] = useState(false);
+  const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
+  const [selectedExceptionCourseId, setSelectedExceptionCourseId] = useState('');
+  const [exceptionReason, setExceptionReason] = useState('');
 
   const studentName = user
     ? `${user.firstName} ${user.lastName}`
@@ -119,6 +123,33 @@ export default function StudentDashboard() {
     },
     onError: (err: any) => {
       setEnrollToast({ message: err?.response?.data?.message || "تعذر الانضمام للفوج حالياً", type: 'error' });
+      setTimeout(() => setEnrollToast(null), 5000);
+    }
+  });
+
+  const { data: availableExceptionCourses = [], isLoading: isLoadingExceptionCourses } = useQuery({
+    queryKey: ["student_available_exception_courses"],
+    queryFn: async () => {
+      const res = await api.get("/groups/student/available-exception-courses");
+      return res.data || [];
+    },
+    enabled: isExceptionModalOpen,
+  });
+
+  const requestExceptionMutation = useMutation({
+    mutationFn: async ({ courseId, reason }: { courseId: string; reason: string }) => {
+      const res = await api.post("/groups/student/request-exception-course", { courseId, reason });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setIsExceptionModalOpen(false);
+      setSelectedExceptionCourseId('');
+      setExceptionReason('');
+      setEnrollToast({ message: data?.message || "تم إرسال طلبك الاستثنائي بنجاح للمشرف والإدارة!", type: 'success' });
+      setTimeout(() => setEnrollToast(null), 6000);
+    },
+    onError: (err: any) => {
+      setEnrollToast({ message: err?.response?.data?.message || "تعذر إرسال الطلب حالياً", type: 'error' });
       setTimeout(() => setEnrollToast(null), 5000);
     }
   });
@@ -303,23 +334,33 @@ export default function StudentDashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => enrollAllMutation.mutate()}
-            disabled={enrollAllMutation.isPending}
-            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white rounded-2xl text-xs font-black transition-all shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {enrollAllMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                جاري الانضمام لكافة المواد...
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-                الانضمام لكافة مواد فرعي الدراسي (نقرة واحدة)
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setIsExceptionModalOpen(true)}
+              className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>طلب مادة استثنائية (خارج الفرع)</span>
+            </button>
+
+            <button
+              onClick={() => enrollAllMutation.mutate()}
+              disabled={enrollAllMutation.isPending}
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white rounded-2xl text-xs font-black transition-all shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {enrollAllMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  جاري الانضمام لكافة المواد...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 text-yellow-300 fill-yellow-300" />
+                  الانضمام لكافة مواد فرعي الدراسي (نقرة واحدة)
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Status notice if not all subjects enrolled */}
@@ -934,6 +975,113 @@ export default function StudentDashboard() {
             );
           }}
         />
+      )}
+
+      {/* Exception Course Request Modal (طلب دراسة مادة استثنائية من فرع آخر) */}
+      {isExceptionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 text-right animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    طلب دراسة مادة استثنائية (خارج فرعك)
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold">
+                    فرعك الحالي: <span className="text-emerald-600 dark:text-emerald-400 font-black">{user?.academicBranch === 'scientific' ? 'علمي' : 'أدبي'}</span>
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsExceptionModalOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-xs text-amber-900 dark:text-amber-200 font-bold space-y-1">
+                <p>💡 هذا الطلب مخصص للطلاب الراغبين في دراسة مادة إضافية خارج خطتهم الدراسية (مثل رغبة طالب أدبي في دراسة الرياضيات العلمي للتحضير لامتحان القبول الجامعي).</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">يصل الطلب مباشرة لإدارة المنصة ومشرف المادة لمراجعته وتعيين فوج دراسي لك.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  المادة المطلوبة استثنائياً: <span className="text-rose-500">*</span>
+                </label>
+                {isLoadingExceptionCourses ? (
+                  <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري تحميل المواد المتاحة...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedExceptionCourseId}
+                    onChange={(e) => setSelectedExceptionCourseId(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="">-- اضغط لاختيار المادة والمقرر --</option>
+                    {availableExceptionCourses.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title || c.subject?.nameAr} • الفرع {c.academicBranch === 'scientific' ? 'العلمي' : 'الأدبي'} ({c.gradeLevel === 'grade_11' ? 'صف 11' : 'صف 12'})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  سبب أو مبرر طلب دراسة المادة:
+                </label>
+                <textarea
+                  rows={3}
+                  value={exceptionReason}
+                  onChange={(e) => setExceptionReason(e.target.value)}
+                  placeholder="مثال: أرغب بالالتحاق بفوج الرياضيات تحضيراً لامتحان القبول الجامعي أو تقوية نفسي في المادة..."
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500 placeholder:font-normal"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsExceptionModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={!selectedExceptionCourseId || requestExceptionMutation.isPending}
+                onClick={() => {
+                  requestExceptionMutation.mutate({
+                    courseId: selectedExceptionCourseId,
+                    reason: exceptionReason
+                  });
+                }}
+                className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-black transition-all flex items-center gap-2 shadow-md shadow-amber-500/20"
+              >
+                {requestExceptionMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    جاري الإرسال...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    إرسال الطلب للإدارة
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

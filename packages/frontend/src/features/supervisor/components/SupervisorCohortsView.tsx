@@ -44,6 +44,8 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
   const [selectedCohortForAddStudent, setSelectedCohortForAddStudent] = useState<any>(null);
   const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<{ student: any; fromCohort: any } | null>(null);
   const [selectedCohortForTeacherVacancy, setSelectedCohortForTeacherVacancy] = useState<any>(null);
+  const [allowExceptionsInAddStudent, setAllowExceptionsInAddStudent] = useState(false);
+  const [allowExceptionsInCreateCohort, setAllowExceptionsInCreateCohort] = useState(false);
 
   // Cohort Requests Query
   const { data: cohortRequests = [] } = useQuery({
@@ -1023,10 +1025,21 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  اختر الطالب للإضافة (يتم عرض الطلاب المتوافقين مع مواصفات الفوج):
-                </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                    اختر الطالب للإضافة:
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-800 cursor-pointer">
+                    <input 
+                      type="checkbox"
+                      checked={allowExceptionsInAddStudent}
+                      onChange={(e) => setAllowExceptionsInAddStudent(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span>إتاحة طلاب الفروع الأخرى (حالات استثنائية)</span>
+                  </label>
+                </div>
                 {(() => {
                   const isCohortScientific = selectedCohortForAddStudent.course?.academicBranch === 'scientific';
                   const isCohortLiterary = selectedCohortForAddStudent.course?.academicBranch === 'literary';
@@ -1034,11 +1047,17 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                   const eligibleStudents = allPlatformStudents
                     .filter((s: any) => {
                       if (selectedCohortForAddStudent.enrolledStudents?.some((e: any) => e.id === s.id)) return false;
-                      if (isCohortScientific && s.academicBranch === 'literary') return false;
-                      if (isCohortLiterary && s.academicBranch === 'scientific') return false;
+                      if (!allowExceptionsInAddStudent) {
+                        if (isCohortScientific && s.academicBranch === 'literary') return false;
+                        if (isCohortLiterary && s.academicBranch === 'scientific') return false;
+                      }
                       return true;
                     })
                     .sort((a: any, b: any) => {
+                      const aCross = (isCohortScientific && a.academicBranch === 'literary') || (isCohortLiterary && a.academicBranch === 'scientific');
+                      const bCross = (isCohortScientific && b.academicBranch === 'literary') || (isCohortLiterary && b.academicBranch === 'scientific');
+                      if (aCross && !bCross) return 1;
+                      if (!aCross && bCross) return -1;
                       const aMatch = (a.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel ? 2 : 0) + (a.curriculumType === selectedCohortForAddStudent.course?.curriculumType ? 1 : 0);
                       const bMatch = (b.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel ? 2 : 0) + (b.curriculumType === selectedCohortForAddStudent.course?.curriculumType ? 1 : 0);
                       return bMatch - aMatch;
@@ -1052,13 +1071,14 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                     >
                       <option value="">-- اختر طالباً من قائمة الانتظار أو المنصة ({eligibleStudents.length} طالب مؤهل) --</option>
                       {eligibleStudents.map((s: any) => {
+                        const isCrossBranch = (isCohortScientific && s.academicBranch === 'literary') || (isCohortLiterary && s.academicBranch === 'scientific');
                         const isExactGrade = s.gradeLevel === selectedCohortForAddStudent.course?.gradeLevel;
                         const gradeText = s.gradeLevel === 'grade_11' ? 'صف 11' : s.gradeLevel === 'grade_12' ? 'صف 12' : (s.gradeLevel || 'غير محدد');
                         const branchText = s.academicBranch === 'scientific' ? 'علمي' : s.academicBranch === 'literary' ? 'أدبي' : (s.academicBranch || 'عام');
                         const currText = s.curriculumType === 'governmental' ? 'حكومي' : 'أزهري';
                         return (
                           <option key={s.id} value={s.id}>
-                            {s.firstName} {s.lastName} {isExactGrade ? '⭐' : ''} (فرع: {branchText} • مستوى: {gradeText} • منهج: {currText})
+                            {isCrossBranch ? `⚠️ [استثناء - فرع ${branchText}] ` : ''}{s.firstName} {s.lastName} {isExactGrade ? '⭐' : ''} (فرع: {branchText} • مستوى: {gradeText} • منهج: {currText})
                           </option>
                         );
                       })}
@@ -1730,8 +1750,10 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                     const isLiteraryCourse = selectedCourse?.academicBranch === 'literary';
 
                     const baseFilteredStudents = allPlatformStudents.filter((st: any) => {
-                      if (isScientificCourse && st.academicBranch === 'literary') return false;
-                      if (isLiteraryCourse && st.academicBranch === 'scientific') return false;
+                      if (!allowExceptionsInCreateCohort) {
+                        if (isScientificCourse && st.academicBranch === 'literary') return false;
+                        if (isLiteraryCourse && st.academicBranch === 'scientific') return false;
+                      }
                       return true;
                     });
 
@@ -1769,35 +1791,47 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                               )}
                             </div>
 
-                            {/* Filter branch tabs */}
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
-                              {!isLiteraryCourse && (
-                                <button
-                                  type="button"
-                                  onClick={() => setStudentBranchFilter('scientific')}
-                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'scientific' || isScientificCourse ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                                >
-                                  {isScientificCourse ? 'طلبة الفرع العلمي' : 'علمي'}
-                                </button>
-                              )}
-                              {!isScientificCourse && (
-                                <button
-                                  type="button"
-                                  onClick={() => setStudentBranchFilter('literary')}
-                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'literary' || isLiteraryCourse ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                                >
-                                  {isLiteraryCourse ? 'طلبة الفرع الأدبي' : 'أدبي'}
-                                </button>
-                              )}
-                              {!isScientificCourse && !isLiteraryCourse && (
-                                <button
-                                  type="button"
-                                  onClick={() => setStudentBranchFilter('all')}
-                                  className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
-                                >
-                                  الكل
-                                </button>
-                              )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <label className="flex items-center gap-1.5 text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-800 cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={allowExceptionsInCreateCohort}
+                                  onChange={(e) => setAllowExceptionsInCreateCohort(e.target.checked)}
+                                  className="w-3 h-3 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                />
+                                <span>إظهار حالات الاستثناء من الفروع الأخرى</span>
+                              </label>
+
+                              {/* Filter branch tabs */}
+                              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px]">
+                                {!isLiteraryCourse && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStudentBranchFilter('scientific')}
+                                    className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'scientific' || (isScientificCourse && !allowExceptionsInCreateCohort) ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                  >
+                                    {isScientificCourse && !allowExceptionsInCreateCohort ? 'طلبة الفرع العلمي' : 'علمي'}
+                                  </button>
+                                )}
+                                {!isScientificCourse && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStudentBranchFilter('literary')}
+                                    className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'literary' || (isLiteraryCourse && !allowExceptionsInCreateCohort) ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                  >
+                                    {isLiteraryCourse && !allowExceptionsInCreateCohort ? 'طلبة الفرع الأدبي' : 'أدبي'}
+                                  </button>
+                                )}
+                                {(!isScientificCourse && !isLiteraryCourse) || allowExceptionsInCreateCohort ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStudentBranchFilter('all')}
+                                    className={`px-2.5 py-0.5 rounded-lg font-bold transition-all ${studentBranchFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                                  >
+                                    الكل
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
@@ -1892,6 +1926,11 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                                         <span className={`px-1.5 py-0.2 rounded font-bold ${st.academicBranch === 'scientific' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
                                           {st.academicBranch === 'scientific' ? 'علمي' : 'أدبي'}
                                         </span>
+                                        {((isScientificCourse && st.academicBranch === 'literary') || (isLiteraryCourse && st.academicBranch === 'scientific')) && (
+                                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                                            ⚠️ استثناء
+                                          </span>
+                                        )}
                                         {st.curriculumType && (
                                           <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                             {st.curriculumType === 'governmental' ? 'حكومي' : 'أزهري'}

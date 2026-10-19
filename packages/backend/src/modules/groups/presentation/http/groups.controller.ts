@@ -1,4 +1,4 @@
-import { Controller, Get, Req, Res, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Req, Res, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import * as XLSX from 'xlsx';
@@ -1626,12 +1626,24 @@ export class GroupsController {
     const grade = user.gradeLevel || 'grade_11';
     const curriculum = user.curriculumType || 'governmental';
 
+    // Also include any courses where the student is actively enrolled (even as an exception from another branch)
+    const extraEnrollments = await this.prisma.cohortEnrollment.findMany({
+      where: { studentId: userId, status: 'enrolled' as any },
+      select: { cohort: { select: { courseId: true } } }
+    });
+    const extraCourseIds = extraEnrollments.map(e => e.cohort.courseId).filter(Boolean);
+
     const courses = await this.prisma.course.findMany({
       where: {
-        academicBranch: branch as any,
-        gradeLevel: grade as any,
-        curriculumType: curriculum as any,
-        isActive: true
+        OR: [
+          {
+            academicBranch: branch as any,
+            gradeLevel: grade as any,
+            curriculumType: curriculum as any,
+            isActive: true
+          },
+          ...(extraCourseIds.length > 0 ? [{ id: { in: extraCourseIds } }] : [])
+        ]
       },
       include: {
         subject: {
@@ -1770,6 +1782,114 @@ export class GroupsController {
       message: enrolledCount > 0 
         ? `تم تفويج الطالب بنجاح في ${enrolledCount} مادة دراسية جديدة (${enrolledSubjects.join('، ')})` 
         : 'أنت مفوّج بالفعل في جميع المواد الدراسية المتاحة لفرعك الدراسي.'
+    };
+  }
+
+  @Post('student/enroll-cohort/:cohortId')
+  async enrollSingleCohort(@Req() req: any, @Param('cohortId') cohortId: string) {
+    const studentId = req.user?.id || req.user?.userId;
+    const cohort = await this.prisma.cohort.findUnique({
+      where: { id: cohortId },
+      include: { enrollments: true }
+    });
+    if (!cohort) throw new NotFoundException('الفوج غير موجود');
+
+    const maxCapacity = cohort.maxStudents || 30;
+    if (cohort.enrollments.length >= maxCapacity) {
+      throw new BadRequestException('الفوج مكتمل السعة حالياً');
+    }
+
+    const existing = await this.prisma.cohortEnrollment.findFirst({
+      where: { cohortId, studentId }
+    });
+    if (existing) {
+      return { success: true, message: 'أنت مسجل بالفعل في هذا الفوج' };
+    }
+
+    await this.prisma.cohortEnrollment.create({
+      data: {
+        cohortId,
+        studentId,
+        status: 'enrolled' as any
+      }
+    });
+
+    return { success: true, message: `تم انضمامك بنجاح إلى فوج «${cohort.name}»!` };
+  }
+
+  @Get('student/available-exception-courses')
+  async getAvailableExceptionCourses(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { academicBranch: true, gradeLevel: true, curriculumType: true }
+    });
+    if (!user) throw new UnauthorizedException();
+
+    const otherBranch = user.academicBranch === 'scientific' ? 'literary' : 'scientific';
+    const courses = await this.prisma.course.findMany({
+      where: {
+        academicBranch: otherBranch as any,
+        isActive: true
+      },
+      include: {
+        subject: { select: { id: true, nameAr: true, code: true, iconUrl: true } }
+      },
+      orderBy: { title: 'asc' }
+    });
+    return courses;
+  }
+
+  @Post('student/request-exception-course')
+  async requestExceptionCourse(
+    @Req() req: any,
+    @Body() body: { courseId: string; reason?: string }
+  ) {
+    const userId = req.user?.id || req.user?.userId;
+    const student = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firstName: true, lastName: true, phone: true, email: true, academicBranch: true }
+    });
+    if (!student) throw new UnauthorizedException();
+
+    const course = await this.prisma.course.findUnique({
+      where: { id: body.courseId },
+      include: { subject: true }
+    });
+    if (!course) throw new NotFoundException('المقرر المطلوب غير موجود');
+
+    // Find supervisors of this subject or admins
+    const supervisors = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { primaryRole: { in: ['admin', 'super_admin'] as any } },
+          { supervisedSubjectId: course.subjectId }
+        ],
+        status: 'active'
+      },
+      select: { id: true }
+    });
+
+    const studentBranchLabel = student.academicBranch === 'scientific' ? 'علمي' : 'أدبي';
+    const notifBody = `الطالب «${student.firstName} ${student.lastName}» (فرع: ${studentBranchLabel}) يرغب بالانضمام استثنائياً لمقرر «${course.title || course.subject.nameAr}». السبب: ${body.reason || 'رغبة خاصة في دراسة المادة'}`;
+
+    for (const sup of supervisors) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: sup.id,
+            title: `طلب استثناء أكاديمي: ${course.subject.nameAr}`,
+            body: notifBody,
+            type: 'enrollment',
+            actionUrl: '/supervisor/cohorts'
+          }
+        });
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: 'تم إرسال طلبك الاستثنائي بنجاح إلى إدارة ومشرف المادة لمراجعته واعتماده!'
     };
   }
 
