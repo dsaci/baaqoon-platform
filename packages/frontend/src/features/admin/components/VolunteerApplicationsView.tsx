@@ -18,6 +18,7 @@ export default function VolunteerApplicationsView() {
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all'); // all, existing, new
+  const [selectedTier, setSelectedTier] = useState('all'); // all, highly_recommended, qualified, needs_review
 
   const [selectedAppForDossier, setSelectedAppForDossier] = useState<any>(null);
 
@@ -28,12 +29,14 @@ export default function VolunteerApplicationsView() {
     decision: 'approved' | 'rejected';
     notes: string;
     rejectionReason: string;
+    recommendedSubjectId: string;
   }>({
     open: false,
     app: null,
     decision: 'approved',
     notes: '',
     rejectionReason: '',
+    recommendedSubjectId: '',
   });
 
   // Admin Confirmation Modal state
@@ -74,13 +77,14 @@ export default function VolunteerApplicationsView() {
 
   // Fetch applications
   const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['volunteer_applications', selectedSubject, selectedStatus, selectedType, search],
+    queryKey: ['volunteer_applications', selectedSubject, selectedStatus, selectedType, selectedTier, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedSubject !== 'all') params.append('subject', selectedSubject);
       if (selectedStatus !== 'all') params.append('status', selectedStatus);
       if (selectedType === 'existing') params.append('isExisting', 'true');
       if (selectedType === 'new') params.append('isExisting', 'false');
+      if (selectedTier !== 'all') params.append('tier', selectedTier);
       if (search.trim()) params.append('search', search.trim());
 
       const res = await api.get(`/volunteer/applications?${params.toString()}`);
@@ -91,6 +95,9 @@ export default function VolunteerApplicationsView() {
   const applications = data?.applications || [];
   const totalCount = data?.totalCount || 0;
   const supervisedSubjectName = data?.supervisedSubjectName;
+  const supervisedSubjects = data?.supervisedSubjects || [];
+  const isMultiSubjectSupervisor = data?.isMultiSubjectSupervisor || false;
+  const stats = data?.stats;
 
   // Mutation 1: Supervisor Review
   const supervisorReviewMutation = useMutation({
@@ -99,28 +106,59 @@ export default function VolunteerApplicationsView() {
       decision,
       supervisorNotes,
       rejectionReason,
+      recommendedSubjectId,
     }: {
       id: string;
       decision: 'approved' | 'rejected';
       supervisorNotes?: string;
       rejectionReason?: string;
+      recommendedSubjectId?: string;
     }) => {
       const res = await api.patch(`/volunteer/applications/${id}/supervisor-review`, {
         decision,
         supervisorNotes,
         rejectionReason,
+        recommendedSubjectId,
       });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['volunteer_applications'] });
-      setSupervisorReviewModal({ open: false, app: null, decision: 'approved', notes: '', rejectionReason: '' });
+      setSupervisorReviewModal({ open: false, app: null, decision: 'approved', notes: '', rejectionReason: '', recommendedSubjectId: '' });
       if (selectedAppForDossier) setSelectedAppForDossier(null);
     },
     onError: (err: any) => {
       alert(err.response?.data?.message || 'حدث خطأ أثناء حفظ مراجعة المشرف');
     },
   });
+
+  // Helper to open automated supervisor review with prefilled recommendation & target subject
+  const openAutomatedSupervisorReview = (app: any) => {
+    const analysis = app.dossierAnalysis;
+    const isGoodMatch = analysis ? analysis.score >= 50 : true;
+
+    let bestSubjectId = '';
+    if (supervisedSubjects.length > 0) {
+      if (analysis?.targetSubject) {
+        const found = supervisedSubjects.find((s: any) =>
+          analysis.targetSubject.includes(s.nameAr) || s.nameAr.includes(analysis.targetSubject)
+        );
+        if (found) bestSubjectId = found.id;
+      }
+      if (!bestSubjectId && supervisedSubjects[0]) {
+        bestSubjectId = supervisedSubjects[0].id;
+      }
+    }
+
+    setSupervisorReviewModal({
+      open: true,
+      app,
+      decision: isGoodMatch ? 'approved' : 'rejected',
+      notes: isGoodMatch ? (analysis?.suggestedRecommendation || '') : '',
+      rejectionReason: !isGoodMatch ? (analysis?.suggestedRejection || '') : '',
+      recommendedSubjectId: bestSubjectId,
+    });
+  };
 
   // Mutation 2: Admin Final Confirmation & Activation
   const adminConfirmMutation = useMutation({
@@ -185,9 +223,15 @@ export default function VolunteerApplicationsView() {
               {isAdmin ? 'الإدارة العامة · حوكمة واعتماد المعلمين الجدد' : `الإشراف الأكاديمي · دراسة ملفات أساتذة ${supervisedSubjectName || 'المادة'}`}
             </span>
             {supervisedSubjectName && (
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-amber-950 flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-amber-950 flex items-center gap-1.5 shadow-sm">
                 <BookOpen className="w-3.5 h-3.5" />
-                فلترة تلقائية: مادة {supervisedSubjectName}
+                {isMultiSubjectSupervisor ? `إشراف ثنائي/متعدد: ${supervisedSubjectName}` : `مادة: ${supervisedSubjectName}`}
+              </span>
+            )}
+            {isMultiSubjectSupervisor && (
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-400 text-emerald-950 flex items-center gap-1 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5" />
+                أتمتة الفرز والتوصية للمادتين مفعلة ⚡
               </span>
             )}
           </div>
@@ -195,20 +239,93 @@ export default function VolunteerApplicationsView() {
             دراسة وفرز ملفات المعلمين المتطوعين لطلبة غزة
           </h1>
           <p className="text-xs sm:text-sm text-baaqoon-100 max-w-2xl leading-relaxed">
-            منظومة أكاديمية ذكية ومحكمة لدراسة ملفات ومؤهلات الأساتذة المتقدمين، مع اعتماد مرحلي ثنائي: يراجع المشرف التربوي تخصص المادة أولاً، ثم يصادق مدير المنصة على الاعتماد النهائي وتفعيل الحساب.
+            منظومة أكاديمية ذكية ومؤتمتة لدراسة ملفات ومؤهلات الأساتذة المتقدمين، مع حساب نسبة التطابق التخصصي واقتراح المسار المناسب تلقائياً، واعتماد مرحلي ثنائي بين المشرف ومدير المنصة.
           </p>
         </div>
       </div>
 
+      {/* Multi-Subject Supervisor Control & Switcher Bar */}
+      {isMultiSubjectSupervisor && (
+        <div className="bg-gradient-to-r from-blue-900/10 via-slate-900/5 to-emerald-900/10 border border-blue-200 dark:border-blue-900/50 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
+                  أتمتة دراسة الملفات لحسابات الإشراف الثنائي
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {supervisedSubjects.length} مواد مسندة
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                انقر على إحدى المواد لفرز المتقدمين بدقة، أو اختر المتقدمين المؤهلين لكلا المادتين معاً لتوجيههم بضغطة واحدة.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Subject Switcher Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
+            <button
+              onClick={() => setSelectedSubject('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                selectedSubject === 'all'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              كل المواد المشرف عليها ({totalCount})
+            </button>
+
+            {supervisedSubjects.map((sub: any) => (
+              <button
+                key={sub.id}
+                onClick={() => setSelectedSubject(sub.nameAr)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  selectedSubject === sub.nameAr
+                    ? 'bg-baaqoon-600 text-white shadow-md'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                مادة {sub.nameAr}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setSelectedSubject('__dual__')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
+                selectedSubject === '__dual__'
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100'
+              }`}
+            >
+              <span>⚡ متقدمون لكلا المادتين</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-slate-400 block">إجمالي الملفات</span>
             <span className="text-2xl font-black text-slate-900 dark:text-white">{totalCount}</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-baaqoon-50 dark:bg-baaqoon-950 text-baaqoon-600 flex items-center justify-center font-black">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-black">
             <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-emerald-600 block">موصى به بقوة ⚡</span>
+            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats?.highlyRecommended || 0}</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-black">
+            <Sparkles className="w-5 h-5" />
           </div>
         </div>
 
@@ -232,7 +349,7 @@ export default function VolunteerApplicationsView() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between col-span-2 sm:col-span-1">
           <div>
             <span className="text-[10px] font-bold text-emerald-600 block">معتمد ومفعّل رسمياً</span>
             <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{fullyApprovedCount}</span>
@@ -248,7 +365,7 @@ export default function VolunteerApplicationsView() {
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           
           {/* Search Box */}
-          <div className="relative w-full sm:w-96">
+          <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -262,6 +379,18 @@ export default function VolunteerApplicationsView() {
           {/* Quick Filters */}
           <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
             
+            {/* Academic Match Tier Filter */}
+            <select
+              value={selectedTier}
+              onChange={e => setSelectedTier(e.target.value)}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold outline-none cursor-pointer"
+            >
+              <option value="all">كل درجات التطابق الأكاديمي ⚡</option>
+              <option value="highly_recommended">🟢 موصى به بقوة (أولوية قصوى)</option>
+              <option value="qualified">🔵 مؤهل ومطابق للشروط</option>
+              <option value="needs_review">🟡 يحتاج تدقيق إضافي</option>
+            </select>
+
             {/* Status Filter */}
             <select
               value={selectedStatus}
@@ -428,6 +557,42 @@ export default function VolunteerApplicationsView() {
                     ))}
                   </div>
 
+                  {/* Automated Dossier Evaluation Card */}
+                  {app.dossierAnalysis && (
+                    <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 border border-slate-200 dark:border-slate-700/80 space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="px-2.5 py-1 rounded-xl text-xs font-black text-white flex items-center gap-1 shadow-sm"
+                            style={{ backgroundColor: app.dossierAnalysis.tierColor }}
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-200" />
+                            <span>{app.dossierAnalysis.score}% تطابق</span>
+                          </div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                            {app.dossierAnalysis.tierLabel}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] font-bold text-baaqoon-700 dark:text-baaqoon-300 bg-baaqoon-50 dark:bg-baaqoon-950/60 px-2.5 py-0.5 rounded-lg border border-baaqoon-200 dark:border-baaqoon-800">
+                          المسار المقترح: {app.dossierAnalysis.targetSubject}
+                        </div>
+                      </div>
+
+                      {/* Strengths tags */}
+                      {app.dossierAnalysis.strengths && app.dossierAnalysis.strengths.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          {app.dossierAnalysis.strengths.slice(0, 3).map((st: string, idx: number) => (
+                            <span key={idx} className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                              <span>{st}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Supervisor Review Summary Box (if reviewed) */}
                   {(app.supervisorDecision || app.supervisorReviewedBy) && (
                     <div className={`p-3 rounded-2xl text-xs space-y-1.5 border ${
@@ -528,17 +693,12 @@ export default function VolunteerApplicationsView() {
                     {isSupervisor && !isFullyApproved && (
                       <>
                         <button
-                          onClick={() => setSupervisorReviewModal({
-                            open: true,
-                            app,
-                            decision: 'approved',
-                            notes: app.supervisorNotes || '',
-                            rejectionReason: '',
-                          })}
-                          className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          onClick={() => openAutomatedSupervisorReview(app)}
+                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          title="أتمتة دراسة الملف وتوليد التوصية الرسمية لإدارة المنصة بضغطة واحدة"
                         >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          <span>توصية بالقبول</span>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>دراسة وتوصية مؤتمتة ⚡</span>
                         </button>
 
                         <button
@@ -547,9 +707,10 @@ export default function VolunteerApplicationsView() {
                             app,
                             decision: 'rejected',
                             notes: '',
-                            rejectionReason: app.supervisorRejectionReason || '',
+                            rejectionReason: app.supervisorRejectionReason || app.dossierAnalysis?.suggestedRejection || '',
+                            recommendedSubjectId: '',
                           })}
-                          className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <ThumbsDown className="w-3.5 h-3.5" />
                           <span>اعتذار بمبرر</span>
@@ -608,7 +769,7 @@ export default function VolunteerApplicationsView() {
       {/* ─── MODAL 1: SUPERVISOR REVIEW MODAL (قبول أو رفض بمبرر) ─── */}
       {supervisorReviewModal.open && supervisorReviewModal.app && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-fade-in max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-black text-baaqoon-600 uppercase tracking-wider block">
@@ -627,16 +788,42 @@ export default function VolunteerApplicationsView() {
             </div>
 
             <div className="space-y-4">
+
+              {/* Automated Analysis Box inside Modal */}
+              {supervisorReviewModal.app.dossierAnalysis && (
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      التقييم الأكاديمي المؤتمت:
+                    </span>
+                    <span 
+                      className="px-2.5 py-0.5 rounded-full text-[10px] font-black text-white"
+                      style={{ backgroundColor: supervisorReviewModal.app.dossierAnalysis.tierColor }}
+                    >
+                      {supervisorReviewModal.app.dossierAnalysis.score}% تطابق · {supervisorReviewModal.app.dossierAnalysis.tierLabel}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    <strong>المسار التخصصي الأنسب:</strong> مادة {supervisorReviewModal.app.dossierAnalysis.targetSubject}
+                  </p>
+                </div>
+              )}
+
               {/* Decision Toggle */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-black text-slate-700 dark:text-slate-300">
-                  قرار المشرف الأكاديمي للمادة:
+                  قرار المشرف الأكاديمي:
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setSupervisorReviewModal(prev => ({ ...prev, decision: 'approved' }))}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all ${
+                    onClick={() => {
+                      const sugg = supervisorReviewModal.app?.dossierAnalysis?.suggestedRecommendation || '';
+                      setSupervisorReviewModal(prev => ({ ...prev, decision: 'approved', notes: prev.notes || sugg }));
+                    }}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       supervisorReviewModal.decision === 'approved'
                         ? 'bg-blue-600 text-white border-blue-600 shadow-md'
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -648,8 +835,11 @@ export default function VolunteerApplicationsView() {
 
                   <button
                     type="button"
-                    onClick={() => setSupervisorReviewModal(prev => ({ ...prev, decision: 'rejected' }))}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all ${
+                    onClick={() => {
+                      const suggRej = supervisorReviewModal.app?.dossierAnalysis?.suggestedRejection || '';
+                      setSupervisorReviewModal(prev => ({ ...prev, decision: 'rejected', rejectionReason: prev.rejectionReason || suggRej }));
+                    }}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       supervisorReviewModal.decision === 'rejected'
                         ? 'bg-rose-600 text-white border-rose-600 shadow-md'
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -661,18 +851,59 @@ export default function VolunteerApplicationsView() {
                 </div>
               </div>
 
+              {/* Multi-subject selector for dual supervisor */}
+              {supervisedSubjects.length > 1 && supervisorReviewModal.decision === 'approved' && (
+                <div className="space-y-1.5 p-3.5 bg-blue-50/60 dark:bg-blue-950/40 rounded-2xl border border-blue-200 dark:border-blue-800">
+                  <label className="block text-xs font-black text-blue-950 dark:text-blue-200">
+                    المادة الموصى باعتماد الأستاذ لتدريسها (من المواد المسندة إليك):
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {supervisedSubjects.map((sub: any) => (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => setSupervisorReviewModal(prev => ({ ...prev, recommendedSubjectId: sub.id }))}
+                        className={`p-2.5 rounded-xl text-xs font-black border transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
+                          supervisorReviewModal.recommendedSubjectId === sub.id
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>مادة {sub.nameAr}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* If Approved: Notes for Admin */}
               {supervisorReviewModal.decision === 'approved' && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    ملاحظات وتوصية المشرف لمدير المنصة (اختياري):
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      ملاحظات وتوصية المشرف لمدير المنصة:
+                    </label>
+                    {supervisorReviewModal.app.dossierAnalysis?.suggestedRecommendation && (
+                      <button
+                        type="button"
+                        onClick={() => setSupervisorReviewModal(prev => ({
+                          ...prev,
+                          notes: supervisorReviewModal.app.dossierAnalysis.suggestedRecommendation,
+                        }))}
+                        className="text-[10px] font-black text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>إعادة توليد الصيغة المؤتمتة ⚡</span>
+                      </button>
+                    )}
+                  </div>
                   <textarea
-                    rows={3}
-                    placeholder="مثال: مؤهل أكاديمياً ومناسب لتدريس طلبة الفرع العلمي، تم الاطلاع على خطة تفرغه الأسبوعي..."
+                    rows={4}
+                    placeholder="ملاحظات وتوصية المشرف..."
                     value={supervisorReviewModal.notes}
                     onChange={e => setSupervisorReviewModal(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
                   />
                 </div>
               )}
@@ -705,7 +936,7 @@ export default function VolunteerApplicationsView() {
               <button
                 type="button"
                 onClick={() => setSupervisorReviewModal(prev => ({ ...prev, open: false }))}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold"
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer"
               >
                 إلغاء
               </button>
@@ -717,9 +948,10 @@ export default function VolunteerApplicationsView() {
                   decision: supervisorReviewModal.decision,
                   supervisorNotes: supervisorReviewModal.notes,
                   rejectionReason: supervisorReviewModal.rejectionReason,
+                  recommendedSubjectId: supervisorReviewModal.recommendedSubjectId,
                 })}
                 disabled={supervisorReviewMutation.isPending || (supervisorReviewModal.decision === 'rejected' && !supervisorReviewModal.rejectionReason.trim())}
-                className={`px-5 py-2 rounded-xl text-white text-xs font-black shadow-md transition-all ${
+                className={`px-5 py-2 rounded-xl text-white text-xs font-black shadow-md transition-all cursor-pointer ${
                   supervisorReviewModal.decision === 'approved'
                     ? 'bg-blue-600 hover:bg-blue-700'
                     : 'bg-rose-600 hover:bg-rose-700 disabled:opacity-60'
@@ -879,6 +1111,61 @@ export default function VolunteerApplicationsView() {
 
             <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
               
+              {/* Automated Academic Assessment Block */}
+              {selectedAppForDossier.dossierAnalysis && (
+                <div className="bg-gradient-to-r from-blue-900/10 via-baaqoon-900/10 to-emerald-900/10 p-4 rounded-2xl border border-blue-200 dark:border-blue-900/60 space-y-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="px-3 py-1 rounded-xl text-xs font-black text-white flex items-center gap-1.5 shadow-sm"
+                        style={{ backgroundColor: selectedAppForDossier.dossierAnalysis.tierColor }}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                        <span>نسبة التطابق الأكاديمي: {selectedAppForDossier.dossierAnalysis.score}%</span>
+                      </div>
+                      <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                        {selectedAppForDossier.dossierAnalysis.tierLabel}
+                      </span>
+                    </div>
+
+                    <div className="text-xs font-black text-baaqoon-700 dark:text-baaqoon-300 bg-white dark:bg-slate-800 px-3 py-1 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700">
+                      المسار المقترح: {selectedAppForDossier.dossierAnalysis.targetSubject}
+                    </div>
+                  </div>
+
+                  {/* Strengths & Concerns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                    <div className="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300 block">نقاط القوة والمطابقة:</span>
+                      {selectedAppForDossier.dossierAnalysis.strengths?.map((st: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                          <Check className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                          <span>{st}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedAppForDossier.dossierAnalysis.concerns && selectedAppForDossier.dossierAnalysis.concerns.length > 0 && (
+                      <div className="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-1">
+                        <span className="font-bold text-amber-800 dark:text-amber-300 block">نقاط تتطلب عناية:</span>
+                        {selectedAppForDossier.dossierAnalysis.concerns.map((cn: string, idx: number) => (
+                          <div key={idx} className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                            <AlertCircle className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                            <span>{cn}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Automated recommendation text preview */}
+                  <div className="bg-white/90 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] leading-relaxed">
+                    <span className="font-bold text-blue-900 dark:text-blue-300 block mb-0.5">صيغة التوصية الأكاديمية المؤتمتة:</span>
+                    <p className="text-slate-600 dark:text-slate-300">{selectedAppForDossier.dossierAnalysis.suggestedRecommendation}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Personal info */}
               <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl space-y-2">
                 <h4 className="font-black text-slate-900 dark:text-white text-xs flex items-center gap-1.5">

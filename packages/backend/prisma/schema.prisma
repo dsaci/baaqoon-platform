@@ -27,6 +27,7 @@ model User {
   curriculumType      CurriculumType?
   gradeLevel          GradeLevel?               @default(grade_11)
   supervisedSubjectId String?                   @db.Uuid
+  supervisedSubjectIds String[]                  @default([]) @map("supervisedSubjectIds") @db.Uuid
   emailVerified       Boolean                   @default(false)
   timezone            String                    @default("Asia/Gaza") @db.VarChar(64)
   locale              String                    @default("ar") @db.VarChar(10)

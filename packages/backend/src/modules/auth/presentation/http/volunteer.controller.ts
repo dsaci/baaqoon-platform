@@ -21,6 +21,7 @@ import {
   normalizeEmail,
   normalizePhone,
 } from '../../application/identity-validator.util';
+import { evaluateTeacherDossier } from '../../application/volunteer-dossier-evaluator.util';
 
 @Controller('volunteer')
 export class VolunteerController {
@@ -146,16 +147,22 @@ export class VolunteerController {
 
     // Send high-priority notification to admins & relevant subject supervisors
     try {
-      const subjectKeywords = subjects.map((s: string) => s.trim().toLowerCase());
+      const matchingDbSubjects = await this.prisma.subject.findMany({
+        where: { nameAr: { in: subjects } },
+        select: { id: true },
+      });
+      const matchingSubjectIds = matchingDbSubjects.map(s => s.id);
+
       const relevantSupervisors = await this.prisma.user.findMany({
         where: {
           OR: [
             { primaryRole: { in: ['admin', 'super_admin'] as any } },
             {
               primaryRole: { in: ['subject_supervisor', 'supervisor'] as any },
-              supervisedSubject: {
-                nameAr: { in: subjects },
-              },
+              OR: [
+                { supervisedSubject: { nameAr: { in: subjects } } },
+                { supervisedSubjectIds: { hasSome: matchingSubjectIds } },
+              ],
             },
           ],
           status: 'active',
@@ -282,15 +289,22 @@ export class VolunteerController {
 
     // 6. Notify Admins and Supervisors
     try {
+      const matchingDbSubjects = await this.prisma.subject.findMany({
+        where: { nameAr: { in: subjectsArr } },
+        select: { id: true },
+      });
+      const matchingSubjectIds = matchingDbSubjects.map(s => s.id);
+
       const adminsAndSups = await this.prisma.user.findMany({
         where: {
           OR: [
             { primaryRole: { in: ['admin', 'super_admin'] as any } },
             {
               primaryRole: { in: ['subject_supervisor', 'supervisor'] as any },
-              supervisedSubject: {
-                nameAr: { in: subjectsArr },
-              },
+              OR: [
+                { supervisedSubject: { nameAr: { in: subjectsArr } } },
+                { supervisedSubjectIds: { hasSome: matchingSubjectIds } },
+              ],
             },
           ],
           status: 'active',
@@ -338,28 +352,84 @@ export class VolunteerController {
     }
 
     let subjectFilter: string[] | null = null;
+    let supervisedSubjects: Array<{ id: string; nameAr: string; nameEn?: string | null; code: string }> = [];
 
     if (isSupervisor && !isSuperOrAdmin) {
-      // Find the supervisor's assigned subject
+      // Find the supervisor's assigned subject(s)
       const supervisorUser = await this.prisma.user.findUnique({
         where: { id: user.id },
         include: { supervisedSubject: true },
       });
 
-      if (!supervisorUser?.supervisedSubject) {
-        // If supervisor has no subject assigned yet, return empty list
-        return { applications: [], totalCount: 0, supervisedSubjectName: null };
+      const subjectIdSet = new Set<string>();
+      if (supervisorUser?.supervisedSubjectId) {
+        subjectIdSet.add(supervisorUser.supervisedSubjectId);
+      }
+      if (supervisorUser?.supervisedSubjectIds && Array.isArray(supervisorUser.supervisedSubjectIds)) {
+        supervisorUser.supervisedSubjectIds.forEach((id: string) => {
+          if (id) subjectIdSet.add(id);
+        });
       }
 
-      subjectFilter = [supervisorUser.supervisedSubject.nameAr];
+      if (subjectIdSet.size > 0) {
+        supervisedSubjects = await this.prisma.subject.findMany({
+          where: { id: { in: Array.from(subjectIdSet) } },
+          select: { id: true, nameAr: true, nameEn: true, code: true },
+          orderBy: { nameAr: 'asc' },
+        });
+      }
+
+      if (supervisedSubjects.length === 0) {
+        // If supervisor has no subject assigned yet, return empty list
+        return {
+          applications: [],
+          totalCount: 0,
+          supervisedSubjectName: null,
+          supervisedSubjects: [],
+          isMultiSubjectSupervisor: false,
+          stats: {
+            total: 0,
+            highlyRecommended: 0,
+            qualified: 0,
+            needsReview: 0,
+            pendingSupervisorReview: 0,
+            supervisorApproved: 0,
+            adminActivated: 0,
+          },
+        };
+      }
+
+      subjectFilter = supervisedSubjects.map(s => s.nameAr);
+    } else if (isSuperOrAdmin) {
+      supervisedSubjects = await this.prisma.subject.findMany({
+        where: { isActive: true },
+        select: { id: true, nameAr: true, nameEn: true, code: true },
+        orderBy: { nameAr: 'asc' },
+      });
     }
 
     // Build Prisma where clause
     const where: any = {};
 
-    // Filter by query subject if admin specified, or supervisor subject
+    // Filter by query subject if specified
     if (query.subject && query.subject !== 'all') {
-      where.subjects = { has: query.subject };
+      if (query.subject === '__dual__') {
+        // Multi-subject applicants applying for 2 or more of supervisor's subjects
+        if (subjectFilter && subjectFilter.length > 1) {
+          where.AND = subjectFilter.slice(0, 2).map((subName: string) => ({
+            subjects: { has: subName },
+          }));
+        }
+      } else if (isSupervisor && !isSuperOrAdmin) {
+        const allowed = subjectFilter?.includes(query.subject);
+        if (allowed) {
+          where.subjects = { has: query.subject };
+        } else {
+          where.subjects = { hasSome: subjectFilter || [] };
+        }
+      } else {
+        where.subjects = { has: query.subject };
+      }
     } else if (subjectFilter && subjectFilter.length > 0) {
       where.subjects = { hasSome: subjectFilter };
     }
@@ -424,11 +494,40 @@ export class VolunteerController {
       },
     });
 
+    // Enrich each application with automated dossier evaluation
+    const enrichedApplications = applications.map((app: any) => {
+      const dossierAnalysis = evaluateTeacherDossier(app, supervisedSubjects);
+      return {
+        ...app,
+        dossierAnalysis,
+      };
+    });
+
+    // Optional filter by tier if requested
+    let finalApplications = enrichedApplications;
+    if (query.tier && query.tier !== 'all') {
+      finalApplications = enrichedApplications.filter(a => a.dossierAnalysis.tier === query.tier);
+    }
+
+    // Stats calculations
+    const stats = {
+      total: enrichedApplications.length,
+      highlyRecommended: enrichedApplications.filter(a => a.dossierAnalysis.tier === 'highly_recommended').length,
+      qualified: enrichedApplications.filter(a => a.dossierAnalysis.tier === 'qualified').length,
+      needsReview: enrichedApplications.filter(a => a.dossierAnalysis.tier === 'needs_review' || a.dossierAnalysis.tier === 'low_match').length,
+      pendingSupervisorReview: enrichedApplications.filter(a => a.status === 'pending').length,
+      supervisorApproved: enrichedApplications.filter(a => a.status === 'supervisor_approved').length,
+      adminActivated: enrichedApplications.filter(a => a.status === 'approved' && a.convertedUserId != null).length,
+    };
+
     return {
-      applications,
-      totalCount: applications.length,
+      applications: finalApplications,
+      totalCount: finalApplications.length,
       scope: isSuperOrAdmin ? 'all' : 'subject_scoped',
-      supervisedSubjectName: subjectFilter ? subjectFilter[0] : null,
+      supervisedSubjectName: subjectFilter ? subjectFilter.join(' + ') : null,
+      supervisedSubjects,
+      isMultiSubjectSupervisor: supervisedSubjects.length > 1,
+      stats,
     };
   }
 
@@ -440,7 +539,12 @@ export class VolunteerController {
   async supervisorReview(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() body: { decision: 'approved' | 'rejected'; supervisorNotes?: string; rejectionReason?: string },
+    @Body() body: {
+      decision: 'approved' | 'rejected';
+      supervisorNotes?: string;
+      rejectionReason?: string;
+      recommendedSubjectId?: string;
+    },
   ) {
     const user = req.user;
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(user.primaryRole);
@@ -467,17 +571,23 @@ export class VolunteerController {
 
     const newStatus = body.decision === 'approved' ? 'supervisor_approved' : 'supervisor_rejected';
 
+    const updateData: any = {
+      status: newStatus,
+      supervisorReviewedById: user.id,
+      supervisorReviewedAt: new Date(),
+      supervisorDecision: body.decision,
+      supervisorNotes: body.supervisorNotes?.trim() || null,
+      supervisorRejectionReason: body.decision === 'rejected' ? body.rejectionReason?.trim() : null,
+      updatedAt: new Date(),
+    };
+
+    if (body.decision === 'approved' && body.recommendedSubjectId) {
+      updateData.assignedSubjectId = body.recommendedSubjectId;
+    }
+
     const updated = await this.prisma.volunteerApplication.update({
       where: { id },
-      data: {
-        status: newStatus,
-        supervisorReviewedById: user.id,
-        supervisorReviewedAt: new Date(),
-        supervisorDecision: body.decision,
-        supervisorNotes: body.supervisorNotes?.trim() || null,
-        supervisorRejectionReason: body.decision === 'rejected' ? body.rejectionReason?.trim() : null,
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         supervisorReviewedBy: {
           select: { id: true, firstName: true, lastName: true },
