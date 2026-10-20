@@ -8,13 +8,14 @@ import {
   Target,
   Shield,
   Heart,
-  PenTool,
   Mail,
   MapPin,
   Phone,
   Sparkles,
   Zap,
   GraduationCap,
+  ArrowRight,
+  ArrowLeft,
 } from "lucide-react";
 import ThemeToggle from "../../../components/shared/ThemeToggle";
 import LangToggle from "../../../components/shared/LangToggle";
@@ -22,495 +23,518 @@ import { useTranslation } from "react-i18next";
 
 export default function LandingPage() {
   const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-sans selection:bg-baaqoon-gold dark:selection:bg-[#c9b48a91] scroll-smooth overflow-x-hidden">
-      {/* Navigation */}
-      <nav className="fixed w-full top-4 z-40 px-4 md:px-8 pointer-events-none">
-        <div className="max-w-7xl mx-auto flex justify-between items-center bg-white/70 dark:bg-white backdrop-blur-xl p-3 md:p-4 rounded-2xl pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-baaqoon-accent/20 dark:border-baaqoon-gold/20">
-          <div className="flex items-center gap-2">
+    <div
+      dir={isRtl ? "rtl" : "ltr"}
+      className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans selection:bg-baaqoon-gold dark:selection:bg-[#c9b48a91] scroll-smooth overflow-x-hidden text-slate-900 dark:text-slate-100 transition-colors"
+    >
+      {/* ══════════════════════ Navigation Bar ══════════════════════ */}
+      <nav className="fixed w-full top-4 z-40 px-3 md:px-8 pointer-events-none">
+        <div className="max-w-7xl mx-auto flex justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-3 md:p-4 rounded-2xl pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-baaqoon-accent/20 dark:border-baaqoon-gold/20">
+          {/* Logo & Brand */}
+          <Link to="/" className="flex items-center gap-2.5">
             <div className="relative">
               <img
                 src={logo}
-                alt="باقون"
-                className="relative w-12 h-12 mix-blend-multiply dark:mix-blend-normal object-contain rounded-lg "
+                alt={t("landing.brand_name", "باقون")}
+                className="w-10 h-10 md:w-12 md:h-12 object-contain rounded-xl bg-white p-1 shadow-xs"
               />
             </div>
-            <span className="text-2xl font-black text-baaqoon-accent thmanyahserif">
-              باقون
+            <span className={`text-2xl font-black text-baaqoon-accent dark:text-baaqoon-gold ${isRtl ? 'thmanyahserif' : 'font-black tracking-tight'}`}>
+              {t("landing.brand_name", "باقون")}
             </span>
-          </div>
+          </Link>
 
-          <div className="hidden md:flex items-center gap-8 text-baaqoon-accent thmanyahserif">
+          {/* Center Navigation Links */}
+          <div className={`hidden md:flex items-center gap-8 text-baaqoon-accent dark:text-slate-200 font-bold ${isRtl ? 'thmanyahserif text-lg' : 'text-sm font-black'}`}>
             <a
               href="#about"
-              className="hover:text-baaqoon-gold transition-colors text-xl"
+              className="hover:text-baaqoon-gold transition-colors"
             >
-              من نحن
+              {t("landing.about", "من نحن")}
             </a>
             <a
               href="#hierarchy"
-              className="hover:text-baaqoon-gold transition-colors text-xl"
+              className="hover:text-baaqoon-gold transition-colors"
             >
-              هيكلية المنصة
+              {t("landing.hierarchy", "هيكلية المنصة")}
             </a>
             <a
               href="#contact"
-              className="hover:text-baaqoon-gold transition-colors text-xl"
+              className="hover:text-baaqoon-gold transition-colors"
             >
-              تواصل معنا
+              {t("landing.contact", "تواصل معنا")}
             </a>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2">
+          {/* Right Action Buttons */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <LangToggle />
               <ThemeToggle />
             </div>
+
             <Link
               to="/login"
-              className="px-6 py-2.5 bg-gradient-to-l from-baaqoon-accent to-baaqoon-gold text-white font-black rounded-xl transition-all shadow-lg shadow-baaqoon-accent/30 hover:-translate-y-0.5"
+              className="px-5 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-baaqoon-accent to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs sm:text-sm transition-all shadow-md shadow-baaqoon-accent/25 hover:-translate-y-0.5"
             >
-              دخول
+              {t("landing.login", "دخول")}
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* ══════════════════════ Hero Section ══════════════════════ */}
       <main className="flex-1 pt-32 pb-20 flex items-center justify-center relative bg-graph-paper">
-        {/* Abstract Background Elements */}
-        <div className="absolute -bottom-28 -left-36 w-[550px] md:w-[680px] h-[550px] md:h-[680px] bg-[#BAAA80]/35 dark:bg-[#BAAA80]/20 rounded-full blur-[130px] md:blur-[160px] pointer-events-none -z-0"></div>
-        <div className="absolute -top-28 -right-36 w-[600px] md:w-[720px] h-[600px] md:h-[720px] bg-[#394C2A]/25 dark:bg-[#394C2A]/35 rounded-full blur-[140px] md:blur-[170px] pointer-events-none -z-0"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] md:w-[800px] h-[400px] md:h-[550px] bg-[#FAF2DF]/70 dark:bg-[#202919]/40 rounded-full blur-[110px] md:blur-[140px] pointer-events-none -z-0"></div>
-        {/* <div className="absolute top-0 right-0 -mr-40 -mt-40 w-96 h-96 bg-baaqoon-gold/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-40 -mb-40 w-96 h-96 bg-baaqoon-gold/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-baaqoon-gold/30 dark:bg-baaqoon-gold/10 rounded-full blur-[120px] pointer-events-none" /> */}
+        {/* Ambient Glows */}
+        <div className="absolute -bottom-28 -left-36 w-[500px] md:w-[680px] h-[500px] md:h-[680px] bg-[#BAAA80]/30 dark:bg-[#BAAA80]/15 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute -top-28 -right-36 w-[550px] md:w-[720px] h-[550px] md:h-[720px] bg-[#394C2A]/20 dark:bg-[#394C2A]/25 rounded-full blur-[140px] pointer-events-none" />
 
-        <div className="max-w-5xl mx-auto px-4 text-center z-10 space-y-10 mt-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-md border border-baaqoon-accent/20 shadow-sm text-baaqoon-accent font-bold text-sm animate-fade-in-up">
+        <div className="max-w-5xl mx-auto px-4 text-center z-10 space-y-8 mt-10">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-baaqoon-accent/20 dark:border-slate-800 shadow-sm text-baaqoon-accent dark:text-emerald-400 font-bold text-xs sm:text-sm animate-fade-in-up">
             <GraduationCap
-              size={30}
-              strokeWidth={1.2}
-              className="text-baaqoon-accent"
+              size={24}
+              strokeWidth={1.5}
+              className="text-baaqoon-accent dark:text-emerald-400 shrink-0"
             />
-            <span>منصة تعليمية متكاملة لطلاب فلسطين</span>
+            <span>{t("landing.tagline_badge", "منصة تعليمية متكاملة لطلاب فلسطين")}</span>
           </div>
 
+          {/* Heading */}
           <div
-            className="space-y-6 animate-fade-in-up"
+            className="space-y-5 animate-fade-in-up"
             style={{ animationDelay: "0.1s" }}
           >
-            <h1 className="text-5xl thmanyahserif md:text-7xl lg:text-8xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
-              تعلم بشغف، <br />
-              <span className="text-baaqoon-gold thmanyahserif">
-                وتفوق بجدارة!
+            <h1 className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.15] ${isRtl ? 'thmanyahserif' : 'font-black'}`}>
+              {t("landing.hero_h1_start", "تعلم بشغف،")} <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-baaqoon-gold via-amber-500 to-emerald-600">
+                {t("landing.hero_h1_highlight", "وتفوق بجدارة!")}
               </span>
             </h1>
-            <p className="text-lg md:text-2xl text-slate-600 dark:text-white font-medium max-w-3xl mx-auto leading-relaxed">
-              باقون هنا لدعمك في كل خطوة نحو حلمك. نوفر لك أفضل الحصص التفاعلية،
-              الاختبارات الذكية، وبيئة تعليمية محفزة تجعل من دراستك متعة حقيقية!
+            <p className="text-base sm:text-xl md:text-2xl text-slate-600 dark:text-slate-300 font-medium max-w-3xl mx-auto leading-relaxed">
+              {t(
+                "landing.hero_sub",
+                "باقون هنا لدعمك في كل خطوة نحو حلمك. نوفر لك أفضل الحصص التفاعلية، الاختبارات الذكية، وبيئة تعليمية محفزة تجعل من دراستك متعة حقيقية!"
+              )}
             </p>
           </div>
 
+          {/* CTA Buttons */}
           <div
-            className="flex flex-wrap gap-4 justify-center pt-8 animate-fade-in-up"
+            className="flex flex-wrap gap-4 justify-center pt-4 animate-fade-in-up"
             style={{ animationDelay: "0.2s" }}
           >
             <Link
               to="/register"
-              className="px-8 py-4 bg-gradient-to-l from-baaqoon-accent to-baaqoon-gold text-white font-black rounded-2xl hover:scale-105 transition-all shadow-xl shadow-baaqoon-accent/30 text-lg flex items-center gap-2 group"
+              className="px-8 py-4 bg-gradient-to-r from-baaqoon-accent to-emerald-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-2xl hover:scale-105 transition-all shadow-xl shadow-baaqoon-accent/30 text-base sm:text-lg flex items-center gap-2 group cursor-pointer"
             >
-              <GraduationCap className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
-              ابدأ رحلتك الآن
+              <GraduationCap className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
+              <span>{t("landing.hero_cta_start", "ابدأ رحلتك الآن")}</span>
+              {isRtl ? (
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              ) : (
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              )}
             </Link>
+
             <a
               href="#about"
-              className="px-8 py-4 bg-white/80 backdrop-blur-md border-2 border-baaqoon-accent/20 text-baaqoon-accent font-black rounded-2xl hover:bg-baaqoon-accent hover:text-white dark:hover:bg-baaqoon-gold dark:text-baaqoon-accent transition-all text-lg flex items-center gap-2"
+              className="px-8 py-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-2 border-baaqoon-accent/20 dark:border-slate-700 text-baaqoon-accent dark:text-slate-200 font-black rounded-2xl hover:bg-baaqoon-accent hover:text-white dark:hover:bg-slate-800 transition-all text-base sm:text-lg flex items-center gap-2"
             >
-              <BookOpen className="w-6 h-6" />
-              اكتشف المنصة
+              <BookOpen className="w-5 h-5" />
+              <span>{t("landing.hero_cta_discover", "اكتشف المنصة")}</span>
             </a>
           </div>
         </div>
       </main>
 
-      {/* About & Mission Section */}
+      {/* ══════════════════════ About & Mission Section ══════════════════════ */}
       <section
         id="about"
-        className="py-24 bg-white/50 dark:bg-[#111111] backdrop-blur-3xl border-y border-baaqoon-accent/20 dark:border-baaqoon-gold/20 relative"
+        className="py-24 bg-white/70 dark:bg-slate-900/60 backdrop-blur-3xl border-y border-baaqoon-accent/15 dark:border-slate-800 relative"
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
+            <div className="space-y-7">
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-baaqoon-gold/20 dark:bg-baaqoon-gold text-baaqoon-accent dark:text-baaqoon-accent font-black rounded-full text-sm">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-baaqoon-gold/20 dark:bg-amber-950/40 text-baaqoon-accent dark:text-amber-300 border border-baaqoon-gold/30 dark:border-amber-800/50 font-black rounded-full text-xs sm:text-sm">
                   <Target className="w-4 h-4" />
-                  رؤيتنا ورسالتنا
+                  <span>{t("landing.about_badge", "رؤيتنا ورسالتنا")}</span>
                 </div>
-                <h2 className="text-3xl thmanyahserif md:text-5xl font-black text-slate-900 dark:text-white leading-tight">
-                  جذورنا عميقة.. <br />
-                  <span className="text-baaqoon-accent">
-                    وطموحنا يعانق السماء
+
+                <h2 className={`text-3xl md:text-5xl font-black text-slate-900 dark:text-white leading-tight ${isRtl ? 'thmanyahserif' : 'font-black'}`}>
+                  {t("landing.about_h2_start", "جذورنا عميقة..")} <br />
+                  <span className="text-baaqoon-accent dark:text-emerald-400">
+                    {t("landing.about_h2_highlight", "وطموحنا يعانق السماء")}
                   </span>
                 </h2>
-                <p className="text-lg text-slate-600 dark:text-baaqoon-gold leading-relaxed text-justify">
-                  جاء تأسيس منصة باقون التعليمية لتشكل بارقة أمل لطلابنا في ظل
-                  التحديات التي يواجهها التعليم في فلسطين، خاصة في قطاع غزة. نحن
-                  نؤمن أن التعليم هو أقوى سلاح للتغيير، ولذلك وفرنا بيئة رقمية
-                  متطورة تدعم الطالب والأستاذ على حد سواء.
+
+                <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed text-justify">
+                  {t(
+                    "landing.about_text",
+                    "جاء تأسيس منصة باقون التعليمية لتشكل بارقة أمل لطلابنا في ظل التحديات التي يواجهها التعليم في فلسطين، خاصة في قطاع غزة. نحن نؤمن أن التعليم هو أقوى سلاح للتغيير، ولذلك وفرنا بيئة رقمية متطورة تدعم الطالب والأستاذ على حد سواء."
+                  )}
                 </p>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-6 pt-4">
-                <div className="bg-white dark:bg-[#131111] p-6 rounded-3xl border border-baaqoon-accent/20 dark:border-baaqoon-gold/20 shadow-lg shadow-baaqoon-accent/30 hover:-translate-y-1 transition-transform">
-                  <div className="w-12 h-12 bg-[#e8ede0] rounded-2xl flex items-center justify-center mb-4">
-                    <Heart
-                      strokeWidth={1.5}
-                      className="w-6 h-6 text-baaqoon-accent"
-                    />
+              <div className="grid sm:grid-cols-2 gap-5 pt-2">
+                <div className="bg-white dark:bg-slate-800/80 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-1 transition-transform">
+                  <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mb-4">
+                    <Heart className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <h3 className="font-black text-slate-900 dark:text-white text-lg mb-2">
-                    رعاية شاملة
+                  <h3 className="font-black text-slate-900 dark:text-white text-base sm:text-lg mb-2">
+                    {t("landing.about_care_title", "رعاية شاملة")}
                   </h3>
-                  <p className="text-slate-600 dark:text-baaqoon-gold text-sm leading-relaxed">
-                    نقدم دعماً أكاديمياً ونفسياً للطلاب لضمان استمراريتهم
-                    وتفوقهم رغم كل الظروف.
+                  <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                    {t(
+                      "landing.about_care_desc",
+                      "نقدم دعماً أكاديمياً ونفسياً للطلاب لضمان استمراريتهم وتفوقهم رغم كل الظروف."
+                    )}
                   </p>
                 </div>
-                <div className="bg-white dark:bg-[#131111] p-6 rounded-3xl border border-baaqoon-accent/20 dark:border-baaqoon-gold/20  shadow-lg shadow-baaqoon-accent/30 hover:-translate-y-1 transition-transform">
-                  <div className="w-12 h-12 bg-[#f5ecd6] rounded-2xl flex items-center justify-center mb-4">
-                    <Zap
-                      strokeWidth={1.5}
-                      className="w-6 h-6 text-baaqoon-accent"
-                    />
+
+                <div className="bg-white dark:bg-slate-800/80 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-1 transition-transform">
+                  <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/60 rounded-2xl flex items-center justify-center mb-4">
+                    <Zap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <h3 className="font-black text-slate-900 dark:text-white text-lg mb-2">
-                    منصة متطورة
+                  <h3 className="font-black text-slate-900 dark:text-white text-base sm:text-lg mb-2">
+                    {t("landing.about_tech_title", "منصة متطورة")}
                   </h3>
-                  <p className="text-slate-600 dark:text-baaqoon-gold text-sm leading-relaxed">
-                    فصول افتراضية، اختبارات ذكية، ومتابعة دقيقة للأداء باستخدام
-                    أحدث التقنيات.
+                  <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                    {t(
+                      "landing.about_tech_desc",
+                      "فصول افتراضية، اختبارات ذكية، ومتابعة دقيقة للأداء باستخدام أحدث التقنيات."
+                    )}
                   </p>
                 </div>
               </div>
             </div>
-            {/* Glassmorphic Illustration Card */}
-            <div className="relative p-2 rounded-[2.5rem] bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl shadow-2xl border border-white/60 dark:border-slate-700/50 rotate-0 hover:rotate-2 transition-all duration-500 group">
-              <div className="absolute -inset-0.5 rounded-[2.5rem] group-hover:opacity-30 bg-baaqoon-gold transition-opacity"></div>
+
+            {/* Illustration Artwork */}
+            <div className="relative p-2 rounded-[2.5rem] bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl shadow-2xl border border-slate-200/80 dark:border-slate-700 group">
               <img
                 src={sketchImg}
-                alt="شجرة الزيتون وجذور العلم"
-                className="relative w-full h-auto rounded-[2rem] dark:mix-blend-normal"
+                alt={t("landing.sketch_alt", "شجرة الزيتون وجذور العلم")}
+                className="w-full h-auto rounded-[2rem] object-cover shadow-sm"
               />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Hierarchy Section */}
+      {/* ══════════════════════ Hierarchy Section ══════════════════════ */}
       <section id="hierarchy" className="py-24 relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 relative z-10">
-          <div className="text-center space-y-4 mb-20">
-            <h2 className="text-3xl thmanyahserif md:text-6xl font-black text-slate-900 dark:text-white">
-              هيكلية{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-l from-baaqoon-accent to-baaqoon-gold">
-                منظمة وداعمة
+          <div className="text-center space-y-4 mb-16">
+            <h2 className={`text-3xl md:text-5xl font-black text-slate-900 dark:text-white ${isRtl ? 'thmanyahserif' : 'font-black'}`}>
+              {t("landing.hierarchy_title_start", "هيكلية")}{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-baaqoon-accent to-baaqoon-gold">
+                {t("landing.hierarchy_title_highlight", "منظمة وداعمة")}
               </span>
             </h2>
-            <p className="text-slate-600 dark:text-baaqoon-gold max-w-2xl mx-auto text-lg">
-              تعمل منظومتنا بتناغم تام بين جميع الأطراف لضمان تقديم أفضل تجربة
-              تعليمية للطالب.
+            <p className="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto text-base sm:text-lg">
+              {t(
+                "landing.hierarchy_subtitle",
+                "تعمل منظومتنا بتناغم تام بين جميع الأطراف لضمان تقديم أفضل تجربة تعليمية للطالب."
+              )}
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white/60 dark:bg-[#131111] backdrop-blur-xl p-8 rounded-[2.5rem] shadow-xl border border-baaqoon-accent/20 dark:border-[#c9b48a2b] text-center hover:-translate-y-2 transition-transform group">
-              <div className="w-20 h-20 bg-[#e8ede0]  rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-baaqoon-accent/30 group-hover:scale-110 transition-transform">
-                <Shield className="w-10 h-10 text-baaqoon-accent " />
+          <div className="grid md:grid-cols-3 gap-6 sm:gap-8">
+            {/* Card 1: Director */}
+            <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-8 rounded-3xl shadow-md border border-slate-200 dark:border-slate-800 text-center hover:-translate-y-1.5 transition-transform group">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mx-auto mb-5 text-emerald-700 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                <Shield className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
-                المدير العام
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2.5">
+                {t("landing.h_director_title", "المدير العام")}
               </h3>
-              <p className="text-slate-600 dark:text-baaqoon-gold font-medium">
-                إشراف شامل على المنظومة التعليمية ومتابعة دقيقة لمؤشرات الأداء
-                والجودة.
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                {t(
+                  "landing.h_director_desc",
+                  "إشراف شامل على المنظومة التعليمية ومتابعة دقيقة لمؤشرات الأداء والجودة."
+                )}
               </p>
             </div>
 
-            <div className="bg-white/60 dark:bg-[#131111] backdrop-blur-xl p-8 rounded-[2.5rem] shadow-xl border border-baaqoon-accent/20 dark:border-[#c9b48a2b] text-center hover:-translate-y-2 transition-transform group">
-              <div className="w-20 h-20 bg-baaqoon-accent rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-baaqoon-accent/30 group-hover:scale-110 transition-transform">
-                <Users className="w-10 h-10 text-white" />
+            {/* Card 2: Supervisor */}
+            <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-8 rounded-3xl shadow-md border border-slate-200 dark:border-slate-800 text-center hover:-translate-y-1.5 transition-transform group">
+              <div className="w-16 h-16 bg-baaqoon-accent text-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm group-hover:scale-110 transition-transform">
+                <Users className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
-                المنسق والمشرف
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2.5">
+                {t("landing.h_supervisor_title", "المنسق والمشرف")}
               </h3>
-              <p className="text-slate-600 dark:text-baaqoon-gold font-medium">
-                متابعة الفتحات التدريسية، توجيه الأساتذة، وتقييم جودة المواد
-                العلمية.
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                {t(
+                  "landing.h_supervisor_desc",
+                  "متابعة الفتحات التدريسية، توجيه الأساتذة، وتقييم جودة المواد العلمية."
+                )}
               </p>
             </div>
 
-            <div className="bg-white/60 dark:bg-[#131111] backdrop-blur-xl p-8 rounded-[2.5rem] shadow-xl border border-baaqoon-accent/20 dark:border-[#c9b48a2b] text-center hover:-translate-y-2 transition-transform group">
-              <div className="w-20 h-20 bg-[#e8ede0] to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-baaqoon-accent/30 group-hover:scale-110 transition-transform">
-                <BookOpen className="w-10 h-10 text-baaqoon-accent" />
+            {/* Card 3: Teachers */}
+            <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-8 rounded-3xl shadow-md border border-slate-200 dark:border-slate-800 text-center hover:-translate-y-1.5 transition-transform group">
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/60 rounded-2xl flex items-center justify-center mx-auto mb-5 text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
-                الأستاذ المبدع
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2.5">
+                {t("landing.h_teacher_title", "الأستاذ المبدع")}
               </h3>
-              <p className="text-slate-600 dark:text-baaqoon-gold font-medium">
-                بناء حصص تفاعلية، توليد اختبارات ذكية، ومتابعة مستمرة لتطور كل
-                طالب.
+              <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed">
+                {t(
+                  "landing.h_teacher_desc",
+                  "بناء حصص تفاعلية، توليد اختبارات ذكية، ومتابعة مستمرة لتطور كل طالب."
+                )}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Student CTA Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto bg-baaqoon-accent rounded-[3rem] p-12 md:p-16 text-center text-white relative overflow-hidden shadow-2xl shadow-baaqoon-accent/30">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-baaqoon-gold/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+      {/* ══════════════════════ Student Focus CTA Section ══════════════════════ */}
+      <section className="py-16 px-4">
+        <div className="max-w-5xl mx-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 rounded-3xl p-10 md:p-14 text-center text-white relative overflow-hidden shadow-2xl shadow-emerald-700/20">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 space-y-8">
-            <h2 className="text-4xl thmanyahserif md:text-6xl font-black leading-tight">
-              أنت محور اهتمامنا
+          <div className="relative z-10 space-y-6">
+            <h2 className={`text-3xl md:text-5xl font-black leading-tight ${isRtl ? 'thmanyahserif' : 'font-black'}`}>
+              {t("landing.student_focus_title", "أنت محور اهتمامنا")}
             </h2>
-            <p className="text-xl md:text-2xl font-medium text-emerald-50 max-w-2xl mx-auto">
-              انضم لآلاف الطلبة الذين اختاروا التميز. واجهة دراسية مصممة خصيصاً
-              لتشجيعك وتحفيزك يومياً!
+            <p className="text-base sm:text-xl font-medium text-emerald-50 max-w-2xl mx-auto leading-relaxed">
+              {t(
+                "landing.student_focus_desc",
+                "انضم لآلاف الطلبة الذين اختاروا التميز. واجهة دراسية مصممة خصيصاً لتشجيعك وتحفيزك يومياً!"
+              )}
             </p>
-            <div className="pt-4">
+            <div className="pt-2">
               <Link
                 to="/login"
-                className="inline-block px-10 py-5 bg-white text-baaqoon-accent font-black rounded-2xl hover:scale-105 transition-transform shadow-xl text-xl"
+                className="inline-flex items-center gap-2 px-9 py-4 bg-white text-emerald-800 hover:bg-emerald-50 font-black rounded-2xl hover:scale-105 transition-transform shadow-xl text-base sm:text-lg"
               >
-                دخول الطالب
+                <GraduationCap className="w-5 h-5" />
+                <span>{t("landing.student_focus_cta", "دخول الطالب")}</span>
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* ══════════════════════ Contact Section ══════════════════════ */}
       <section
         id="contact"
-        className="py-24 bg-[#faf9f6] dark:bg-[#111111] backdrop-blur-3xl border-t border-slate-200 dark:border-baaqoon-gold/20"
+        className="py-20 bg-slate-100/70 dark:bg-slate-900/40 backdrop-blur-3xl border-t border-slate-200 dark:border-slate-800"
       >
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <h2 className="text-3xl thmanyahserif md:text-4xl font-black text-slate-900 dark:text-white mb-12">
-            نحن دائماً بالقرب منك
+          <h2 className={`text-2xl sm:text-4xl font-black text-slate-900 dark:text-white mb-10 ${isRtl ? 'thmanyahserif' : 'font-black'}`}>
+            {t("landing.contact_header", "نحن دائماً بالقرب منك")}
           </h2>
-          <div className="grid sm:grid-cols-3 gap-8">
-            <div className="bg-white dark:bg-[#131111] p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-baaqoon-gold/20 flex flex-col items-center hover:-translate-y-1 transition-transform">
-              <div className="w-16 h-16 bg-[#e8ede0]  rounded-2xl flex items-center justify-center mb-6 text-baaqoon-accent dark:text-baaqoon-accent">
-                <Mail className="w-8 h-8" />
+
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="bg-white dark:bg-slate-850 p-6 rounded-3xl shadow-xs border border-slate-200/80 dark:border-slate-800 flex flex-col items-center hover:-translate-y-1 transition-transform">
+              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
+                <Mail className="w-7 h-7" />
               </div>
-              <h3 className="font-black text-slate-900 dark:text-white mb-2">
-                البريد الإلكتروني
+              <h3 className="font-black text-slate-900 dark:text-white text-base mb-1">
+                {t("landing.contact_email_title", "البريد الإلكتروني")}
               </h3>
-              <p className="text-slate-500 dark:text-baaqoon-gold font-medium dir-ltr">
+              <a
+                href="mailto:contact@baaqoon.ps"
+                dir="ltr"
+                className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium hover:text-emerald-600"
+              >
                 contact@baaqoon.ps
-              </p>
+              </a>
             </div>
-            <div className="bg-white dark:bg-[#131111] p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-baaqoon-gold/20 flex flex-col items-center hover:-translate-y-1 transition-transform">
-              <div className="w-16 h-16 bg-baaqoon-accent rounded-2xl flex items-center justify-center mb-6 text-white dark:text-white">
-                <Phone className="w-8 h-8" />
+
+            <div className="bg-white dark:bg-slate-850 p-6 rounded-3xl shadow-xs border border-slate-200/80 dark:border-slate-800 flex flex-col items-center hover:-translate-y-1 transition-transform">
+              <div className="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-center mb-4">
+                <Phone className="w-7 h-7" />
               </div>
-              <h3 className="font-black text-slate-900 dark:text-white mb-2">
-                الهاتف
+              <h3 className="font-black text-slate-900 dark:text-white text-base mb-1">
+                {t("landing.contact_phone_title", "الهاتف")}
               </h3>
-              <p className="text-slate-500 dark:text-baaqoon-gold font-medium dir-ltr">
+              <a
+                href="tel:+970591234567"
+                dir="ltr"
+                className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium hover:text-emerald-600"
+              >
                 +970 59 123 4567
-              </p>
+              </a>
             </div>
-            <div className="bg-white dark:bg-[#131111] p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-baaqoon-gold/20 flex flex-col items-center hover:-translate-y-1 transition-transform">
-              <div className="w-16 h-16 bg-[#e8ede0] rounded-2xl flex items-center justify-center mb-6 text-baaqoon-accent dark:text-baaqoon-accent">
-                <MapPin className="w-8 h-8" />
+
+            <div className="bg-white dark:bg-slate-850 p-6 rounded-3xl shadow-xs border border-slate-200/80 dark:border-slate-800 flex flex-col items-center hover:-translate-y-1 transition-transform">
+              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400">
+                <MapPin className="w-7 h-7" />
               </div>
-              <h3 className="font-black text-slate-900 dark:text-white mb-2">
-                المقر الرئيسي
+              <h3 className="font-black text-slate-900 dark:text-white text-base mb-1">
+                {t("landing.contact_hq_title", "المقر الرئيسي")}
               </h3>
-              <p className="text-slate-500 dark:text-baaqoon-gold font-medium">
-                فلسطين - قطاع غزة
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
+                {t("landing.contact_hq_val", "فلسطين - قطاع غزة")}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative overflow-hidden bg-[#1F2A18]">
-        {/* Decorative Background */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-baaqoon-accent/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-baaqoon-gold/10 rounded-full blur-[100px] pointer-events-none" />
-
+      {/* ══════════════════════ Footer ══════════════════════ */}
+      <footer className="relative overflow-hidden bg-[#1F2A18] text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 pb-10 relative z-10">
-          {/* Main Footer Content */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 pb-12 border-b border-white/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-white/10">
             {/* Brand */}
-            <div className="space-y-5">
-              <a href="#" className="inline-flex items-center gap-3 group">
-                <div className="relative">
-                  <img
-                    src={logo}
-                    alt="شعار منصة باقون"
-                    className="relative w-12 h-12 object-contain rounded-xl bg-white p-1"
-                  />
-                </div>
+            <div className="space-y-4">
+              <Link to="/" className="inline-flex items-center gap-3">
+                <img
+                  src={logo}
+                  alt={t("landing.brand_name", "باقون")}
+                  className="w-10 h-10 object-contain rounded-xl bg-white p-1"
+                />
+                <span className={`text-2xl font-black text-white ${isRtl ? 'thmanyahserif' : 'tracking-tight'}`}>
+                  {t("landing.brand_name", "باقون")}
+                </span>
+              </Link>
 
-                <span className="text-2xl text-white thmanyahserif">باقون</span>
-              </a>
-
-              <p className="text-sm leading-8 text-white max-w-xs">
-                منصة تعليمية فلسطينية تجمعنا على طريق العلم والأمل، وتمنح طلابنا
-                الأدوات والفرص لتحقيق أحلامهم وبناء مستقبل أفضل.
+              <p className="text-xs sm:text-sm leading-relaxed text-slate-300 max-w-xs">
+                {t(
+                  "landing.footer_desc",
+                  "منصة تعليمية فلسطينية تجمعنا على طريق العلم والأمل، وتمنح طلابنا الأدوات والفرص لتحقيق أحلامهم وبناء مستقبل أفضل."
+                )}
               </p>
 
-              <div className="inline-flex items-center gap-2 text-sm font-bold text-baaqoon-gold">
-                <Heart className="w-4 h-4" />
-                <span>بالعلم نبني المستقبل</span>
+              <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-baaqoon-gold">
+                <Heart className="w-4 h-4 fill-current text-baaqoon-gold" />
+                <span>{t("landing.footer_motto", "بالعلم نبني المستقبل")}</span>
               </div>
             </div>
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-6">روابط سريعة</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white mb-5">
+                {t("landing.footer_quick_links", "روابط سريعة")}
+              </h3>
 
-              <ul className="space-y-4 text-sm font-medium">
+              <ul className="space-y-3 text-xs sm:text-sm font-medium text-slate-300">
                 <li>
-                  <a
-                    href="#about"
-                    className="text-white hover:text-baaqoon-gold hover:translate-x-[-4px] inline-block transition-all"
-                  >
-                    من نحن
+                  <a href="#about" className="hover:text-baaqoon-gold transition-colors inline-block">
+                    {t("landing.footer_link_about", "من نحن")}
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="#hierarchy"
-                    className="text-white hover:text-baaqoon-gold hover:translate-x-[-4px] inline-block transition-all"
-                  >
-                    هيكلية المنصة
+                  <a href="#hierarchy" className="hover:text-baaqoon-gold transition-colors inline-block">
+                    {t("landing.footer_link_hierarchy", "هيكلية المنصة")}
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="#contact"
-                    className="text-white hover:text-baaqoon-gold hover:translate-x-[-4px] inline-block transition-all"
-                  >
-                    تواصل معنا
+                  <a href="#contact" className="hover:text-baaqoon-gold transition-colors inline-block">
+                    {t("landing.footer_link_contact", "تواصل معنا")}
                   </a>
                 </li>
                 <li>
-                  <Link
-                    to="/register"
-                    className="text-white hover:text-baaqoon-gold hover:translate-x-[-4px] inline-block transition-all"
-                  >
-                    إنشاء حساب جديد
+                  <Link to="/register" className="hover:text-baaqoon-gold transition-colors inline-block">
+                    {t("landing.footer_link_register", "إنشاء حساب جديد")}
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/login"
-                    className="text-white hover:text-baaqoon-gold hover:translate-x-[-4px] inline-block transition-all"
-                  >
-                    تسجيل الدخول
+                  <Link to="/login" className="hover:text-baaqoon-gold transition-colors inline-block">
+                    {t("landing.footer_link_login", "تسجيل الدخول")}
                   </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Platform */}
+            {/* Platform Feature Summary */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-6">
-                منصتنا التعليمية
+              <h3 className="text-base sm:text-lg font-bold text-white mb-5">
+                {t("landing.footer_platform_title", "منصتنا التعليمية")}
               </h3>
 
-              <p className="text-sm leading-7 text-baaqoon-gold mb-5">
-                بيئة تعليمية تفاعلية تدعم الطالب والأستاذ وتساعد على تطوير
-                المهارات وتحقيق التميز الأكاديمي.
+              <p className="text-xs sm:text-sm leading-relaxed text-slate-300 mb-5">
+                {t(
+                  "landing.footer_platform_desc",
+                  "بيئة تعليمية تفاعلية تدعم الطالب والأستاذ وتساعد على تطوير المهارات وتحقيق التميز الأكاديمي."
+                )}
               </p>
 
-              <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.08]">
-                <div className="w-11 h-11 shrink-0 rounded-xl bg-baaqoon-gold/15 flex items-center justify-center">
-                  <GraduationCap className="w-6 h-6 text-baaqoon-gold" />
+              <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.06] border border-white/10">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-baaqoon-gold/20 flex items-center justify-center">
+                  <GraduationCap className="w-5 h-5 text-baaqoon-gold" />
                 </div>
-
                 <div>
-                  <p className="text-white font-bold text-sm">رحلتك تبدأ هنا</p>
-                  <p className="text-xs text-baaqoon-gold mt-1">
-                    تعلّم، تطوّر، وتفوّق
+                  <p className="text-white font-bold text-xs">
+                    {t("landing.footer_platform_card_title", "رحلتك تبدأ هنا")}
+                  </p>
+                  <p className="text-[11px] text-baaqoon-gold mt-0.5">
+                    {t("landing.footer_platform_card_sub", "تعلّم، تطوّر، وتفوّق")}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Contact */}
+            {/* Contact Details */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-6">تواصل معنا</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white mb-5">
+                {t("landing.footer_contact_title", "تواصل معنا")}
+              </h3>
 
-              <ul className="space-y-5 text-sm">
+              <ul className="space-y-4 text-xs sm:text-sm text-slate-300">
                 <li className="flex items-start gap-3">
-                  <div className="w-10 h-10 shrink-0 rounded-xl bg-baaqoon-accent/15 flex items-center justify-center">
-                    <Mail className="w-5 h-5 text-baaqoon-gold" />
+                  <div className="w-9 h-9 shrink-0 rounded-xl bg-white/10 flex items-center justify-center text-baaqoon-gold">
+                    <Mail className="w-4 h-4" />
                   </div>
-
                   <div className="min-w-0">
-                    <p className="text-baaqoon-gold mb-1">البريد الإلكتروني</p>
-                    <a
-                      href="mailto:contact@baaqoon.ps"
-                      className="text-white hover:text-baaqoon-gold transition-colors break-all"
-                    >
+                    <p className="text-[11px] text-baaqoon-gold">
+                      {t("landing.contact_email_title", "البريد الإلكتروني")}
+                    </p>
+                    <a href="mailto:contact@baaqoon.ps" dir="ltr" className="hover:text-baaqoon-gold transition-colors">
                       contact@baaqoon.ps
                     </a>
                   </div>
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <div className="w-10 h-10 shrink-0 rounded-xl bg-baaqoon-accent/15 flex items-center justify-center">
-                    <Phone className="w-5 h-5 text-baaqoon-gold" />
+                  <div className="w-9 h-9 shrink-0 rounded-xl bg-white/10 flex items-center justify-center text-baaqoon-gold">
+                    <Phone className="w-4 h-4" />
                   </div>
-
                   <div>
-                    <p className="text-baaqoon-gold mb-1">الهاتف</p>
-                    <a
-                      href="tel:+970591234567"
-                      dir="ltr"
-                      className="inline-block text-white hover:text-baaqoon-gold transition-colors"
-                    >
+                    <p className="text-[11px] text-baaqoon-gold">
+                      {t("landing.contact_phone_title", "الهاتف")}
+                    </p>
+                    <a href="tel:+970591234567" dir="ltr" className="hover:text-baaqoon-gold transition-colors">
                       +970 59 123 4567
                     </a>
                   </div>
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <div className="w-10 h-10 shrink-0 rounded-xl bg-baaqoon-accent/15 flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-baaqoon-gold" />
+                  <div className="w-9 h-9 shrink-0 rounded-xl bg-white/10 flex items-center justify-center text-baaqoon-gold">
+                    <MapPin className="w-4 h-4" />
                   </div>
-
                   <div>
-                    <p className="text-baaqoon-gold mb-1">مقرنا</p>
-                    <p className="text-white">فلسطين - قطاع غزة</p>
+                    <p className="text-[11px] text-baaqoon-gold">
+                      {t("landing.contact_hq_title", "المقر")}
+                    </p>
+                    <p className="text-white">
+                      {t("landing.contact_hq_val", "فلسطين - قطاع غزة")}
+                    </p>
                   </div>
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* Bottom Footer */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-5 pt-8 text-center md:text-right">
-            <p className="text-sm text-baaqoon-gold">
-              جميع الحقوق محفوظة © {new Date().getFullYear()}{" "}
-              <span className="text-white thmanyahserif">منصة باقون</span>
+          {/* Bottom Footer Credits */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 text-center md:text-right">
+            <p className="text-xs sm:text-sm text-slate-300">
+              {t("landing.footer_rights", { year: new Date().getFullYear(), defaultValue: `جميع الحقوق محفوظة © ${new Date().getFullYear()} منصة باقون` })}
             </p>
 
-            <span
-              className="inline-flex items-center gap-2 text-sm font-bold text-baaqoon-gold hover:text-baaqoon-gold transition-colors"
-            >
-              صُنع بالأمل من فلسطين
-              <Heart className="w-4 h-4 text-baaqoon-gold" />
+            <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-baaqoon-gold">
+              <span>{t("landing.footer_made_with", "صُنع بالأمل من فلسطين 🇵🇸")}</span>
             </span>
           </div>
         </div>
