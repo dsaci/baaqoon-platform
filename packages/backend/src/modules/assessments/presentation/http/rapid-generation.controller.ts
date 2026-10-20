@@ -193,7 +193,7 @@ export class AssessmentsController {
   ) {
     const callerRole = req.user?.primaryRole;
     if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
-      throw new UnauthorizedException('فقط المعلمون والمشرفون يمكنهم تصحيح الإجابات');
+      throw new UnauthorizedException('فقط الأساتذة والمشرفون يمكنهم تصحيح الإجابات');
     }
     const userId = req.user?.id || req.user?.userId;
     if (!userId) throw new UnauthorizedException('يجب تسجيل الدخول');

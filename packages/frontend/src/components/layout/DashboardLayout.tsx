@@ -137,7 +137,7 @@ export default function DashboardLayout() {
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
         { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
-        { name: t("nav.volunteers_admin", "دراسة ملفات المعلمين الجدد"), path: "/admin/volunteers", icon: UserCheck },
+        { name: t("nav.volunteers_admin", "دراسة ملفات الأساتذة الجدد"), path: "/admin/volunteers", icon: UserCheck },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
         {
           name: t("nav.supervisor_panel", "لوحة الإشراف التربوي"),
@@ -157,7 +157,7 @@ export default function DashboardLayout() {
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
         { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
-        { name: t("nav.volunteers_admin", "دراسة ملفات المعلمين الجدد"), path: "/admin/volunteers", icon: UserCheck },
+        { name: t("nav.volunteers_admin", "دراسة ملفات الأساتذة الجدد"), path: "/admin/volunteers", icon: UserCheck },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
       ];
     }

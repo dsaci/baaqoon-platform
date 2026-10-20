@@ -334,7 +334,7 @@ export default function AnalyticsReportsPage() {
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                المعلمون
+                الأساتذة
               </button>
             </div>
           </div>

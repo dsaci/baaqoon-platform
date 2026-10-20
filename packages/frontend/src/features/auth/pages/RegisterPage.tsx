@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   BookOpen, UserPlus, Loader2, AlertCircle, Shield, Home, 
-  GraduationCap, Lock, User, Mail, Phone, Globe, Sparkles, CheckCircle2 
+  GraduationCap, Lock, User, Mail, Phone, Globe, Sparkles, CheckCircle2,
+  Eye, EyeOff
 } from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import logo from '../../../assets/logo.png';
@@ -40,12 +41,15 @@ export default function RegisterPage() {
     nationality: 'فلسطيني',
     countryCode: '+970',
     password: '',
+    confirmPassword: '',
     primaryRole: 'student',
     branch: 'scientific',
     curriculumType: 'governmental',
     gradeLevel: 'grade_12',
   });
   
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -92,6 +96,16 @@ export default function RegisterPage() {
 
     if (!formData.nationality) {
       setError('تحديد الجنسية إجباري لاستكمال التسجيل');
+      return;
+    }
+
+    if (!formData.password || formData.password.length < 8) {
+      setError('كلمة المرور يجب أن تتكون من 8 خانات على الأقل');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('كلمة المرور وتأكيد كلمة المرور غير متطابقتين، يُرجى التأكد من تطابقهما بدقة');
       return;
     }
 
@@ -218,7 +232,7 @@ export default function RegisterPage() {
                 أهلاً وسهلاً بكم أساتذتنا الكرام في رحاب مبادرة غزة
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                نظراً لخصوصية تدريس طلبة قطاع غزة وفق المنهاج الفلسطيني والأزهري المعتمد، فإن تسجيل المعلمين وإسناد الأفواج التعليمية يمر عبر <strong>بوابة اعتماد وتدقيق ملفات المعلمين المتطوعين</strong> لفرز التخصصات وأوقات التفرغ وتعيين المجموعات الدراسية المناسبة.
+                نظراً لخصوصية تدريس طلبة قطاع غزة وفق المنهاج الفلسطيني والأزهري المعتمد، فإن تسجيل الأساتذة وإسناد الأفواج التعليمية يمر عبر <strong>بوابة اعتماد وتدقيق ملفات الأساتذة المتطوعين</strong> لفرز التخصصات وأوقات التفرغ وتعيين المجموعات الدراسية المناسبة.
               </p>
             </div>
 
@@ -227,12 +241,12 @@ export default function RegisterPage() {
                 to="/volunteer"
                 className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-600/30 transition-all hover:-translate-y-0.5"
               >
-                <span>الانتقال إلى استمارة وبوابة اعتماد المعلمين 👈</span>
+                <span>الانتقال إلى استمارة وبوابة اعتماد الأساتذة 👈</span>
               </Link>
             </div>
 
             <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 font-bold max-w-md mx-auto">
-              💡 هل أنت معلم تدرس حالياً في برنامج باقون؟ يمكنك استخدام نفس البوابة لتأكيد وتحديث حسابك السريع دون إعادة ملء البيانات.
+              💡 هل أنت أستاذ تدرس حالياً في برنامج باقون؟ يمكنك استخدام نفس البوابة لتأكيد وتحديث حسابك السريع دون إعادة ملء البيانات.
             </div>
           </div>
         ) : (
@@ -511,7 +525,7 @@ export default function RegisterPage() {
                 </div>
 
                 {/* الجنسية */}
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     الجنسية <span className="text-rose-500">*</span>
                   </label>
@@ -558,16 +572,74 @@ export default function RegisterPage() {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     كلمة المرور (8 خانات على الأقل) <span className="text-rose-500">*</span>
                   </label>
-                  <input 
-                    type="password" 
-                    name="password"
-                    required
-                    minLength={8}
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left"
-                    dir="ltr"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      name="password"
+                      required
+                      minLength={8}
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left pr-10"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* تأكيد كلمة المرور */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    تأكيد كلمة المرور <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type={showConfirmPassword ? 'text' : 'password'} 
+                      name="confirmPassword"
+                      required
+                      minLength={8}
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border ${
+                        formData.confirmPassword && formData.password !== formData.confirmPassword
+                          ? 'border-rose-400 focus:ring-rose-500'
+                          : formData.confirmPassword && formData.password === formData.confirmPassword
+                          ? 'border-emerald-500 focus:ring-emerald-500'
+                          : 'border-slate-200 dark:border-slate-700'
+                      } bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left pr-10`}
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {formData.confirmPassword && (
+                    <div className="text-[11px] font-bold flex items-center gap-1 mt-1">
+                      {formData.password === formData.confirmPassword ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>كلمتا المرور متطابقتان</span>
+                        </span>
+                      ) : (
+                        <span className="text-rose-500 dark:text-rose-400 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>كلمتا المرور غير متطابقتين</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

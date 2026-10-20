@@ -500,7 +500,7 @@ export class SyllabusController {
 
     return {
       success: true,
-      message: `تم إرسال وتفعيل التذكيرات الآلية بنجاح لـ ${students.length} طالباً و ${teachers.length} معلماً.`,
+      message: `تم إرسال وتفعيل التذكيرات الآلية بنجاح لـ ${students.length} طالباً و ${teachers.length} أستاذاً.`,
       studentsCount: students.length,
       teachersCount: teachers.length,
       sentAt: now

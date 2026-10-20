@@ -241,7 +241,7 @@ export default function AttendanceModal({ isOpen, onClose, sessionId, cohortId }
                   رصد الغياب والحضور
                 </h2>
                 <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
-                  {isSupervisor ? 'متابعة إشرافية وتوثيق' : 'سجل المعلم'}
+                  {isSupervisor ? 'متابعة إشرافية وتوثيق' : 'سجل الأستاذ'}
                 </span>
               </div>
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">

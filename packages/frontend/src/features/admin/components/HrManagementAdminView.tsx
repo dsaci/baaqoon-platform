@@ -309,7 +309,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
           <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-amber-800 dark:text-amber-200 font-bold text-sm">
-              {teachersWithoutSubject.length} معلم بدون مادة محددة — مخفيون عن المنسقين
+              {teachersWithoutSubject.length} أستاذ بدون مادة محددة — مخفيون عن المنسقين
             </p>
             <p className="text-amber-600 dark:text-amber-400 text-xs mt-0.5">
               يجب تحديد مادتهم ليظهروا في لوحة المنسق ويتم إسناد الأفواج إليهم

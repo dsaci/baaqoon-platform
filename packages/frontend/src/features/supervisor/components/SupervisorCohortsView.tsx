@@ -741,14 +741,14 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                           </div>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                          معلم الفوج
+                          أستاذ الفوج
                         </span>
                       </div>
                     ) : (
                       <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 text-rose-800 dark:text-rose-200 text-xs font-bold">
                           <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                          <span>يوجد شغور في مكان الأستاذ! الطلاب بدون معلم حالياً.</span>
+                          <span>يوجد شغور في مكان الأستاذ! الطلاب بدون أستاذ حالياً.</span>
                         </div>
                         <button
                           onClick={() => {
@@ -1274,7 +1274,7 @@ export default function SupervisorCohortsView({ initialSubjectId }: SupervisorCo
                   </div>
 
                   <p className="text-xs text-slate-500 font-medium">
-                    سيتم تعيين الأستاذ معلماً رئيسياً لهذا الفوج فوراً وإشعاره بجدول الحصص والطلبة.
+                    سيتم تعيين الأستاذ أستاذاً رئيسياً لهذا الفوج فوراً وإشعاره بجدول الحصص والطلبة.
                   </p>
 
                   <div className="flex justify-end gap-3 pt-3">

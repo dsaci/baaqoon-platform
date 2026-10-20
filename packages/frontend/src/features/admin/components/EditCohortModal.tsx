@@ -91,7 +91,7 @@ export default function EditCohortModal({
           <div>
             <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-1.5">أستاذ المادة</label>
             <select value={teacherId} onChange={e => setTeacherId(e.target.value)} required className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold focus:border-violet-500 outline-none">
-              <option value="">-- اختر المعلم --</option>
+              <option value="">-- اختر الأستاذ --</option>
               {availableTeachers.map((t: any) => (
                 <option key={t.id} value={t.id}>أ. {t.firstName} {t.lastName} ({t.email})</option>
               ))}

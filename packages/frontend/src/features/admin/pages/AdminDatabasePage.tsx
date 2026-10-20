@@ -102,7 +102,7 @@ export default function AdminDatabasePage() {
                     </td>
                     <td className="p-4">
                       <span className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg text-xs font-bold">
-                        {u.primaryRole === 'student' ? (u.gradeLevel === 'grade_11' ? 'طالب (صف 11)' : 'طالب (توجيهي)') : u.primaryRole === 'teacher' ? 'معلم' : u.primaryRole === 'subject_supervisor' ? 'مشرف' : 'إدارة'}
+                        {u.primaryRole === 'student' ? (u.gradeLevel === 'grade_11' ? 'طالب (صف 11)' : 'طالب (توجيهي)') : u.primaryRole === 'teacher' ? 'أستاذ' : u.primaryRole === 'subject_supervisor' ? 'مشرف' : 'إدارة'}
                       </span>
                     </td>
                     <td className="p-4">
@@ -145,7 +145,7 @@ export default function AdminDatabasePage() {
               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">اسم الفوج</th>
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">الكود</th>
-                <th className="p-4 font-bold text-slate-600 dark:text-slate-300">المعلم</th>
+                <th className="p-4 font-bold text-slate-600 dark:text-slate-300">الأستاذ</th>
                 <th className="p-4 font-bold text-slate-600 dark:text-slate-300">الطلبة</th>
               </tr>
             </thead>

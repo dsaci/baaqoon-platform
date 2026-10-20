@@ -385,7 +385,7 @@ export default function StudentRecordedLessonsView({ initialLessonId }: StudentR
                           <User className="w-3.5 h-3.5" />
                         </div>
                         <span className="truncate font-bold text-slate-800 dark:text-zinc-200">
-                          {lesson.creator ? `${lesson.creator.firstName} ${lesson.creator.lastName}` : "معلم المادة"}
+                          {lesson.creator ? `${lesson.creator.firstName} ${lesson.creator.lastName}` : "أستاذ المادة"}
                         </span>
                       </div>
 

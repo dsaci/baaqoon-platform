@@ -219,7 +219,7 @@ export default function LoginPage() {
             className="inline-flex items-center gap-1.5 text-xs font-black text-baaqoon-700 dark:text-baaqoon-300 hover:text-baaqoon-900 bg-baaqoon-50 dark:bg-baaqoon-900/40 px-3.5 py-2 rounded-xl border border-baaqoon-200 dark:border-baaqoon-700/80 transition-all shadow-sm"
           >
             <span>🌿</span>
-            <span>معلم ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
+            <span>أستاذ ترغب بالتطوع أو تفعيل حسابك؟ انقر هنا</span>
           </Link>
         </div>
       </div>

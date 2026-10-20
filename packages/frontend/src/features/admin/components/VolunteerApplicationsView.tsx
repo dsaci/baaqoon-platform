@@ -220,7 +220,7 @@ export default function VolunteerApplicationsView() {
         <div className="relative z-10 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3.5 py-1 rounded-full text-xs font-black bg-white/10 backdrop-blur-md border border-white/20">
-              {isAdmin ? 'الإدارة العامة · حوكمة واعتماد المعلمين الجدد' : `الإشراف الأكاديمي · دراسة ملفات أساتذة ${supervisedSubjectName || 'المادة'}`}
+              {isAdmin ? 'الإدارة العامة · حوكمة واعتماد الأساتذة الجدد' : `الإشراف الأكاديمي · دراسة ملفات أساتذة ${supervisedSubjectName || 'المادة'}`}
             </span>
             {supervisedSubjectName && (
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-amber-950 flex items-center gap-1.5 shadow-sm">
@@ -236,7 +236,7 @@ export default function VolunteerApplicationsView() {
             )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-black">
-            دراسة وفرز ملفات المعلمين المتطوعين لطلبة غزة
+            دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة
           </h1>
           <p className="text-xs sm:text-sm text-baaqoon-100 max-w-2xl leading-relaxed">
             منظومة أكاديمية ذكية ومؤتمتة لدراسة ملفات ومؤهلات الأساتذة المتقدمين، مع حساب نسبة التطابق التخصصي واقتراح المسار المناسب تلقائياً، واعتماد مرحلي ثنائي بين المشرف ومدير المنصة.
@@ -413,7 +413,7 @@ export default function VolunteerApplicationsView() {
             >
               <option value="all">كل الفئات (جدد وحاليون)</option>
               <option value="new">متطوع جديد 🟣</option>
-              <option value="existing">معلم حالي بباقون 🟢</option>
+              <option value="existing">أستاذ حالي بباقون 🟢</option>
             </select>
 
             {/* Subject Filter (For Admins) */}
@@ -446,7 +446,7 @@ export default function VolunteerApplicationsView() {
       {isLoading ? (
         <div className="p-12 text-center text-slate-400">
           <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-2 text-baaqoon-600" />
-          <p className="text-xs font-bold">جاري تحميل وتدقيق استمارات المعلمين...</p>
+          <p className="text-xs font-bold">جاري تحميل وتدقيق استمارات الأساتذة...</p>
         </div>
       ) : applications.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 space-y-3">
@@ -455,7 +455,7 @@ export default function VolunteerApplicationsView() {
             لا توجد استمارات مطابقة للفلاتر المحددة حالياً
           </h3>
           <p className="text-xs text-slate-400">
-            ستظهر طلبات المعلمين الجدد فور تقديمهم ليتم دراستها وتوجيهها للأفواج المناسبة
+            ستظهر طلبات الأساتذة الجدد فور تقديمهم ليتم دراستها وتوجيهها للأفواج المناسبة
           </p>
         </div>
       ) : (
@@ -489,7 +489,7 @@ export default function VolunteerApplicationsView() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {app.isExistingBaaqoonTeacher ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          🟢 معلم حالي بباقون
+                          🟢 أستاذ حالي بباقون
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-baaqoon-100 text-baaqoon-800 dark:bg-baaqoon-950 dark:text-baaqoon-300 border border-baaqoon-200 dark:border-baaqoon-800">

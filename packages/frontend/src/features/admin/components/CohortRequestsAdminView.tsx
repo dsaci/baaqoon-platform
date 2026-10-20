@@ -257,7 +257,7 @@ export default function CohortRequestsAdminView() {
                   <option value={selectedApproveReq.teacherId}>
                     🌟 {selectedApproveReq.teacher?.firstName} {selectedApproveReq.teacher?.lastName} (مقدم الطلب - الافتراضي)
                   </option>
-                  <optgroup label="أساتذة آخرون متاحون (في حال الرغبة بإسناده لمعلم بديل)">
+                  <optgroup label="أساتذة آخرون متاحون (في حال الرغبة بإسناده لأستاذ بديل)">
                     {allTeachers
                       .filter((t: any) => t.id !== selectedApproveReq.teacherId)
                       .map((t: any) => (

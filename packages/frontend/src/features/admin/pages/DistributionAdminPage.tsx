@@ -152,7 +152,7 @@ function DistributionAdminPageInner() {
       case 'subject_supervisor':
         return 'مشرف مادة';
       case 'teacher':
-        return 'معلم';
+        return 'أستاذ';
       case 'admin':
       case 'super_admin':
         return 'إدارة النظام';
@@ -318,7 +318,7 @@ function DistributionAdminPageInner() {
                   {isAssigning && (
                     <div className="space-y-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border-2 border-violet-200 dark:border-violet-900/60 shadow-sm animate-in fade-in mb-3">
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
-                        اختر المشرف أو الأستاذ لإضافته إلى قائمة منسقي هذه المادة (المعلم المرقّى يحصل تلقائياً على صفة ثنائية: تدريس + إشراف دون الحاجة لحسابين):
+                        اختر المشرف أو الأستاذ لإضافته إلى قائمة منسقي هذه المادة (الأستاذ المرقّى يحصل تلقائياً على صفة ثنائية: تدريس + إشراف دون الحاجة لحسابين):
                       </label>
                       <select
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none text-slate-800 dark:text-slate-100"

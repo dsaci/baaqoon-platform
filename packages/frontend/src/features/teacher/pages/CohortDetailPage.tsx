@@ -97,7 +97,7 @@ export const CohortDetailPage: React.FC = () => {
           onClick={() => navigate('/teacher/dashboard')}
           className="px-5 py-2.5 bg-baaqoon-accent hover:bg-baaqoon-accentDark text-white font-bold rounded-xl text-sm"
         >
-          {isRtl ? "العودة للوحة المعلم" : "Back to Teacher Dashboard"}
+          {isRtl ? "العودة للوحة الأستاذ" : "Back to Teacher Dashboard"}
         </button>
       </div>
     );
@@ -111,7 +111,7 @@ export const CohortDetailPage: React.FC = () => {
           <button 
             onClick={() => navigate('/teacher/dashboard')}
             className="p-2.5 hover:bg-gray-200 dark:hover:bg-baaqoon-800 rounded-xl text-baaqoon-700 dark:text-baaqoon-300 transition-colors bg-white dark:bg-baaqoon-900 border border-slate-200 dark:border-slate-800 shadow-xs"
-            title="العودة للوحة المعلم"
+            title="العودة للوحة الأستاذ"
           >
             <ArrowRight size={20} />
           </button>

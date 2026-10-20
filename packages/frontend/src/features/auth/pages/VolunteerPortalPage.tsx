@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   HeartHandshake, BookOpen, UserCheck, ShieldCheck, CheckCircle2, 
   ArrowLeft, ArrowRight, Send, AlertCircle, Sparkles, MessageSquare, 
   Phone, Mail, GraduationCap, Clock, Calendar, Laptop, Wifi, HelpCircle,
-  Users, ChevronDown, Check, Globe
+  Users, ChevronDown, Check, Globe, Eye, EyeOff, Search, Lock, User
 } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 import { api } from '../../../lib/axios';
+import { useAuthStore } from '../../../store/useAuthStore';
 import ThemeToggle from '../../../components/shared/ThemeToggle';
 import LangToggle from '../../../components/shared/LangToggle';
 
@@ -49,14 +50,78 @@ const DEVICE_TYPES = [
   { id: 'shared', label: 'جهاز مشترك' },
 ];
 
+const NATIONALITIES = [
+  'فلسطيني', 'أردني', 'مصري', 'سعودي', 'إماراتي', 'كويتي', 'عماني', 'قطري', 'بحريني', 
+  'يمني', 'عراقي', 'سوري', 'لبناني', 'سوداني', 'ليبي', 'تونسي', 'جزائري', 'مغربي', 
+  'موريتاني', 'بريطاني', 'كندي', 'أمريكي', 'تركي', 'ألماني', 'فرنسي', 'سويدي', 
+  'هولندي', 'أجنبي (أخرى)'
+];
+
 export default function VolunteerPortalPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { setAuth } = useAuthStore();
 
-  // Mode: null = Gatekeeper question, 'existing' = Current Teacher, 'new' = New Volunteer Application
-  const [mode, setMode] = useState<'gatekeeper' | 'existing' | 'new'>('gatekeeper');
+  // Mode: 'gatekeeper' = question, 'existing' = Current Teacher, 'new' = New Volunteer Application, 'status' = Application Status & Completion
+  const [mode, setMode] = useState<'gatekeeper' | 'existing' | 'new' | 'status'>('gatekeeper');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
+
+  // Status check & Completion state
+  const [statusIdentifier, setStatusIdentifier] = useState('');
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [statusResult, setStatusResult] = useState<any>(null);
+
+  const [completionForm, setCompletionForm] = useState({
+    firstNameAr: '',
+    lastNameAr: '',
+    firstNameEn: '',
+    lastNameEn: '',
+    nationality: 'فلسطيني',
+    password: '',
+    confirmPassword: '',
+  });
+  const [showCompletionPassword, setShowCompletionPassword] = useState(false);
+  const [showCompletionConfirmPassword, setShowCompletionConfirmPassword] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [completionSuccess, setCompletionSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') || searchParams.get('action');
+    if (tab === 'status' || tab === 'check') {
+      setMode('status');
+    } else if (tab === 'existing') {
+      setMode('existing');
+    } else if (tab === 'new') {
+      setMode('new');
+    }
+  }, [searchParams]);
+
+  // Dynamic subjects from backend database
+  const [dbSubjects, setDbSubjects] = useState<Array<{ id: string; nameAr: string; nameEn?: string; code: string }>>([]);
+
+  useEffect(() => {
+    api.get('/volunteer/subjects-list')
+      .then(res => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setDbSubjects(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const subjectsList = dbSubjects.length > 0
+    ? dbSubjects.map(s => ({
+        id: s.id,
+        label: s.nameEn ? `${s.nameAr} · ${s.nameEn}` : s.nameAr,
+        cleanName: s.nameAr,
+      }))
+    : AVAILABLE_SUBJECTS.map(s => ({
+        id: s.id,
+        label: s.label,
+        cleanName: s.label.split('·')[0].trim(),
+      }));
 
   // Form state for Current Teacher (Fast Onboarding)
   const [existingForm, setExistingForm] = useState({
@@ -67,11 +132,15 @@ export default function VolunteerPortalPage() {
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
     teachingSubjects: [] as string[],
     currentCohortsDetails: '',
     notes: '',
     nationality: 'الجزائر',
   });
+
+  const [showExistingPassword, setShowExistingPassword] = useState(false);
+  const [showExistingConfirmPassword, setShowExistingConfirmPassword] = useState(false);
 
   // Form state for New Volunteer Teacher
   const [newForm, setNewForm] = useState({
@@ -149,6 +218,16 @@ export default function VolunteerPortalPage() {
       return;
     }
 
+    if (!existingForm.password || existingForm.password.length < 6) {
+      setErrorMessage('كلمة المرور يجب أن تتكون من 6 خانات على الأقل');
+      return;
+    }
+
+    if (existingForm.password !== existingForm.confirmPassword) {
+      setErrorMessage('كلمة المرور وتأكيد كلمة المرور غير متطابقتين، يُرجى التأكد من تطابقهما بدقة');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await api.post('/volunteer/existing-teacher-onboard', existingForm);
@@ -194,6 +273,81 @@ export default function VolunteerPortalPage() {
     }
   };
 
+  const handleCheckStatus = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!statusIdentifier.trim()) {
+      setErrorMessage('يُرجى إدخال البريد الإلكتروني أو رقم الهاتف للاستعلام');
+      return;
+    }
+
+    setIsCheckingStatus(true);
+    setErrorMessage(null);
+    setStatusResult(null);
+    setCompletionSuccess(null);
+
+    try {
+      const res = await api.get('/volunteer/application-status', {
+        params: { identifier: statusIdentifier.trim() },
+      });
+      setStatusResult(res.data);
+      if (res.data.found && res.data.application) {
+        setCompletionForm(prev => ({
+          ...prev,
+          firstNameAr: res.data.application.firstNameAr || '',
+          lastNameAr: res.data.application.lastNameAr || '',
+          firstNameEn: res.data.application.firstNameEn || '',
+          lastNameEn: res.data.application.lastNameEn || '',
+          nationality: res.data.application.nationality || 'فلسطيني',
+        }));
+      }
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'تعذر الاستعلام عن حالة الطلب، يُرجى المحاولة لاحقاً');
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  const handleCompleteRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!completionForm.password || completionForm.password.length < 8) {
+      setErrorMessage('كلمة المرور يجب أن تتكون من 8 خانات على الأقل');
+      return;
+    }
+
+    if (completionForm.password !== completionForm.confirmPassword) {
+      setErrorMessage('كلمة المرور وتأكيد كلمة المرور غير متطابقتين، يُرجى التأكد من تطابقهما بدقة');
+      return;
+    }
+
+    if (!statusResult?.application?.id) {
+      setErrorMessage('بيانات الاستمارة غير مكتملة، يُرجى إعادة فحص حالة الطلب');
+      return;
+    }
+
+    setIsCompleting(true);
+    try {
+      const res = await api.post('/volunteer/complete-registration', {
+        applicationId: statusResult.application.id,
+        identifier: statusIdentifier.trim(),
+        ...completionForm,
+      });
+
+      const { accessToken, user, message } = res.data;
+      setAuth(user, accessToken);
+      setCompletionSuccess(message || 'تم تعيين كلمة المرور وتفعيل حساب الأستاذ بنجاح!');
+
+      setTimeout(() => {
+        navigate('/teacher/dashboard');
+      }, 1500);
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'حدث خطأ أثناء استكمال التسجيل وتعيين كلمة المرور');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -220,6 +374,54 @@ export default function VolunteerPortalPage() {
           </div>
         </header>
 
+        {/* Top Navigation Mode Pills */}
+        <div className="flex items-center justify-center gap-2 flex-wrap bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => { setMode('gatekeeper'); setErrorMessage(null); }}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              mode === 'gatekeeper'
+                ? 'bg-baaqoon-600 text-white shadow-sm font-black'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🏠 البوابة الرئيسية
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('existing'); setErrorMessage(null); }}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              mode === 'existing'
+                ? 'bg-emerald-600 text-white shadow-sm font-black'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            ⚡ أستاذ حالي في باقون
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('new'); setErrorMessage(null); }}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              mode === 'new'
+                ? 'bg-baaqoon-600 text-white shadow-sm font-black'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🌿 تقديم استمارة جديدة
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('status'); setErrorMessage(null); }}
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+              mode === 'status'
+                ? 'bg-amber-600 text-white shadow-sm font-black'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🔍 متابعة حالة الطلب / استكمال التسجيل
+          </button>
+        </div>
+
         {/* ─── SUCCESS SCREEN ─── */}
         {successResult && (
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl border border-emerald-200 dark:border-emerald-800/50 text-center space-y-6 animate-fade-in">
@@ -229,7 +431,7 @@ export default function VolunteerPortalPage() {
 
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                {successResult.type === 'existing' ? 'تم تفعيل حسابك كمعلم بنجاح! 🎉' : 'تم استلام استمارتك بنجاح! 🌿'}
+                {successResult.type === 'existing' ? 'تم تفعيل حسابك كأستاذ بنجاح! 🎉' : 'تم استلام استمارتك بنجاح! 🌿'}
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto leading-relaxed">
                 {successResult.message}
@@ -253,7 +455,7 @@ export default function VolunteerPortalPage() {
                   <span>الخطوة التالية المعتمدة:</span>
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  بعد إكمال تعبئة هذا النموذج، يُرجى الانضمام إلى قناة التنسيق الخاصة بالمعلمين المتطوعين لمطابقة طلبك واعتماده من قبل الإدارة:
+                  بعد إكمال تعبئة هذا النموذج، يُرجى الانضمام إلى قناة التنسيق الخاصة بالأساتذة المتطوعين لمطابقة طلبك واعتماده من قبل الإدارة:
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <a 
@@ -290,48 +492,48 @@ export default function VolunteerPortalPage() {
                 أهلاً بك أستاذنا الفاضل في منصة باقون
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                حرصاً على تنظيم العمل الأكاديمي وتوفير وقتكم الثمين، يُرجى الإجابة عن السؤال الأولي التالي لتوجيهك للمسار الصحيح:
+                حرصاً على تنظيم العمل الأكاديمي وتوفير وقتكم الثمين، يُرجى اختيار المسار المناسب لك للمتابعة:
               </p>
             </div>
 
-            {/* Gatekeeper Question Card */}
-            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700/80 max-w-2xl mx-auto space-y-6">
+            {/* Gatekeeper Options Grid */}
+            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700/80 max-w-3xl mx-auto space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-baaqoon-500 text-white flex items-center justify-center font-black text-lg shadow-md shrink-0">
                   ؟
                 </div>
                 <div>
                   <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                    هل تدرس حالياً في برنامج باقون لطلبة غزة؟
+                    كيف ترغب بمتابعة إجراءاتك الأكاديمية؟
                   </h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">
-                    اختر الإجابة المناسبة لمتابعة الإجراء المطلوب
+                    اختر الإجراء المناسب للانطلاق مباشرة
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Option 1: Current Teacher */}
                 <button
                   type="button"
                   onClick={() => { setMode('existing'); setErrorMessage(null); }}
-                  className="group p-5 bg-white dark:bg-slate-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
+                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-sm">
+                      <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
                         ١
                       </span>
                       <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full dark:bg-emerald-900/60 dark:text-emerald-300">
-                        معلم حالي
+                        أستاذ حالي
                       </span>
                     </div>
                     <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors">
-                      نعم، أنا أدرس حالياً مع طلاب باقون
+                      أنا أدرس حالياً مع طلاب باقون
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                      إذا كنت تدرس فعلياً في البرنامج وتريد تفعيل حسابك الرسمي على المنصة دون الحاجة لإعادة ملء الاستمارة الموسعة.
+                      تفعيل الحساب الرسمي الفوري للأساتذة الميدانيين العاملين حالياً في المنصة.
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-emerald-600 text-xs font-bold">
@@ -344,11 +546,11 @@ export default function VolunteerPortalPage() {
                 <button
                   type="button"
                   onClick={() => { setMode('new'); setErrorMessage(null); }}
-                  className="group p-5 bg-white dark:bg-slate-900 hover:bg-baaqoon-50/50 dark:hover:bg-baaqoon-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-baaqoon-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
+                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-baaqoon-50/50 dark:hover:bg-baaqoon-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-baaqoon-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="w-8 h-8 rounded-lg bg-baaqoon-100 dark:bg-baaqoon-950 text-baaqoon-700 dark:text-baaqoon-300 flex items-center justify-center font-bold text-sm">
+                      <span className="w-7 h-7 rounded-lg bg-baaqoon-100 dark:bg-baaqoon-950 text-baaqoon-700 dark:text-baaqoon-300 flex items-center justify-center font-bold text-xs">
                         ٢
                       </span>
                       <span className="text-[10px] font-black px-2 py-0.5 bg-baaqoon-100 text-baaqoon-800 rounded-full dark:bg-baaqoon-900/60 dark:text-baaqoon-300">
@@ -356,14 +558,42 @@ export default function VolunteerPortalPage() {
                       </span>
                     </div>
                     <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-baaqoon-600 transition-colors">
-                      لا، أنا معلم جديد أرغب بالتطوع
+                      أنا أستاذ جديد أرغب بالتطوع
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                      هذا خيار المعلمين الجدد من الجزائر ودول شمال إفريقيا الراغبين في التطوع لتدريس طلبة غزة وفق شروط المبادرة.
+                      تقديم استمارة انضمام أكاديمية جديدة لتدريس طلبة غزة وفق شروط المبادرة.
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-baaqoon-600 text-xs font-bold">
-                    <span>تعبئة استمارة التطوع</span>
+                    <span>تعبئة الاستمارة</span>
+                    <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  </div>
+                </button>
+
+                {/* Option 3: Status & Complete Registration */}
+                <button
+                  type="button"
+                  onClick={() => { setMode('status'); setErrorMessage(null); }}
+                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-xs">
+                        ٣
+                      </span>
+                      <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full dark:bg-amber-900/60 dark:text-amber-300">
+                        متابعة واعتماد
+                      </span>
+                    </div>
+                    <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-amber-600 transition-colors">
+                      متابعة الطلب / استكمال التسجيل
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      فحص نتيجة دراسة الملف، أو تعيين كلمة المرور واستكمال الحساب للمعتمدين.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-amber-600 text-xs font-bold">
+                    <span>الاستعلام والاستكمال</span>
                     <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   </div>
                 </button>
@@ -387,10 +617,10 @@ export default function VolunteerPortalPage() {
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <span className="text-[11px] font-black text-emerald-600 uppercase tracking-wider block">
-                  مسار المعلمين الميدانيين الحاليين
+                  مسار الأساتذة الميدانيين الحاليين
                 </span>
                 <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                  تثبيت وتفعيل حساب المعلم الحالي في باقون
+                  تثبيت وتفعيل حساب الأستاذ الحالي في باقون
                 </h2>
               </div>
               <button
@@ -454,8 +684,8 @@ export default function VolunteerPortalPage() {
                 </div>
               </div>
 
-              {/* Contact info & password */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Contact info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     البريد الإلكتروني <span className="text-rose-500">*</span>
@@ -484,20 +714,79 @@ export default function VolunteerPortalPage() {
                     dir="ltr"
                   />
                 </div>
+              </div>
+
+              {/* Password & Confirm Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    كلمة المرور للحساب <span className="text-rose-500">*</span>
+                    كلمة المرور للحساب (6 خانات على الأقل) <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="••••••••"
-                    value={existingForm.password}
-                    onChange={e => setExistingForm({ ...existingForm, password: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left"
-                    dir="ltr"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showExistingPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      placeholder="••••••••"
+                      value={existingForm.password}
+                      onChange={e => setExistingForm({ ...existingForm, password: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left pr-10"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowExistingPassword(!showExistingPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    >
+                      {showExistingPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    تأكيد كلمة المرور <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showExistingConfirmPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      placeholder="••••••••"
+                      value={existingForm.confirmPassword}
+                      onChange={e => setExistingForm({ ...existingForm, confirmPassword: e.target.value })}
+                      className={`w-full px-3.5 py-2 rounded-xl border ${
+                        existingForm.confirmPassword && existingForm.password !== existingForm.confirmPassword
+                          ? 'border-rose-400 focus:ring-rose-500'
+                          : existingForm.confirmPassword && existingForm.password === existingForm.confirmPassword
+                          ? 'border-emerald-500 focus:ring-emerald-500'
+                          : 'border-slate-200 dark:border-slate-700'
+                      } bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left pr-10`}
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowExistingConfirmPassword(!showExistingConfirmPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    >
+                      {showExistingConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {existingForm.confirmPassword && (
+                    <div className="text-[11px] font-bold flex items-center gap-1 mt-1">
+                      {existingForm.password === existingForm.confirmPassword ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>كلمتا المرور متطابقتان</span>
+                        </span>
+                      ) : (
+                        <span className="text-rose-500 dark:text-rose-400 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>كلمتا المرور غير متطابقتين</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -507,21 +796,20 @@ export default function VolunteerPortalPage() {
                   المادة أو المواد التي تدرسها حالياً في برنامج باقون: <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {AVAILABLE_SUBJECTS.map(s => {
-                    const isSelected = existingForm.teachingSubjects.includes(s.label.split('·')[0].trim());
-                    const shortName = s.label.split('·')[0].trim();
+                  {subjectsList.map(s => {
+                    const isSelected = existingForm.teachingSubjects.includes(s.cleanName);
                     return (
                       <button
                         type="button"
                         key={s.id}
-                        onClick={() => toggleSubject(shortName, true)}
+                        onClick={() => toggleSubject(s.cleanName, true)}
                         className={`p-2.5 rounded-xl border text-xs font-bold text-right transition-all flex items-center justify-between ${
                           isSelected 
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-300 shadow-sm'
                             : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                         }`}
                       >
-                        <span>{shortName}</span>
+                        <span>{s.cleanName}</span>
                         {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                       </button>
                     );
@@ -597,7 +885,7 @@ export default function VolunteerPortalPage() {
 
               <div className="bg-baaqoon-50 dark:bg-baaqoon-950/40 p-4 rounded-2xl border border-baaqoon-200 dark:border-baaqoon-800 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-2">
                 <p>
-                  <strong>ملاحظة توجيهية:</strong> هذا النموذج مخصص للمعلمين من الجزائر ودول شمال إفريقيا الراغبين في التطوع لتدريس طلبة من قطاع غزة. هذه المبادرة مخصصة للدروس التعليمية التطوعية فقط، ولا يترتب عليها أي دعم أو مقابل مالي. ستساعدنا المعلومات التي تقدمها أدناه في اختيار الطالب أو الفوج المناسب لك، وسيكون التدريس وفق المنهاج المعتمد في غزة.
+                  <strong>ملاحظة توجيهية:</strong> هذا النموذج مخصص للأساتذة من الجزائر ودول شمال إفريقيا الراغبين في التطوع لتدريس طلبة من قطاع غزة. هذه المبادرة مخصصة للدروس التعليمية التطوعية فقط، ولا يترتب عليها أي مقابل مالي، مع إمكانية الاستفادة من الدعم الأكاديمي في إطار التكوين والتمكين المهني وشهادات الخبرة والتقدير المعتمدة. ستساعدنا المعلومات التي تقدمها أدناه في اختيار الطالب أو الفوج المناسب لك، وسيكون التدريس وفق المنهاج المعتمد في غزة.
                 </p>
                 <p className="text-[11px] text-baaqoon-700 dark:text-baaqoon-400 font-bold">
                   الهدف الأسمى هو دعم الطلاب لمواصلة التعلم في ظل عدم توفر المدارس بسبب الحرب.
@@ -611,7 +899,7 @@ export default function VolunteerPortalPage() {
               <div className="space-y-4">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-6 h-6 rounded-lg bg-baaqoon-100 dark:bg-baaqoon-900 text-baaqoon-700 dark:text-baaqoon-300 flex items-center justify-center text-xs">١</span>
-                  <span>البيانات الشخصية وهواية المعلم</span>
+                  <span>البيانات الشخصية والتعريفية للأستاذ</span>
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -853,21 +1141,20 @@ export default function VolunteerPortalPage() {
                     المواد التي تستطيع التدريس فيها؟ (اختر كل ما يناسبك): <span className="text-rose-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {AVAILABLE_SUBJECTS.map(s => {
-                      const isSelected = newForm.subjects.includes(s.label.split('·')[0].trim());
-                      const shortName = s.label.split('·')[0].trim();
+                    {subjectsList.map(s => {
+                      const isSelected = newForm.subjects.includes(s.cleanName);
                       return (
                         <button
                           type="button"
                           key={s.id}
-                          onClick={() => toggleSubject(shortName, false)}
+                          onClick={() => toggleSubject(s.cleanName, false)}
                           className={`p-2.5 rounded-xl border text-xs font-bold text-right transition-all flex items-center justify-between ${
                             isSelected 
                               ? 'bg-baaqoon-50 dark:bg-baaqoon-950/60 border-baaqoon-500 text-baaqoon-800 dark:text-baaqoon-300 shadow-sm'
                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                           }`}
                         >
-                          <span>{shortName}</span>
+                          <span>{s.cleanName}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-baaqoon-600 shrink-0" />}
                         </button>
                       );
@@ -999,7 +1286,7 @@ export default function VolunteerPortalPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="فيسبوك، تلغرام، زميل معلم..."
+                      placeholder="فيسبوك، تلغرام، زميل أستاذ..."
                       value={newForm.discoveryChannel}
                       onChange={e => setNewForm({ ...newForm, discoveryChannel: e.target.value })}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-baaqoon-500"
@@ -1023,30 +1310,105 @@ export default function VolunteerPortalPage() {
               </div>
 
               {/* Section 5: Terms & Voluntary Pledge */}
-              <div className="bg-amber-50 dark:bg-amber-950/30 p-5 rounded-2xl border border-amber-200 dark:border-amber-800/60 space-y-3">
-                <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>الشروط والتعهد الأكاديمي التطوعي:</span>
-                </h4>
-                <ul className="text-[11px] text-amber-800 dark:text-amber-300 space-y-1.5 list-disc list-inside leading-relaxed">
-                  <li>التدريس تطوعي بالكامل ولا يترتب عليه أي دعم أو مقابل مالي.</li>
-                  <li>الالتزام بالتدريس لمدة عام دراسي كامل 2026-2027 بحسب القدرة والإمكانية.</li>
-                  <li>عدم معاملة الطلبة على أنهم ضحايا، بل باحترام تام ومساواة تربوية كاملة.</li>
-                  <li>عدم سؤال الطلبة عن مكان وجودهم أو أي معلومات تمس خصوصيتهم وظروفهم.</li>
-                  <li>يمنع تصوير الطلبة أو تسجيل الحصص أو نشر أي صور أو تسجيلات بأي شكل.</li>
-                  <li>التدريس وفق المنهاج الفلسطيني الحكومي أو المنهاج الأزهري المعتمدين.</li>
-                </ul>
+              <div className="bg-amber-50 dark:bg-amber-950/30 p-5 sm:p-6 rounded-2xl border border-amber-200 dark:border-amber-800/60 space-y-4">
+                <div className="flex items-center justify-between border-b border-amber-200/70 dark:border-amber-800/50 pb-3">
+                  <h4 className="text-xs sm:text-sm font-black text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+                    <span>الشروط والتعهد الأكاديمي التطوعي:</span>
+                  </h4>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2.5 py-1 rounded-lg">
+                    ميثاق أخلاقي وتربوي ملزم
+                  </span>
+                </div>
 
-                <label className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-amber-800/50 cursor-pointer">
+                <div className="space-y-3 text-[11px] sm:text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                  
+                  {/* بند 1: طبيعة التطوع والتكوين */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                      ١
+                    </span>
+                    <p>
+                      <strong>طبيعة العمل والتكوين:</strong> التدريس تطوعي بالكامل ومخصص لخدمة طلبة غزة دون أي مقابل مالي، مع إمكانية الاستفادة من <strong>الدعم الأكاديمي في إطار التكوين والتمكين المهني</strong>، ورشات التطوير المستمر، ونيل شهادات خبرة وتقدير معتمدة من إدارة المبادرة والمنصة.
+                    </p>
+                  </div>
+
+                  {/* بند 2: الالتزام الأكاديمي */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                      ٢
+                    </span>
+                    <p>
+                      <strong>الالتزام الأكاديمي:</strong> الالتزام بالتدريس لمدة عام دراسي كامل 2026-2027 بحسب استطاعة وتفرغ الأستاذ وقدرته.
+                    </p>
+                  </div>
+
+                  {/* بند 3: الكرامة والمساواة */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                      ٣
+                    </span>
+                    <p>
+                      <strong>الكرامة والمساواة التربوية:</strong> عدم معاملة الطلبة على أنهم ضحايا، بل باحترام تام ومساواة تربوية كاملة كأي طالب في العالم، وزرع الأمل والعزيمة لديهم.
+                    </p>
+                  </div>
+
+                  {/* بند 4: أمان وخصوصية الطلبة */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                      ٤
+                    </span>
+                    <p>
+                      <strong>أمان وخصوصية الطلبة:</strong> عدم سؤال الطلبة عن مكان وجودهم الدقيق أو أي معلومات تمس سلامتهم وأمنهم وخصوصيتهم وظروفهم الميدانية.
+                    </p>
+                  </div>
+
+                  {/* بند 5: التوضيح الحاسم بشأن تصوير الحصص مقابل الدروس المسجلة */}
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-3.5 rounded-xl border border-amber-300 dark:border-amber-700/60 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                      <span className="text-amber-600 text-sm">🎥</span>
+                      <span>توضيح هام يرفع أي تناقض بشأن تسجيل الحصص مقابل «تسجيل الدروس المسجلة»:</span>
+                    </div>
+
+                    <div className="space-y-2 pr-4 border-r-2 border-amber-400">
+                      <div className="text-rose-700 dark:text-rose-300">
+                        <span className="font-black block mb-0.5">🚫 أثناء الحصص التفاعلية المباشرة (مع الطلبة):</span>
+                        <p className="text-[11px] text-slate-700 dark:text-slate-300">
+                          يُمنع قطعياً تصوير وجوه الطلبة أو تسجيل أصواتهم أو التقاط شاشاتهم أو نشر أي صور أو تسجيلات للحصص المباشرة على وسائل التواصل الاجتماعي، حمايةً لأمانهم وخصوصيتهم الشخصية في ظروف الحرب.
+                        </p>
+                      </div>
+
+                      <div className="text-emerald-700 dark:text-emerald-300">
+                        <span className="font-black block mb-0.5">✅ ميزة «تسجيل الدروس المسجلة» المتاحة في المنصة:</span>
+                        <p className="text-[11px] text-slate-700 dark:text-slate-300">
+                          هي ميزة أكاديمية مخصصة ومطلوبة، يقوم فيها الأستاذ بتسجيل شروحاته المقررة <strong>منفرداً</strong> (شرح الأستاذ للمادة فقط دون حضور أو تصوير أي طالب) لتُرفع حصرياً داخل بنك الدروس بالمنصة، بهدف مساعدة الطلبة الذين يعانون من انقطاع الإنترنت أو التيار الكهربائي في غزة لمشاهدة الشرح لاحقاً.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* بند 6: المنهاج */}
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">
+                      ٦
+                    </span>
+                    <p>
+                      <strong>المنهاج المعتمد:</strong> التدريس وفق المنهاج الفلسطيني المعتمد (أو المنهاج الأزهري المعتمد لغزة) للثانوية العامة والتوجيهي.
+                    </p>
+                  </div>
+
+                </div>
+
+                <label className="flex items-center gap-2 pt-3 border-t border-amber-200 dark:border-amber-800/50 cursor-pointer">
                   <input
                     type="checkbox"
                     required
                     checked={newForm.agreedToTerms}
                     onChange={e => setNewForm({ ...newForm, agreedToTerms: e.target.checked })}
-                    className="w-4 h-4 text-baaqoon-600 rounded cursor-pointer"
+                    className="w-4 h-4 text-baaqoon-600 rounded cursor-pointer shrink-0"
                   />
                   <span className="text-xs font-black text-slate-900 dark:text-white">
-                    قرأتُ الشروط والضوابط أعلاه وأتعهد بالالتزام التام بها كمتطوع تدريسي. <span className="text-rose-500">*</span>
+                    قرأتُ الشروط والضوابط الأكاديمية أعلاه وأتعهد بالالتزام التام بها كمتطوع تدريسي. <span className="text-rose-500">*</span>
                   </span>
                 </label>
               </div>
@@ -1078,6 +1440,360 @@ export default function VolunteerPortalPage() {
 
             </form>
 
+          </div>
+        )}
+
+        {/* ─── MODE: STATUS INQUIRY & REGISTRATION COMPLETION ─── */}
+        {!successResult && mode === 'status' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-800 space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <span className="text-[11px] font-black text-amber-600 uppercase tracking-wider block">
+                  بوابة المتابعة واعتماد الأساتذة
+                </span>
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  الاستعلام عن حالة الطلب واستكمال التسجيل
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMode('gatekeeper')}
+                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <span>العودة للرئيسية</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Search Box */}
+            <form onSubmit={handleCheckStatus} className="bg-slate-50 dark:bg-slate-800/40 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                أدخل البريد الإلكتروني أو رقم الهاتف الذي قدمت به الاستمارة <span className="text-rose-500">*</span>
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="example@domain.com أو +970..."
+                    value={statusIdentifier}
+                    onChange={e => setStatusIdentifier(e.target.value)}
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-amber-500 text-left"
+                    dir="ltr"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCheckingStatus}
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isCheckingStatus ? (
+                    <span>جاري الفحص...</span>
+                  ) : (
+                    <>
+                      <Search className="w-3.5 h-3.5" />
+                      <span>فحص حالة الملف</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Status Result Display */}
+            {statusResult && !statusResult.found && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5 animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <div>
+                  <span className="font-black block mb-0.5">لم يتم العثور على استمارة مطابقة</span>
+                  <p className="text-[11px] leading-relaxed">{statusResult.message}</p>
+                </div>
+              </div>
+            )}
+
+            {statusResult && statusResult.found && (
+              <div className="space-y-4 animate-fade-in">
+                {/* 1. Pending */}
+                {statusResult.status === 'pending' && (
+                  <div className="p-6 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-2 font-black text-amber-800 dark:text-amber-300 text-sm">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                      <span>طلبكم قيد الدراسة والتدقيق الأكاديمي ⏳</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      نرحب بكم أستاذنا الفاضل «{statusResult.application.fullNameAr || statusResult.application.fullNameEn}». تم استلام استمارتكم لمادة ({statusResult.application.subjects?.join('، ')}) بنجاح، وهي حالياً قيد المراجعة والتدقيق لدى المشرف التربوي المختص وإدارة المنصة.
+                    </p>
+                    <div className="text-[11px] text-slate-500 font-bold pt-2 border-t border-amber-200 dark:border-amber-800/40 flex items-center justify-between">
+                      <span>تاريخ تقديم الطلب: {new Date(statusResult.application.createdAt).toLocaleDateString('ar-EG')}</span>
+                      <span className="px-2.5 py-0.5 bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded-full font-black text-[10px]">قيد المراجعة</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Supervisor Approved */}
+                {statusResult.status === 'supervisor_approved' && (
+                  <div className="p-6 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-2 font-black text-sky-800 dark:text-sky-300 text-sm">
+                      <Sparkles className="w-5 h-5 text-sky-600" />
+                      <span>توصية بالقبول من المشرف التربوي 🎯</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      أتم المشرف التربوي المختص دراسة ملفكم وأوصى باعتمادكم لتدريس مادة ({statusResult.application.assignedSubject?.nameAr || statusResult.application.subjects?.join('، ')}). الملف حالياً بانتظار التأكيد الإداري النهائي من إدارة المنصة لتتمكن من تعيين كلمة المرور.
+                    </p>
+                    <div className="text-[11px] text-slate-500 font-bold pt-2 border-t border-sky-200 dark:border-sky-800/40 flex items-center justify-between">
+                      <span>الحالة: معتمد من المشرف التربوي</span>
+                      <span className="px-2.5 py-0.5 bg-sky-200 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200 rounded-full font-black text-[10px]">بانتظار التأكيد الإداري</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Rejected */}
+                {statusResult.status === 'rejected' && (
+                  <div className="p-6 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-2 font-black text-slate-800 dark:text-slate-200 text-sm">
+                      <HeartHandshake className="w-5 h-5 text-baaqoon-600" />
+                      <span>شكراً لمبادرتكم الكريمة ونبيل عطائكم 🤍</span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      نشكر لكم مبادرتكم الكريمة ورغبتكم الصادقة في إسناد وتدريس طلبة غزة. نعتذر منكم عن تعذر قبول الملف في هذه الدورة لانشغال الشواغر التدريسية أو عدم توفر أفواج تطابق التخصص والجدول المتاح في الوقت الراهن. سيبقى ملفكم محفوظاً لدى إدارة المنصة للدورات القادمة بإذن الله.
+                    </p>
+                    {statusResult.application.rejectionReason && (
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300">
+                        <strong className="block text-slate-800 dark:text-white mb-0.5">توضيح المشرف:</strong>
+                        <span>{statusResult.application.rejectionReason}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Approved & Already Completed */}
+                {statusResult.status === 'approved' && statusResult.isCompleted && (
+                  <div className="p-6 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 font-black text-emerald-800 dark:text-emerald-300 text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>حسابكم مفعل ومكتمل وجاهز للتدريس 🎓</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      أستاذنا الفاضل «{statusResult.application.fullNameAr || statusResult.application.fullNameEn}»، حسابكم معتمد ومكتمل في مادة {statusResult.application.assignedSubject?.nameAr || statusResult.application.subjects?.join('، ')}. يمكنك تسجيل الدخول إلى منصة التدريس مباشرة بكلمة المرور الخاصة بكم.
+                    </p>
+                    <div className="pt-2">
+                      <Link
+                        to="/login"
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all inline-flex items-center gap-2"
+                      >
+                        <span>تسجيل الدخول إلى حسابك</span>
+                        <ArrowLeft className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Approved & Needs Completion */}
+                {statusResult.status === 'approved' && !statusResult.isCompleted && (
+                  <div className="space-y-6">
+                    {/* Approval Celebration Card */}
+                    <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
+                        🎓
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <h3 className="font-black text-sm text-emerald-900 dark:text-emerald-200">
+                            مبارك! تم اعتمادكم أستاذاً رسمياً في منصة باقون 🎉
+                          </h3>
+                          {statusResult.application.assignedSubject && (
+                            <span className="px-3 py-1 bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100 rounded-full font-black text-xs">
+                              المادة المعتمدة: {statusResult.application.assignedSubject.nameAr}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          أهلاً بك أ. {statusResult.application.fullNameAr || statusResult.application.fullNameEn}! تم اعتماد ملفكم الأكاديمي بنجاح. يُرجى تعيين كلمة المرور الخاصة بكم واستكمال أي بيانات ناقصة لتفعيل الحساب والانطلاق مباشرة.
+                        </p>
+                      </div>
+                    </div>
+
+                    {completionSuccess && (
+                      <div className="p-4 bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 rounded-2xl text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2 font-bold animate-fade-in">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span>{completionSuccess}</span>
+                      </div>
+                    )}
+
+                    {/* Completion Form */}
+                    <form onSubmit={handleCompleteRegistration} className="space-y-5 bg-slate-50 dark:bg-slate-800/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+                      <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
+                        <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-emerald-600" />
+                          <span>واجهة استكمال التسجيل وتعيين كلمة المرور</span>
+                        </h4>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          عين كلمة مرور قوية لحسابك وتحقق من صحة الاسم والجنسية
+                        </span>
+                      </div>
+
+                      {/* Names Ar & En */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            الاسم بالعربية <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              required
+                              placeholder="الاسم الأول"
+                              value={completionForm.firstNameAr}
+                              onChange={e => setCompletionForm({ ...completionForm, firstNameAr: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none"
+                            />
+                            <input
+                              type="text"
+                              required
+                              placeholder="اللقب / العائلة"
+                              value={completionForm.lastNameAr}
+                              onChange={e => setCompletionForm({ ...completionForm, lastNameAr: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            الاسم بالأحرف اللاتينية (English / Latin)
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              placeholder="First Name"
+                              value={completionForm.firstNameEn}
+                              onChange={e => setCompletionForm({ ...completionForm, firstNameEn: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none text-left"
+                              dir="ltr"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Last Name"
+                              value={completionForm.lastNameEn}
+                              onChange={e => setCompletionForm({ ...completionForm, lastNameEn: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none text-left"
+                              dir="ltr"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nationality */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          الجنسية <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={completionForm.nationality}
+                          onChange={e => setCompletionForm({ ...completionForm, nationality: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none cursor-pointer"
+                        >
+                          {NATIONALITIES.map(nat => (
+                            <option key={nat} value={nat}>{nat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Password & Confirm Password */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            كلمة المرور الجديدة (8 خانات على الأقل) <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showCompletionPassword ? 'text' : 'password'}
+                              required
+                              minLength={8}
+                              placeholder="••••••••"
+                              value={completionForm.password}
+                              onChange={e => setCompletionForm({ ...completionForm, password: e.target.value })}
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left pr-10"
+                              dir="ltr"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowCompletionPassword(!showCompletionPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                            >
+                              {showCompletionPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            تأكيد كلمة المرور الجديدة <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showCompletionConfirmPassword ? 'text' : 'password'}
+                              required
+                              minLength={8}
+                              placeholder="••••••••"
+                              value={completionForm.confirmPassword}
+                              onChange={e => setCompletionForm({ ...completionForm, confirmPassword: e.target.value })}
+                              className={`w-full px-3.5 py-2.5 rounded-xl border ${
+                                completionForm.confirmPassword && completionForm.password !== completionForm.confirmPassword
+                                  ? 'border-rose-400 focus:ring-rose-500'
+                                  : completionForm.confirmPassword && completionForm.password === completionForm.confirmPassword
+                                  ? 'border-emerald-500 focus:ring-emerald-500'
+                                  : 'border-slate-200 dark:border-slate-700'
+                              } bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono font-bold outline-none text-left pr-10`}
+                              dir="ltr"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowCompletionConfirmPassword(!showCompletionConfirmPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                            >
+                              {showCompletionConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          {completionForm.confirmPassword && (
+                            <div className="text-[11px] font-bold flex items-center gap-1 mt-1">
+                              {completionForm.password === completionForm.confirmPassword ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>كلمتا المرور متطابقتان</span>
+                                </span>
+                              ) : (
+                                <span className="text-rose-500 dark:text-rose-400 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5" />
+                                  <span>كلمتا المرور غير متطابقتين</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={isCompleting}
+                          className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          {isCompleting ? (
+                            <span>جاري تفعيل الحساب...</span>
+                          ) : (
+                            <>
+                              <span>تأكيد واستكمال الحساب والدخول لمنصة التدريس</span>
+                              <ArrowLeft className="w-4 h-4" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

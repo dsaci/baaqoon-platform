@@ -73,7 +73,7 @@ export class UsersController {
 
     if (effectivePrimaryRole === 'teacher' || effectivePrimaryRole === 'subject_supervisor' || isDual) {
       if (!body.supervisedSubjectId || !body.supervisedSubjectId.trim()) {
-        throw new BadRequestException('تحديد مادة التدريس إجباري حتمي عند إنشاء حساب معلم أو مشرف.');
+        throw new BadRequestException('تحديد مادة التدريس إجباري حتمي عند إنشاء حساب أستاذ أو مشرف.');
       }
       const subject = await this.prisma.subject.findUnique({ where: { id: body.supervisedSubjectId.trim() } });
       if (!subject) {

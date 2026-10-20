@@ -299,7 +299,7 @@ export default function TakeAssessmentPage() {
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                   : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
               }`}>
-                {isGraded ? "تم التصحيح والتقييم" : "تم الاستلام وبانتظار تصحيح المعلم ⏳"}
+                {isGraded ? "تم التصحيح والتقييم" : "تم الاستلام وبانتظار تصحيح الأستاذ ⏳"}
               </span>
             </div>
 
@@ -673,20 +673,20 @@ export default function TakeAssessmentPage() {
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-violet-600 outline-none text-sm transition-all"
               />
               <p className="text-xs text-slate-400">
-                تأكد من جعل الرابط متاحاً للمشاهدة من قبل المعلم (Anyone with the link can view).
+                تأكد من جعل الرابط متاحاً للمشاهدة من قبل الأستاذ (Anyone with the link can view).
               </p>
             </div>
 
             {/* Extra Notes */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
-                ملاحظات أو استفسار للمعلم (اختياري):
+                ملاحظات أو استفسار للأستاذ (اختياري):
               </label>
               <input
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="أي ملاحظة أو توضيح تريد إرساله للمعلم بخصوص هذا الواجب..."
+                placeholder="أي ملاحظة أو توضيح تريد إرساله للأستاذ بخصوص هذا الواجب..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none focus:border-violet-500"
               />
             </div>
@@ -707,7 +707,7 @@ export default function TakeAssessmentPage() {
                 className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-l from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black transition-all disabled:opacity-60 shadow-lg shadow-violet-500/25 text-sm"
               >
                 <Send className="w-4 h-4" />
-                {submitting ? "جارٍ إرسال الحل..." : "تسليم حل الواجب للمعلم"}
+                {submitting ? "جارٍ إرسال الحل..." : "تسليم حل الواجب للأستاذ"}
               </button>
             </div>
           </div>

@@ -265,7 +265,7 @@ export default function RecordedLessonPlayerModal({
                   className="mt-1 w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                 />
                 <span className="text-sm font-black text-slate-800 dark:text-slate-200 select-none">
-                  أتعهد أمام الله وإدارة المنصة بالأمانة التامة، وألتزم بعدم تصوير أو نسخ أو نشر هذا الدرس أو تسريب أي جزء منه تقديراً لجهد معلمينا ومعلماتنا.
+                  أتعهد أمام الله وإدارة المنصة بالأمانة التامة، وألتزم بعدم تصوير أو نسخ أو نشر هذا الدرس أو تسريب أي جزء منه تقديراً لجهد أساتذتنا الكرام.
                 </span>
               </label>
 

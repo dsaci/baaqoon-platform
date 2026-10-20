@@ -615,7 +615,7 @@ export default function StudentDashboard() {
                         <div className="flex items-center gap-1.5 min-w-0">
                           <User className="w-3 h-3 text-[#394C2A] dark:text-[#A8C794] shrink-0" />
                           <span className="truncate">
-                            {lesson.creator ? `${lesson.creator.firstName} ${lesson.creator.lastName}` : "معلم المادة"}
+                            {lesson.creator ? `${lesson.creator.firstName} ${lesson.creator.lastName}` : "أستاذ المادة"}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-400 dark:text-zinc-500 shrink-0">

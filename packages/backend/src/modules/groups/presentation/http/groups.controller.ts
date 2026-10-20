@@ -3076,7 +3076,7 @@ export class GroupsController {
         data: {
           userId: teacherId,
           title: `تم إسناد فوج دراسي جديد لك: ${cohort?.name}`,
-          body: `قام المشرف المنسق بتعيينك معلماً رئيسياً لفوج ${cohort?.name}.`,
+          body: `قام المشرف المنسق بتعيينك أستاذاً رئيسياً لفوج ${cohort?.name}.`,
           type: 'system',
           actionUrl: '/teacher/dashboard'
         }
@@ -3375,7 +3375,7 @@ export class GroupsController {
       recommendations.push({
         type: 'administrative',
         level: 'high',
-        title: `تنبيه إسناد: يوجد ${unassignedCohorts} أفواج بدون معلم رئيسي`,
+        title: `تنبيه إسناد: يوجد ${unassignedCohorts} أفواج بدون أستاذ رئيسي`,
         description: 'يُرجى من إدارة المنظمة والمشرفين إتمام الإسناد الأكاديمي لهذه الأفواج لضمان بدء الحصص في مواعيدها.'
       });
     }
@@ -3388,7 +3388,7 @@ export class GroupsController {
         type: 'administrative',
         level: 'medium',
         title: `مواد دراسية بحاجة لإسناد إشرافي (${subjectsWithoutSupervisor} مواد)`,
-        description: 'يُنصح بتعيين مشرفين متخصصين للمواد المتبقية لضمان توجيه وتقييم المعلمين وفق المعايير المعتمدة.'
+        description: 'يُنصح بتعيين مشرفين متخصصين للمواد المتبقية لضمان توجيه وتقييم الأساتذة وفق المعايير المعتمدة.'
       });
     }
 

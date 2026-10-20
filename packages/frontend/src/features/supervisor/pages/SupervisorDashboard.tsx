@@ -166,7 +166,7 @@ export default function SupervisorDashboard() {
             </span>
           </h1>
           <p className="text-baaqoon-700 dark:text-slate-300 mt-2 font-bold">
-            إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط المعلمين، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
+            إليك نظرة شاملة لمدارس التنسيق ومتابعة خطط الأساتذة، ورصد جداولهم، وتقدم الدروس والحضور بشكل مباشر.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -462,7 +462,7 @@ export default function SupervisorDashboard() {
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">المعلمين</p>
+            <p className="text-sm font-bold text-baaqoon-600 dark:text-slate-300">الأساتذة</p>
             <p className="text-2xl font-black text-baaqoon-900 dark:text-white">{isLoading ? '...' : statsData?.totalTeachers || 0}</p>
           </div>
         </div>

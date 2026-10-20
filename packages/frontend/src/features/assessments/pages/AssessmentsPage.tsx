@@ -147,7 +147,7 @@ export default function AssessmentsPage() {
           <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
             {isTeacher 
               ? 'يمكنك البدء بإنشاء أول واجب منزلي أو تكليف وتحديده لطلبة الفوج فوراً.' 
-              : 'لم يقم المعلمون بإسناد أي واجبات لفوجك بعد. ستظهر هنا فور إسنادها.'}
+              : 'لم يقم الأساتذة بإسناد أي واجبات لفوجك بعد. ستظهر هنا فور إسنادها.'}
           </p>
           {isTeacher && (
             <button

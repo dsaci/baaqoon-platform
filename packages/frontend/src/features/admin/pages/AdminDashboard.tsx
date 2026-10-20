@@ -809,7 +809,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-1.5">اختر المعلم (حسب التخصص)</label>
+                      <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-1.5">اختر الأستاذ (حسب التخصص)</label>
                       <select 
                         value={selectedTeacherId}
                         onChange={e => setSelectedTeacherId(e.target.value)}
@@ -817,13 +817,13 @@ export default function AdminDashboard() {
                         required
                         disabled={!selectedCourseId}
                       >
-                        <option value="">-- اختر المعلم --</option>
+                        <option value="">-- اختر الأستاذ --</option>
                         {availableTeachers.map((t: any) => (
                           <option key={t.id} value={t.id}>أ. {t.firstName} {t.lastName} ({t.email})</option>
                         ))}
                       </select>
                       {selectedCourseId && availableTeachers.length === 0 && (
-                        <p className="text-sm text-amber-500 mt-1 font-bold">لا يوجد معلمون مسجلون في تخصص هذه المادة.</p>
+                        <p className="text-sm text-amber-500 mt-1 font-bold">لا يوجد أساتذة مسجلون في تخصص هذه المادة.</p>
                       )}
                     </div>
 

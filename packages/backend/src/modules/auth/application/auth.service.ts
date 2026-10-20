@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -80,6 +81,14 @@ export class AuthService {
       throw new ConflictException("البريد الإلكتروني ورقم الهاتف كلاهما إجباري لاستكمال التسجيل");
     }
 
+    if (!data.password || data.password.length < 8) {
+      throw new BadRequestException("كلمة المرور يجب أن تتكون من 8 خانات على الأقل");
+    }
+
+    if (data.confirmPassword !== undefined && data.password !== data.confirmPassword) {
+      throw new BadRequestException("كلمة المرور وتأكيد كلمة المرور غير متطابقتين");
+    }
+
     if (!data.nationality?.trim()) {
       throw new ConflictException("تحديد الجنسية إجباري لاستكمال التسجيل");
     }
@@ -87,7 +96,7 @@ export class AuthService {
     if (data.primaryRole === 'teacher' || data.primaryRole === 'subject_supervisor') {
       const subId = (data.supervisedSubjectId || '').trim();
       if (!subId) {
-        throw new ConflictException("تحديد مادة التدريس إجباري حتمي لإنشاء حساب المعلم أو المشرف؛ لا يمكن التسجيل دون اختيار مادة التخصص الأكاديمي.");
+        throw new ConflictException("تحديد مادة التدريس إجباري حتمي لإنشاء حساب الأستاذ أو المشرف؛ لا يمكن التسجيل دون اختيار مادة التخصص الأكاديمي.");
       }
       const subject = await this.prisma.subject.findUnique({
         where: { id: subId },
@@ -290,6 +299,16 @@ export class AuthService {
       console.error('Failed to log activity or update lastLoginAt', err);
     }
 
+    let supervisedSubject = (user as any).supervisedSubject;
+    if (!supervisedSubject && user.supervisedSubjectId) {
+      try {
+        supervisedSubject = await this.prisma.subject.findUnique({
+          where: { id: user.supervisedSubjectId },
+          select: { id: true, code: true, nameAr: true, nameEn: true, iconUrl: true },
+        });
+      } catch (_) {}
+    }
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
@@ -301,6 +320,16 @@ export class AuthService {
         roles,
         isDualRole,
         supervisedSubjectId: user.supervisedSubjectId,
+        supervisedSubjectIds: (user as any).supervisedSubjectIds || (user.supervisedSubjectId ? [user.supervisedSubjectId] : []),
+        supervisedSubject: supervisedSubject
+          ? {
+              id: supervisedSubject.id,
+              code: supervisedSubject.code,
+              nameAr: supervisedSubject.nameAr,
+              nameEn: supervisedSubject.nameEn,
+              iconUrl: supervisedSubject.iconUrl,
+            }
+          : null,
         mustChangePassword: Boolean(user.mustChangePassword),
         status: user.status,
         phone: user.phone,

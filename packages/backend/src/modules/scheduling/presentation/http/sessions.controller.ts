@@ -374,7 +374,7 @@ export class SessionsController {
   ) {
     const callerRole = req.user?.primaryRole;
     if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
-      throw new BadRequestException('فقط المعلمون والمشرفون يمكنهم تسجيل الحضور');
+      throw new BadRequestException('فقط الأساتذة والمشرفون يمكنهم تسجيل الحضور');
     }
     const currentUserId = req.user?.id || req.user?.userId;
     

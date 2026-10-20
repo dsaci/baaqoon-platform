@@ -14,6 +14,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../infrastructure/jwt-auth.guard';
 import {
@@ -23,9 +24,115 @@ import {
 } from '../../application/identity-validator.util';
 import { evaluateTeacherDossier } from '../../application/volunteer-dossier-evaluator.util';
 
+// Canonical keyword signatures for Palestinian curriculum subjects
+const SUBJECT_KEYWORDS = [
+  { keywords: ['رياضيات', 'رياضيه', 'math', 'calculus'], codePrefix: 'MATH' },
+  { keywords: ['فيزياء', 'physics'], codePrefix: 'PHYSICS' },
+  { keywords: ['كيمياء', 'chemistry'], codePrefix: 'CHEMISTRY' },
+  { keywords: ['احياء', 'حياتيه', 'biology'], codePrefix: 'BIOLOGY' },
+  { keywords: ['انجليزي', 'انجليزيه', 'english'], codePrefix: 'ENGLISH' },
+  { keywords: ['عربي', 'عربيه', 'مطالعه', 'نصوص', 'ادب', 'arabic'], codePrefix: 'ARABIC' },
+  { keywords: ['اسلامي', 'اسلاميه', 'شريعه', 'قران', 'دين', 'islamic'], codePrefix: 'ISLAMIC' },
+  { keywords: ['تاريخ', 'history'], codePrefix: 'HISTORY' },
+  { keywords: ['جغرافيا', 'جغرافي', 'geography'], codePrefix: 'GEOGRAPHY' },
+  { keywords: ['تكنولوجيا', 'برمجه', 'حاسوب', 'it', 'technology', 'tech'], codePrefix: 'IT' },
+  { keywords: ['ثقافه علميه', 'علوم عامه', 'sciences', 'science'], codePrefix: 'THAQAFEH' },
+];
+
+function normalizeSubjectSearchText(str: string): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[^a-z0-9\u0600-\u06FF]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export async function resolveSubjectIds(
+  prisma: PrismaService,
+  subjects: string[],
+): Promise<{ primaryId: string | null; allIds: string[] }> {
+  if (!subjects || subjects.length === 0) return { primaryId: null, allIds: [] };
+
+  const allDbSubjects = await prisma.subject.findMany({
+    where: { isActive: true },
+    select: { id: true, nameAr: true, nameEn: true, code: true },
+  });
+
+  const matchedIds: string[] = [];
+
+  for (const raw of subjects) {
+    if (!raw) continue;
+    const cleanRaw = raw.trim();
+    const normRaw = normalizeSubjectSearchText(cleanRaw);
+
+    // 1. Direct UUID match
+    const byId = allDbSubjects.find(s => s.id === cleanRaw);
+    if (byId && !matchedIds.includes(byId.id)) {
+      matchedIds.push(byId.id);
+      continue;
+    }
+
+    // 2. Direct code match
+    const byCode = allDbSubjects.find(s => s.code.toLowerCase() === cleanRaw.toLowerCase());
+    if (byCode && !matchedIds.includes(byCode.id)) {
+      matchedIds.push(byCode.id);
+      continue;
+    }
+
+    // 3. Exact normalized match
+    const byExact = allDbSubjects.find(s => {
+      const normAr = normalizeSubjectSearchText(s.nameAr);
+      const normEn = normalizeSubjectSearchText(s.nameEn || '');
+      return normRaw === normAr || (normEn && normRaw === normEn);
+    });
+    if (byExact && !matchedIds.includes(byExact.id)) {
+      matchedIds.push(byExact.id);
+      continue;
+    }
+
+    // 4. Canonical keyword signatures (highest precision for subject domains)
+    let foundBySignature = false;
+    for (const sig of SUBJECT_KEYWORDS) {
+      const matchesSignature = sig.keywords.some(kw => normRaw.includes(kw));
+      if (matchesSignature) {
+        const dbSub = allDbSubjects.find(s => s.code.includes(sig.codePrefix));
+        if (dbSub && !matchedIds.includes(dbSub.id)) {
+          matchedIds.push(dbSub.id);
+          foundBySignature = true;
+          break;
+        }
+      }
+    }
+    if (foundBySignature) continue;
+
+    // 5. Whole phrase inclusion (without generic false positives)
+    const byInclusion = allDbSubjects.find(s => {
+      const normAr = normalizeSubjectSearchText(s.nameAr);
+      const normEn = normalizeSubjectSearchText(s.nameEn || '');
+      if (normAr && (normRaw.includes(normAr) || normAr.includes(normRaw))) return true;
+      if (normEn && (normRaw.includes(normEn) || normEn.includes(normRaw))) return true;
+      return false;
+    });
+
+    if (byInclusion && !matchedIds.includes(byInclusion.id)) {
+      matchedIds.push(byInclusion.id);
+    }
+  }
+
+  return { primaryId: matchedIds[0] || null, allIds: matchedIds };
+}
+
 @Controller('volunteer')
 export class VolunteerController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   /**
    * 1. Public: Get active subjects list for the application dropdowns
@@ -43,6 +150,333 @@ export class VolunteerController {
       },
       orderBy: { nameAr: 'asc' },
     });
+  }
+
+  /**
+   * 1.1 Public: Get volunteer application status by email or phone
+   */
+  @Get('application-status')
+  async getApplicationStatus(@Query('identifier') rawIdentifier?: string) {
+    if (!rawIdentifier || !rawIdentifier.trim()) {
+      throw new BadRequestException('يُرجى إدخال البريد الإلكتروني أو رقم الهاتف للاستعلام');
+    }
+
+    const clean = rawIdentifier.trim();
+    const cleanMail = clean.toLowerCase();
+    const digitsOnly = clean.replace(/[^0-9]/g, '');
+
+    // Look for the latest volunteer application
+    const applications = await this.prisma.volunteerApplication.findMany({
+      where: {
+        OR: [
+          { email: { equals: cleanMail, mode: 'insensitive' } },
+          { phone: clean },
+          ...(digitsOnly.length >= 6 ? [{ phone: { contains: digitsOnly.slice(-8) } }] : []),
+        ],
+      },
+      include: {
+        assignedSubject: {
+          select: { id: true, nameAr: true, nameEn: true, code: true, iconUrl: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+
+    const application = applications[0];
+
+    if (!application) {
+      return {
+        found: false,
+        message: 'لم يتم العثور على أي استمارة تطوع مسجلة بهذا البريد أو رقم الهاتف. يُرجى التحقق من المدخلات أو تقديم طلب جديد.',
+      };
+    }
+
+    // Check if user account already exists and is activated
+    let isCompleted = false;
+    let existingUser = null;
+    if (application.convertedUserId) {
+      existingUser = await this.prisma.user.findUnique({
+        where: { id: application.convertedUserId },
+        select: { id: true, email: true, phone: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, mustChangePassword: true, status: true, nationality: true },
+      });
+      if (existingUser && !existingUser.mustChangePassword && existingUser.status === 'active') {
+        isCompleted = true;
+      }
+    } else {
+      existingUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: application.email }, { phone: application.phone }],
+        },
+        select: { id: true, email: true, phone: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true, firstNameEn: true, lastNameEn: true, mustChangePassword: true, status: true, nationality: true },
+      });
+      if (existingUser && !existingUser.mustChangePassword && existingUser.status === 'active') {
+        isCompleted = true;
+      }
+    }
+
+    let statusDisplay = application.status;
+    let message = '';
+
+    if (application.status === 'approved') {
+      message = isCompleted
+        ? 'تم اعتماد ملفكم وحسابكم نشط وجاهز للتدريس. يمكنك تسجيل الدخول مباشرة.'
+        : 'مبارك! تم اعتماد ملفكم الأكاديمي كأستاذ معتمد في باقون. يُرجى تعيين كلمة المرور واستكمال بياناتكم للانطلاق مباشرة.';
+    } else if (application.status === 'supervisor_approved') {
+      statusDisplay = 'supervisor_approved';
+      message = 'تمت دراسة ملفكم واعتماده من قبل المشرف التربوي للمادة، وهو الآن في مرحلة التأكيد الإداري النهائي من إدارة المنصة.';
+    } else if (application.status === 'rejected' || application.status === 'supervisor_rejected') {
+      statusDisplay = 'rejected';
+      message = 'نشكر لكم مبادرتكم الكريمة ورغبتكم الصادقة في إسناد طلبة غزة. نعتذر عن تعذر قبول الطلب في هذه الدورة لانشغال الشواغر التدريسية أو عدم توفر الفوج المناسب في الوقت الراهن، ويبقى ملفكم محفوظاً للدورات القادمة بإذن الله.';
+    } else {
+      statusDisplay = 'pending';
+      message = 'طلبكم قيد التدقيق والمراجعة الأكاديمية لدى المشرف التربوي المختص وإدارة المنصة، وسيتم إشعاركم فور اتخاذ القرار.';
+    }
+
+    // Split name parts if needed
+    const namePartsAr = (application.fullNameAr || '').trim().split(/\s+/);
+    const firstNameAr = existingUser?.firstNameAr || existingUser?.firstName || namePartsAr[0] || '';
+    const lastNameAr = existingUser?.lastNameAr || existingUser?.lastName || namePartsAr.slice(1).join(' ') || '';
+
+    const namePartsEn = (application.fullNameEn || '').trim().split(/\s+/);
+    const firstNameEn = existingUser?.firstNameEn || namePartsEn[0] || '';
+    const lastNameEn = existingUser?.lastNameEn || namePartsEn.slice(1).join(' ') || '';
+
+    return {
+      found: true,
+      status: statusDisplay,
+      isCompleted,
+      application: {
+        id: application.id,
+        fullNameAr: application.fullNameAr,
+        fullNameEn: application.fullNameEn,
+        firstNameAr,
+        lastNameAr,
+        firstNameEn,
+        lastNameEn,
+        email: application.email,
+        phone: application.phone,
+        nationality: existingUser?.nationality || application.nationality || 'فلسطيني',
+        teachingField: application.teachingField,
+        subjects: application.subjects,
+        assignedSubject: application.assignedSubject,
+        createdAt: application.createdAt,
+        rejectionReason: application.supervisorRejectionReason || null,
+      },
+      message,
+    };
+  }
+
+  /**
+   * 1.2 Public: Complete registration and set password for approved teacher application
+   */
+  @Post('complete-registration')
+  async completeRegistration(
+    @Body()
+    body: {
+      applicationId: string;
+      identifier: string;
+      password: string;
+      confirmPassword: string;
+      firstNameAr?: string;
+      lastNameAr?: string;
+      firstNameEn?: string;
+      lastNameEn?: string;
+      nationality?: string;
+    },
+  ) {
+    if (!body.applicationId) {
+      throw new BadRequestException('معرّف الاستمارة إجباري لاستكمال التسجيل');
+    }
+    if (!body.password || body.password.length < 8) {
+      throw new BadRequestException('كلمة المرور يجب أن تتكون من 8 خانات على الأقل');
+    }
+    if (body.password !== body.confirmPassword) {
+      throw new BadRequestException('كلمة المرور وتأكيد كلمة المرور غير متطابقتين');
+    }
+
+    const application = await this.prisma.volunteerApplication.findUnique({
+      where: { id: body.applicationId },
+      include: {
+        assignedSubject: true,
+      },
+    });
+
+    if (!application) {
+      throw new NotFoundException('استمارة التطوع غير موجودة');
+    }
+
+    if (application.status !== 'approved') {
+      throw new BadRequestException('لا يمكن استكمال التسجيل إلا بعد الاعتماد النهائي للاستمارة من إدارة المنصة');
+    }
+
+    // Verify identifier matches
+    const cleanId = (body.identifier || '').trim().toLowerCase();
+    const cleanAppMail = (application.email || '').trim().toLowerCase();
+    const cleanAppPhone = (application.phone || '').trim();
+    const digitsOnlyId = cleanId.replace(/[^0-9]/g, '');
+    const digitsOnlyPhone = cleanAppPhone.replace(/[^0-9]/g, '');
+
+    const matchesEmail = cleanId === cleanAppMail;
+    const matchesPhone = cleanId === cleanAppPhone || (digitsOnlyId.length >= 6 && digitsOnlyPhone.includes(digitsOnlyId.slice(-7)));
+
+    if (cleanId && !matchesEmail && !matchesPhone) {
+      throw new UnauthorizedException('بيانات الاستعلام غير متطابقة مع الاستمارة');
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 12);
+
+    // Resolve subject
+    let subjectIdToAssign = application.assignedSubjectId;
+    let allSubjectIdsToAssign: string[] = [];
+    if (!subjectIdToAssign && application.subjects && application.subjects.length > 0) {
+      const resolved = await resolveSubjectIds(this.prisma, application.subjects);
+      subjectIdToAssign = resolved.primaryId;
+      allSubjectIdsToAssign = resolved.allIds;
+    } else if (subjectIdToAssign) {
+      allSubjectIdsToAssign = [subjectIdToAssign];
+    }
+
+    const namePartsAr = (body.firstNameAr && body.lastNameAr)
+      ? { first: body.firstNameAr.trim(), last: body.lastNameAr.trim() }
+      : (application.fullNameAr || '').trim().split(/\s+/).reduce(
+          (acc, part, idx, arr) => (idx === 0 ? { ...acc, first: part } : { ...acc, last: arr.slice(1).join(' ') }),
+          { first: 'أستاذ', last: 'متطوع' },
+        );
+
+    const firstNameEn = body.firstNameEn?.trim() || (application.fullNameEn || '').trim().split(/\s+/)[0] || null;
+    const lastNameEn = body.lastNameEn?.trim() || (application.fullNameEn || '').trim().split(/\s+/).slice(1).join(' ') || null;
+    const finalNationality = body.nationality?.trim() || application.nationality || 'فلسطيني';
+
+    // Find existing user if any
+    let user = null;
+    if (application.convertedUserId) {
+      user = await this.prisma.user.findUnique({ where: { id: application.convertedUserId } });
+    }
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: application.email }, { phone: application.phone }],
+        },
+      });
+    }
+
+    if (user) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          primaryRole: 'teacher' as any,
+          status: 'active' as any,
+          mustChangePassword: false,
+          nationality: finalNationality,
+          firstName: namePartsAr.first || user.firstName,
+          lastName: namePartsAr.last || user.lastName,
+          firstNameAr: namePartsAr.first || user.firstNameAr,
+          lastNameAr: namePartsAr.last || user.lastNameAr,
+          firstNameEn: firstNameEn || user.firstNameEn,
+          lastNameEn: lastNameEn || user.lastNameEn,
+          supervisedSubjectId: subjectIdToAssign || user.supervisedSubjectId,
+          supervisedSubjectIds: allSubjectIdsToAssign.length > 0 ? allSubjectIdsToAssign : user.supervisedSubjectIds,
+        },
+      });
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          email: application.email,
+          phone: application.phone,
+          firstName: namePartsAr.first,
+          lastName: namePartsAr.last,
+          firstNameAr: namePartsAr.first,
+          lastNameAr: namePartsAr.last,
+          firstNameEn,
+          lastNameEn,
+          passwordHash,
+          primaryRole: 'teacher' as any,
+          status: 'active' as any,
+          mustChangePassword: false,
+          nationality: finalNationality,
+          supervisedSubjectId: subjectIdToAssign,
+          supervisedSubjectIds: allSubjectIdsToAssign,
+        },
+      });
+    }
+
+    // Role assignment
+    try {
+      await this.prisma.userRoleAssignment.upsert({
+        where: { userId_role: { userId: user.id, role: 'teacher' as any } },
+        update: {},
+        create: { userId: user.id, role: 'teacher' as any },
+      });
+    } catch (_) {}
+
+    // Link subjects to supervisor_subjects
+    for (const subId of allSubjectIdsToAssign) {
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          user.id,
+          subId,
+        );
+      } catch (_) {}
+    }
+
+    // Link converted user back to application
+    await this.prisma.volunteerApplication.update({
+      where: { id: application.id },
+      data: {
+        convertedUserId: user.id,
+        assignedSubjectId: subjectIdToAssign || application.assignedSubjectId,
+      },
+    });
+
+    // Create session token so they are immediately logged in
+    const roles = ['teacher'];
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      roles,
+      primaryRole: 'teacher',
+      isDualRole: false,
+    };
+    const accessToken = this.jwtService.sign(payload);
+
+    let supervisedSubject = null;
+    if (user.supervisedSubjectId) {
+      supervisedSubject = await this.prisma.subject.findUnique({
+        where: { id: user.supervisedSubjectId },
+        select: { id: true, code: true, nameAr: true, nameEn: true, iconUrl: true },
+      });
+    }
+
+    return {
+      success: true,
+      message: 'تم تعيين كلمة المرور وتفعيل حساب الأستاذ بنجاح! مرحباً بك في منصة باقون.',
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        firstNameAr: user.firstNameAr,
+        lastNameAr: user.lastNameAr,
+        firstNameEn: user.firstNameEn,
+        lastNameEn: user.lastNameEn,
+        primaryRole: 'teacher',
+        roles: ['teacher'],
+        isDualRole: false,
+        supervisedSubjectId: user.supervisedSubjectId,
+        supervisedSubjectIds: user.supervisedSubjectIds,
+        supervisedSubject,
+        mustChangePassword: false,
+        status: 'active',
+        phone: user.phone,
+        nationality: user.nationality,
+      },
+    };
   }
 
   /**
@@ -73,6 +507,12 @@ export class VolunteerController {
 
     const subjects = Array.isArray(body.subjects) ? body.subjects : (body.subjects ? [body.subjects] : []);
 
+    // Smartly auto-resolve subject ID matching Palestinian curriculum
+    const { primaryId: autoSubjectId, allIds: autoSubjectIds } = await resolveSubjectIds(
+      this.prisma,
+      subjects,
+    );
+
     let appRecord;
     if (existingApp) {
       // Update existing application
@@ -93,6 +533,7 @@ export class VolunteerController {
           experienceYears: body.experienceYears || existingApp.experienceYears,
           experienceDetails: body.experienceDetails || existingApp.experienceDetails,
           subjects: subjects.length > 0 ? subjects : existingApp.subjects,
+          assignedSubjectId: autoSubjectId || existingApp.assignedSubjectId || null,
           otherSubjects: body.otherSubjects || existingApp.otherSubjects,
           preferredPlatform: body.preferredPlatform || existingApp.preferredPlatform,
           sessionsPerWeek: body.sessionsPerWeek || existingApp.sessionsPerWeek,
@@ -129,6 +570,7 @@ export class VolunteerController {
           experienceYears: body.experienceYears || null,
           experienceDetails: body.experienceDetails || null,
           subjects,
+          assignedSubjectId: autoSubjectId || null,
           otherSubjects: body.otherSubjects || null,
           preferredPlatform: body.preferredPlatform || null,
           sessionsPerWeek: body.sessionsPerWeek || null,
@@ -147,11 +589,7 @@ export class VolunteerController {
 
     // Send high-priority notification to admins & relevant subject supervisors
     try {
-      const matchingDbSubjects = await this.prisma.subject.findMany({
-        where: { nameAr: { in: subjects } },
-        select: { id: true },
-      });
-      const matchingSubjectIds = matchingDbSubjects.map(s => s.id);
+      const matchingSubjectIds = autoSubjectIds;
 
       const relevantSupervisors = await this.prisma.user.findMany({
         where: {
@@ -160,8 +598,9 @@ export class VolunteerController {
             {
               primaryRole: { in: ['subject_supervisor', 'supervisor'] as any },
               OR: [
-                { supervisedSubject: { nameAr: { in: subjects } } },
+                { supervisedSubjectId: { in: matchingSubjectIds } },
                 { supervisedSubjectIds: { hasSome: matchingSubjectIds } },
+                { supervisedSubject: { nameAr: { in: subjects } } },
               ],
             },
           ],
@@ -219,6 +658,10 @@ export class VolunteerController {
       throw new BadRequestException('البريد الإلكتروني ورقم الواتساب وكلمة المرور مطلوبة');
     }
 
+    if (body.confirmPassword !== undefined && password !== body.confirmPassword) {
+      throw new BadRequestException('كلمة المرور وتأكيد كلمة المرور غير متطابقتين');
+    }
+
     // 1. Assert no duplicate user in users table
     const cleaned = await assertNoDuplicateUser(
       this.prisma,
@@ -242,6 +685,12 @@ export class VolunteerController {
       ? [teachingSubjects]
       : [];
 
+    // Smartly auto-resolve subject matching Palestinian curriculum
+    const { primaryId: primarySubjectId, allIds: matchedSubjectIds } = await resolveSubjectIds(
+      this.prisma,
+      subjectsArr,
+    );
+
     // 3. Create the Teacher user account directly
     const user = await this.prisma.user.create({
       data: {
@@ -258,8 +707,23 @@ export class VolunteerController {
         status: 'active' as any,
         mustChangePassword: false,
         nationality: body.nationality || 'الجزائر',
+        supervisedSubjectId: primarySubjectId || null,
+        supervisedSubjectIds: matchedSubjectIds,
       },
     });
+
+    // Populate supervisor_subjects junction table so teacher appears in supervisor's roster
+    for (const subId of matchedSubjectIds) {
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          user.id,
+          subId,
+        );
+      } catch (_) {}
+    }
 
     // 4. Create UserRoleAssignment
     try {
@@ -280,7 +744,8 @@ export class VolunteerController {
         email: cleaned.normalizedEmail,
         phone: cleaned.normalizedPhone,
         subjects: subjectsArr,
-        additionalNotes: `معلم حالي يدرس في باقون. تفاصيل الأفواج: ${currentCohortsDetails || 'لم تُحدد'}. ${notes || ''}`,
+        assignedSubjectId: primarySubjectId || null,
+        additionalNotes: `أستاذ حالي يدرس في باقون. تفاصيل الأفواج: ${currentCohortsDetails || 'لم تُحدد'}. ${notes || ''}`,
         status: 'approved',
         convertedUserId: user.id,
         reviewedAt: new Date(),
@@ -289,12 +754,6 @@ export class VolunteerController {
 
     // 6. Notify Admins and Supervisors
     try {
-      const matchingDbSubjects = await this.prisma.subject.findMany({
-        where: { nameAr: { in: subjectsArr } },
-        select: { id: true },
-      });
-      const matchingSubjectIds = matchingDbSubjects.map(s => s.id);
-
       const adminsAndSups = await this.prisma.user.findMany({
         where: {
           OR: [
@@ -302,8 +761,9 @@ export class VolunteerController {
             {
               primaryRole: { in: ['subject_supervisor', 'supervisor'] as any },
               OR: [
+                { supervisedSubjectId: { in: matchedSubjectIds } },
+                { supervisedSubjectIds: { hasSome: matchedSubjectIds } },
                 { supervisedSubject: { nameAr: { in: subjectsArr } } },
-                { supervisedSubjectIds: { hasSome: matchingSubjectIds } },
               ],
             },
           ],
@@ -313,13 +773,13 @@ export class VolunteerController {
       });
 
       const teacherDisplayName = `${cleaned.cleanFirstNameAr || ''} ${cleaned.cleanLastNameAr || ''}`.trim() || cleaned.normalizedEmail;
-      const subStr = subjectsArr.join('، ') || 'معلم حالي';
+      const subStr = subjectsArr.join('، ') || 'أستاذ حالي';
 
       for (const recipient of adminsAndSups) {
         await this.prisma.notification.create({
           data: {
             userId: recipient.id,
-            title: `معلم حالي فعّل حسابه: أ. ${teacherDisplayName}`,
+            title: `أستاذ حالي فعّل حسابه: أ. ${teacherDisplayName}`,
             body: `قام الأستاذ «${teacherDisplayName}» (المواد: ${subStr}) بتفعيل حسابه الرسمي على المنصة. يمكن الآن إسناد وتدقيق أفواجه الميدانية مباشرة.`,
             type: 'academic_update' as any,
             actionUrl: '/supervisor/cohorts',
@@ -331,7 +791,7 @@ export class VolunteerController {
     const { passwordHash: _, ...safeUser } = user;
     return {
       success: true,
-      message: 'تم تفعيل حسابك كمعلم في منصة باقون بنجاح! يمكنك الآن تسجيل الدخول مباشرة.',
+      message: 'تم تفعيل حسابك كأستاذ في منصة باقون بنجاح! يمكنك الآن تسجيل الدخول مباشرة.',
       user: safeUser,
     };
   }
@@ -348,7 +808,7 @@ export class VolunteerController {
     const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role);
 
     if (!isSuperOrAdmin && !isSupervisor) {
-      throw new UnauthorizedException('غير مصرح لك بالاطلاع على استمارات المعلمين');
+      throw new UnauthorizedException('غير مصرح لك بالاطلاع على استمارات الأساتذة');
     }
 
     let subjectFilter: string[] | null = null;
@@ -551,7 +1011,7 @@ export class VolunteerController {
     const isAdmin = ['super_admin', 'admin'].includes(user.primaryRole);
 
     if (!isSupervisor && !isAdmin) {
-      throw new UnauthorizedException('دراسة ملفات المعلمين متاحة للمشرف الأكاديمي أو إدارة المنصة فقط');
+      throw new UnauthorizedException('دراسة ملفات الأساتذة متاحة للمشرف الأكاديمي أو إدارة المنصة فقط');
     }
 
     if (!body.decision || !['approved', 'rejected'].includes(body.decision)) {
@@ -610,7 +1070,7 @@ export class VolunteerController {
         await this.prisma.notification.create({
           data: {
             userId: admin.id,
-            title: `دراسة ملف معلم: ${decisionArabic} من المشرف ${supervisorName}`,
+            title: `دراسة ملف أستاذ: ${decisionArabic} من المشرف ${supervisorName}`,
             body: `أتم أ. ${supervisorName} دراسة ملف المتطوع «${applicantName}» (${application.subjects?.join('، ')}). القرار: ${decisionArabic}. بانتظار التأكيد والاعتماد النهائي منك.`,
             type: 'academic_update' as any,
             actionUrl: '/admin/volunteers',
@@ -645,7 +1105,7 @@ export class VolunteerController {
   ) {
     const adminUser = req.user;
     if (!['super_admin', 'admin'].includes(adminUser.primaryRole)) {
-      throw new UnauthorizedException('التأكيد النهائي وتفعيل حسابات المعلمين متاح لمدير المنصة فقط');
+      throw new UnauthorizedException('التأكيد النهائي وتفعيل حسابات الأساتذة متاح لمدير المنصة فقط');
     }
 
     const application = await this.prisma.volunteerApplication.findUnique({
@@ -670,7 +1130,7 @@ export class VolunteerController {
 
     // Action: 'activate'
     if (application.convertedUserId) {
-      throw new BadRequestException('هذا المعلم تم تفعيل حسابه بالفعل مسبقاً');
+      throw new BadRequestException('هذا الأستاذ تم تفعيل حسابه بالفعل مسبقاً');
     }
 
     // Check if user already exists with this email or phone
@@ -682,35 +1142,37 @@ export class VolunteerController {
 
     // Resolve subject to assign
     let subjectIdToAssign = body.assignedSubjectId || application.assignedSubjectId;
+    let allSubjectIdsToAssign: string[] = [];
+
     if (!subjectIdToAssign && application.subjects && application.subjects.length > 0) {
-      const matchedSubject = await this.prisma.subject.findFirst({
-        where: {
-          OR: [
-            { nameAr: { in: application.subjects } },
-            { nameEn: { in: application.subjects } },
-          ],
-        },
-      });
-      if (matchedSubject) {
-        subjectIdToAssign = matchedSubject.id;
-      }
+      const resolved = await resolveSubjectIds(this.prisma, application.subjects);
+      subjectIdToAssign = resolved.primaryId;
+      allSubjectIdsToAssign = resolved.allIds;
+    } else if (subjectIdToAssign) {
+      allSubjectIdsToAssign = [subjectIdToAssign];
     }
 
     if (existingUser) {
       // User already exists: ensure teacher role is granted and subject is assigned
-      if (existingUser.primaryRole !== 'teacher' && existingUser.primaryRole !== 'admin' && existingUser.primaryRole !== 'super_admin') {
-        await this.prisma.user.update({
-          where: { id: existingUser.id },
-          data: {
-            primaryRole: 'teacher' as any,
-            supervisedSubjectId: subjectIdToAssign || existingUser.supervisedSubjectId,
-          },
-        });
-      } else if (subjectIdToAssign && !existingUser.supervisedSubjectId) {
-        await this.prisma.user.update({
-          where: { id: existingUser.id },
-          data: { supervisedSubjectId: subjectIdToAssign },
-        });
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          primaryRole: 'teacher' as any,
+          supervisedSubjectId: subjectIdToAssign || existingUser.supervisedSubjectId,
+          supervisedSubjectIds: allSubjectIdsToAssign.length > 0 ? allSubjectIdsToAssign : existingUser.supervisedSubjectIds,
+        },
+      });
+
+      for (const subId of allSubjectIdsToAssign) {
+        try {
+          await this.prisma.$executeRawUnsafe(
+            `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+             VALUES ($1::uuid, $2::uuid)
+             ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+            existingUser.id,
+            subId,
+          );
+        } catch (_) {}
       }
 
       try {
@@ -735,7 +1197,7 @@ export class VolunteerController {
 
       return {
         success: true,
-        message: 'تم ربط الاستمارة بالحساب وتأكيد اعتماده كمعلم رسمي بنجاح!',
+        message: 'تم ربط الاستمارة بالحساب وتأكيد اعتماده كأستاذ رسمي بنجاح!',
         user: {
           id: existingUser.id,
           email: existingUser.email,
@@ -774,8 +1236,21 @@ export class VolunteerController {
         mustChangePassword: true,
         nationality: application.nationality || 'الجزائر',
         supervisedSubjectId: subjectIdToAssign || null,
+        supervisedSubjectIds: allSubjectIdsToAssign,
       },
     });
+
+    for (const subId of allSubjectIdsToAssign) {
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
+           VALUES ($1::uuid, $2::uuid)
+           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
+          newUser.id,
+          subId,
+        );
+      } catch (_) {}
+    }
 
     try {
       await this.prisma.userRoleAssignment.create({
@@ -817,7 +1292,7 @@ export class VolunteerController {
 
     return {
       success: true,
-      message: `تم اعتماد وتفعيل حساب المعلم بنجاح! كلمة المرور المبدئية: ${initialPassword}`,
+      message: `تم اعتماد وتفعيل حساب الأستاذ بنجاح! كلمة المرور المبدئية: ${initialPassword}`,
       user: safeUser,
       initialPassword,
     };
