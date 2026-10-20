@@ -216,7 +216,7 @@ export default function RegisterPage() {
             }`}
           >
             <span>🌿</span>
-            <span>أنا معلّم(ة) متطوع(ة)</span>
+            <span>أنا أستاذ(ة) متطوع(ة)</span>
           </button>
         </div>
 
