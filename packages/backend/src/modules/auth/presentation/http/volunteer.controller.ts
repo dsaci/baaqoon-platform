@@ -23,6 +23,7 @@ import {
   normalizePhone,
 } from '../../application/identity-validator.util';
 import { evaluateTeacherDossier } from '../../application/volunteer-dossier-evaluator.util';
+import { EmailService } from '../../../email/email.service';
 
 // Canonical keyword signatures for Palestinian curriculum subjects
 const SUBJECT_KEYWORDS = [
@@ -132,6 +133,7 @@ export class VolunteerController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -625,6 +627,17 @@ export class VolunteerController {
     } catch (notifErr) {
       console.warn('Failed to send volunteer notification:', notifErr);
     }
+
+    // Send application receipt confirmation email asynchronously (never blocking response)
+    try {
+      this.emailService
+        .sendVolunteerApplicationReceivedEmail({
+          fullName: appRecord.fullNameAr || appRecord.fullNameEn || 'الأستاذ(ة) الفاضل(ة)',
+          email: appRecord.email,
+          subjects: appRecord.subjects,
+        })
+        .catch(err => console.warn('[VolunteerController] Application received email err:', err.message));
+    } catch (_) {}
 
     return {
       success: true,
@@ -1125,6 +1138,18 @@ export class VolunteerController {
           internalNotes: body.adminNotes || application.internalNotes,
         },
       });
+
+      // Send polite rejection email asynchronously
+      try {
+        this.emailService
+          .sendVolunteerRejectedEmail({
+            fullName: application.fullNameAr || application.fullNameEn || 'الأستاذ(ة) الفاضل(ة)',
+            email: application.email,
+            reason: body.adminNotes || application.supervisorRejectionReason || undefined,
+          })
+          .catch(err => console.warn('[VolunteerController] Rejection email err:', err.message));
+      } catch (_) {}
+
       return { success: true, message: 'تم تسجيل الرفض النهائي للطلب', application: updated };
     }
 
@@ -1194,6 +1219,26 @@ export class VolunteerController {
           internalNotes: body.adminNotes || application.internalNotes,
         },
       });
+
+      // Send approval email asynchronously
+      try {
+        let assignedSubName: string | undefined;
+        if (subjectIdToAssign) {
+          const sub = await this.prisma.subject.findUnique({
+            where: { id: subjectIdToAssign },
+            select: { nameAr: true },
+          });
+          assignedSubName = sub?.nameAr;
+        }
+
+        this.emailService
+          .sendVolunteerApprovedEmail({
+            fullName: application.fullNameAr || application.fullNameEn || `${existingUser.firstName} ${existingUser.lastName}`.trim(),
+            email: application.email,
+            assignedSubject: assignedSubName,
+          })
+          .catch(err => console.warn('[VolunteerController] Approval email err:', err.message));
+      } catch (_) {}
 
       return {
         success: true,
@@ -1287,6 +1332,27 @@ export class VolunteerController {
         });
       } catch (_) {}
     }
+
+    // Send official approval email with credentials and terms reminder
+    try {
+      let assignedSubName: string | undefined;
+      if (subjectIdToAssign) {
+        const sub = await this.prisma.subject.findUnique({
+          where: { id: subjectIdToAssign },
+          select: { nameAr: true },
+        });
+        assignedSubName = sub?.nameAr;
+      }
+
+      this.emailService
+        .sendVolunteerApprovedEmail({
+          fullName: application.fullNameAr || application.fullNameEn || `${firstNameAr} ${lastNameAr}`.trim(),
+          email: application.email,
+          assignedSubject: assignedSubName,
+          initialPassword,
+        })
+        .catch(err => console.warn('[VolunteerController] New user approval email err:', err.message));
+    } catch (_) {}
 
     const { passwordHash: _, ...safeUser } = newUser;
 

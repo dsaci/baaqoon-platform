@@ -12,6 +12,7 @@ import { AssessmentsModule } from "./modules/assessments/assessments.module";
 import { ChatModule } from "./modules/chat/chat.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { EmailModule } from "./modules/email/email.module";
 
 import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 import { GroupsModule } from "./modules/groups/groups.module";
@@ -33,6 +34,7 @@ import { GroupsModule } from "./modules/groups/groups.module";
     // 3. Core Modules (Database, Logger, AuthZ)
     DatabaseModule,
     StorageModule,
+    EmailModule,
 
     // 4. Feature Modules (Modular Monolith Boundaries)
     AuthModule,
