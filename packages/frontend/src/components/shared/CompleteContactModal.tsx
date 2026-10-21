@@ -116,28 +116,28 @@ export default function CompleteContactModal({
         {/* Header */}
         <div className={`p-6 ${
           isMissingSubject 
-            ? 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-700' 
-            : 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700'
+            ? 'bg-gradient-to-r from-purple-800 via-indigo-900 to-slate-950 border-b border-purple-500/30' 
+            : 'bg-gradient-to-r from-[#1F2A18] via-[#394C2A] to-[#24331b] border-b border-[#c9b48a]/30'
         } text-white flex justify-between items-center relative`}>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
-              <ShieldAlert className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner text-[#c9b48a]">
+              {isMissingSubject ? <BookOpen className="w-6 h-6 text-purple-200" /> : <ShieldAlert className="w-6 h-6 text-[#c9b48a]" />}
             </div>
             <div>
               <h3 className="text-lg font-black text-white">
-                {isMissingSubject ? 'تحديد مادة التدريس إجباري لمتابعة استخدام المنصة' : 'استكمال بيانات الحساب الإلزامية'}
+                {isMissingSubject ? 'تحديد مادة التدريس إجباري لمتابعة استخدام المنصة' : 'استكمال بيانات الحساب وتأمين التواصل'}
               </h3>
-              <p className="text-xs text-amber-100 font-medium mt-0.5">
+              <p className="text-xs text-[#c9b48a] font-medium mt-0.5">
                 {isMissingSubject 
                   ? 'لا يمكن استخدام الحساب حتى يتم تحديد مادة التدريس'
-                  : 'تأمين الحساب واستكمال معلومات التواصل'}
+                  : 'تأمين الحساب واستكمال معلومات التواصل الرسمية'}
               </p>
             </div>
           </div>
           {!isMissingSubject && (
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -339,7 +339,7 @@ export default function CompleteContactModal({
             <button
               type="submit"
               disabled={loading || (isMissingSubject && !supervisedSubjectId)}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#1F2A18] via-[#394C2A] to-[#24331b] hover:from-[#141b10] hover:to-[#1c2715] text-[#fbf8f2] border border-[#c9b48a]/40 text-xs font-black shadow-lg shadow-black/10 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <>
