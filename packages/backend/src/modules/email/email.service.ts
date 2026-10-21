@@ -31,7 +31,7 @@ export class EmailService {
 
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
-      'https://baaqoon.org';
+      'https://baaqoon-platform.vercel.app';
 
     if (host && user && pass) {
       try {
