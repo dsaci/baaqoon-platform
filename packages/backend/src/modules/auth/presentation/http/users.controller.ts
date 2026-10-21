@@ -159,7 +159,9 @@ export class UsersController {
           role: targetUser.primaryRole,
           customMessage: noteBody,
           lastLoginAt: targetUser.lastLoginAt,
-          loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
+          loginUrl: (process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' && process.env.FRONTEND_URL.startsWith('http'))
+            ? `${process.env.FRONTEND_URL.replace(/\/$/, '')}/login`
+            : 'https://baaqoon-platform.vercel.app/login'
         });
         emailSent = Boolean(emailRes?.success);
       } catch (err: any) {
@@ -272,7 +274,9 @@ export class UsersController {
               role: u.primaryRole,
               customMessage: noteBody,
               lastLoginAt: u.lastLoginAt,
-              loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
+              loginUrl: (process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*' && process.env.FRONTEND_URL.startsWith('http'))
+            ? `${process.env.FRONTEND_URL.replace(/\/$/, '')}/login`
+            : 'https://baaqoon-platform.vercel.app/login'
             });
           })
         );

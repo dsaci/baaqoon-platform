@@ -3,6 +3,51 @@
  * Fully responsive, RTL-oriented, inlined CSS for maximum client compatibility (Gmail, Outlook, Apple Mail).
  */
 
+/**
+ * Safely convert multi-byte Unicode emojis (4-byte surrogate pairs) to standard HTML entities (&#xXXXX;).
+ * This permanently prevents question mark corruption () in Google Apps Script, SMTP gateways, or older mail user agents.
+ */
+export function emojiToHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]/gu, (match) => {
+    return Array.from(match).map((c) => `&#x${c.codePointAt(0)!.toString(16)};`).join('');
+  });
+}
+
+/**
+ * Remove or convert emojis from subject line into clean textual tags so they never render as  in inbox previews.
+ */
+export function cleanSubjectLine(subject: string): string {
+  if (!subject) return '';
+  return subject
+    .replace(/🚨/g, '[عاجل] ')
+    .replace(/📢/g, '[تعميم] ')
+    .replace(/📌/g, '')
+    .replace(/🎉/g, '')
+    .replace(/🇵🇸/g, '')
+    .replace(/🌿/g, '')
+    .replace(/🕊️?/g, '')
+    .replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Resolves a bulletproof absolute frontend URL, strictly guarding against wildcard '*' or malformed paths.
+ */
+export function getSafeFrontendUrl(rawUrl?: string): string {
+  const envUrl = process.env.FRONTEND_URL?.trim();
+  const base = (envUrl && envUrl !== '*' && envUrl.startsWith('http'))
+    ? envUrl.replace(/\/$/, '')
+    : 'https://baaqoon-platform.vercel.app';
+  if (!rawUrl || rawUrl === '*' || !rawUrl.trim()) {
+    return `${base}/login`;
+  }
+  const clean = rawUrl.trim();
+  if (clean.startsWith('http')) return clean;
+  return `${base}${clean.startsWith('/') ? clean : '/' + clean}`;
+}
+
 export interface VolunteerApprovedEmailData {
   fullName: string;
   email: string;
@@ -59,6 +104,8 @@ export interface ImportantNotificationEmailData {
  * Base wrapper for all Baaqoon emails with unified branding, header, and footer.
  */
 function getEmailWrapper(content: string, previewText: string = ''): string {
+  const safeContent = emojiToHtmlEntities(content);
+  const safePreview = emojiToHtmlEntities(previewText);
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -166,13 +213,13 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
 <body>
   <!-- Preheader text for inbox preview -->
   <span style="display:none;font-size:0px;line-height:0px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
-    ${previewText}
+    ${safePreview}
   </span>
 
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <div style="font-size: 28px; margin-bottom: 6px;">🇵🇸</div>
+      <div style="font-size: 28px; margin-bottom: 6px;">&#x1f1f5;&#x1f1f8;</div>
       <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">منصة باقون التعليمية</h1>
       <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9; font-weight: 500;">
         مبادرة تطوعية لدعم وإسناد طلبة فلسطين وقطاع غزة
@@ -181,13 +228,13 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
 
     <!-- Content -->
     <div class="content">
-      ${content}
+      ${safeContent}
     </div>
 
     <!-- Footer -->
     <div class="footer">
       <p style="margin: 0 0 8px; font-weight: bold; color: #334155;">
-        «غزة باقية.. والعلم سلاحنا الذي لا يُهزم» 🕊️
+        «غزة باقية.. والعلم سلاحنا الذي لا يُهزم» &#x1f54a;&#xfe0f;
       </p>
       <p style="margin: 0 0 8px;">
         هذه الرسالة آلية من نظام منصة باقون، يُرجى عدم الرد عليها مباشرة.
@@ -575,10 +622,10 @@ export function getImportantNotificationEmailTemplate(data: ImportantNotificatio
     ? 'المشرف الأكاديمي الفاضل'
     : 'الأخ/الأخت الفاضل(ة)';
 
-  const urgencyPrefix = data.isUrgent ? '🚨 إشعار رسمي عاجل: ' : '📢 إشعار وتعميم هام: ';
-  const subject = `${urgencyPrefix}${data.title} | منصة باقون التعليمية`;
+  const urgencyPrefix = data.isUrgent ? 'إشعار رسمي عاجل: ' : 'إشعار وتعميم هام: ';
+  const subject = cleanSubjectLine(`[${data.isUrgent ? 'عاجل' : 'تعميم'}] ${urgencyPrefix}${data.title} | منصة باقون التعليمية`);
 
-  const loginUrl = data.actionUrl || `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`;
+  const loginUrl = getSafeFrontendUrl(data.actionUrl);
 
   const senderDisplay = data.senderName
     ? `من: <strong>${data.senderName}</strong>`

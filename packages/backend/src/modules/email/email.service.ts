@@ -14,6 +14,9 @@ import {
   InactiveUserNudgeEmailData,
   SupervisorClarificationEmailData,
   ImportantNotificationEmailData,
+  emojiToHtmlEntities,
+  cleanSubjectLine,
+  getSafeFrontendUrl,
 } from './email.templates';
 
 @Injectable()
@@ -43,9 +46,7 @@ export class EmailService {
       this.configService.get<string>('SMTP_FROM') ||
       '"منصة باقون التعليمية" <baaqoon@gmail.com>';
 
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
-      'https://baaqoon-platform.vercel.app';
+    this.frontendUrl = getSafeFrontendUrl(this.configService.get<string>('FRONTEND_URL'));
 
     if (this.gmailWebhookUrl) {
       this.logger.log(`✅ EmailService: HTTPS Webhook Gateway configured (Port 443)`);
@@ -89,18 +90,21 @@ export class EmailService {
       return { success: false };
     }
 
+    const safeHtml = emojiToHtmlEntities(options.html);
+    const safeSubject = cleanSubjectLine(options.subject);
+
     // 1. Try sending via Google Apps Script HTTPS Gateway (Port 443 - Bypasses Render Port Blocks)
     if (this.gmailWebhookUrl) {
       try {
         const resp = await fetch(this.gmailWebhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
           redirect: 'follow',
           body: JSON.stringify({
             token: this.webhookToken,
             to: options.to,
-            subject: options.subject,
-            html: options.html,
+            subject: safeSubject,
+            html: safeHtml,
             text: options.text || '',
             fromName: 'منصة باقون التعليمية',
           }),

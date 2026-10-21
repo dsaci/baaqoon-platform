@@ -122,9 +122,12 @@ export class NotificationsController {
     }
 
     const senderFullName = `${req.user?.firstName || "إدارة"} ${req.user?.lastName || "المنصة"}`.trim();
-    const frontendBase = process.env.FRONTEND_URL || "https://baaqoon-platform.vercel.app";
+    const rawFrontend = process.env.FRONTEND_URL?.trim();
+    const frontendBase = (rawFrontend && rawFrontend !== '*' && rawFrontend.startsWith('http'))
+      ? rawFrontend.replace(/\/$/, '')
+      : "https://baaqoon-platform.vercel.app";
     const fullActionUrl = actionUrl
-      ? (actionUrl.startsWith("http") ? actionUrl : `${frontendBase}${actionUrl}`)
+      ? (actionUrl.startsWith("http") ? actionUrl : `${frontendBase}${actionUrl.startsWith('/') ? actionUrl : '/' + actionUrl}`)
       : `${frontendBase}/login`;
 
     let notifiedCount = 0;
