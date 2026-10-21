@@ -23,8 +23,15 @@ export class EmailService {
   private isConfigured = false;
   private readonly fromAddress: string;
   private readonly frontendUrl: string;
+  private readonly gmailWebhookUrl: string;
+  private readonly webhookToken: string;
 
   constructor(private readonly configService: ConfigService) {
+    this.gmailWebhookUrl =
+      this.configService.get<string>('GMAIL_WEBHOOK_URL') || '';
+    this.webhookToken =
+      this.configService.get<string>('GMAIL_WEBHOOK_TOKEN') || 'BaaqoonSecureGateway_2026';
+
     const host = this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com';
     const port = Number(this.configService.get<string>('SMTP_PORT')) || 465;
     const user = this.configService.get<string>('SMTP_USER') || 'baaqoon@gmail.com';
@@ -38,6 +45,10 @@ export class EmailService {
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
       'https://baaqoon-platform.vercel.app';
+
+    if (this.gmailWebhookUrl) {
+      this.logger.log(`✅ EmailService: HTTPS Webhook Gateway configured (Port 443)`);
+    }
 
     if (host && user && pass) {
       try {
@@ -64,7 +75,7 @@ export class EmailService {
   }
 
   /**
-   * Generic low-level email sender with fallback simulation
+   * Generic low-level email sender with HTTPS Gateway (Port 443) and SMTP fallback
    */
   async sendMail(options: {
     to: string;
@@ -77,6 +88,39 @@ export class EmailService {
       return { success: false };
     }
 
+    // 1. Try sending via Google Apps Script HTTPS Gateway (Port 443 - Bypasses Render Port Blocks)
+    if (this.gmailWebhookUrl) {
+      try {
+        const resp = await fetch(this.gmailWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: this.webhookToken,
+            to: options.to,
+            subject: options.subject,
+            html: options.html,
+            text: options.text || '',
+            fromName: 'منصة باقون التعليمية',
+          }),
+        });
+
+        if (resp.ok) {
+          const resJson: any = await resp.json().catch(() => ({ success: true }));
+          if (resJson?.success) {
+            this.logger.log(`📧 [HTTPS Gateway] Email sent successfully to ${options.to}`);
+            return { success: true, messageId: `https-gw-${Date.now()}` };
+          } else {
+            this.logger.warn(`⚠️ [HTTPS Gateway] Returned failure: ${resJson?.error}. Falling back to SMTP...`);
+          }
+        } else {
+          this.logger.warn(`⚠️ [HTTPS Gateway] HTTP ${resp.status}. Falling back to SMTP...`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`⚠️ [HTTPS Gateway] Failed to dispatch: ${err.message}. Falling back to SMTP...`);
+      }
+    }
+
+    // 2. Fallback to direct SMTP transporter
     if (!this.isConfigured || !this.transporter) {
       this.logger.warn(
         `📨 [Email Simulated - Not Configured] To: ${options.to} | Subject: "${options.subject}"`,
