@@ -23,6 +23,16 @@ export default function SupervisorDashboard() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
   const navigate = useNavigate();
+
+  const { data: pendingVolunteersData } = useQuery({
+    queryKey: ['pending_volunteers_count_supervisor', user?.id],
+    queryFn: async () => {
+      const res = await api.get('/volunteer/pending-count');
+      return res.data;
+    },
+    refetchInterval: 30000,
+  });
+  const pendingVolunteersCount = Number(pendingVolunteersData?.count || 0);
   const [nudgeStatus, setNudgeStatus] = useState<Record<string, string>>({});
   const [remindersSent, setRemindersSent] = useState(false);
   const [searchParams] = useSearchParams();
@@ -199,6 +209,36 @@ export default function SupervisorDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Alert: Volunteer Applications Pending Study & Review */}
+      {pendingVolunteersCount > 0 && (
+        <div 
+          onClick={() => navigate('/supervisor/volunteers')}
+          className="mb-6 bg-gradient-to-r from-red-100 via-rose-50 to-red-100 dark:from-red-950/80 dark:via-rose-950/60 dark:to-red-950/80 border-2 border-red-500 dark:border-red-600 text-red-900 dark:text-red-100 px-4 py-3.5 rounded-2xl relative flex items-center justify-between gap-3 shadow-md hover:shadow-lg transition-all cursor-pointer animate-pulse group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-md relative">
+              <Bell className="w-5 h-5 animate-bounce fill-white" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm sm:text-base">دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-red-600 text-white text-xs font-black shadow-xs">
+                  {pendingVolunteersCount} ملف بانتظار دراستك
+                </span>
+              </div>
+              <p className="text-xs text-red-700 dark:text-red-300 font-bold mt-0.5">
+                توجد استمارات جديدة لأساتذة متطوعين في مادتك تحتاج إلى المقابلة والتقييم الأكاديمي.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-black text-red-700 dark:text-red-300 group-hover:translate-x-[-4px] transition-transform flex items-center gap-1 shrink-0">
+            الانتقال لدراسة الملفات &larr;
+          </span>
+        </div>
+      )}
+
 
       {/* Multi-Subject Coordination Switcher (e.g. for Marah Abdelkarim managing both History and Geography) */}
       {statsData?.allSubjects && statsData.allSubjects.length > 1 && (

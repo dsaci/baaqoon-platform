@@ -23,7 +23,10 @@ import {
   Video,
   KeyRound,
   UserCheck,
+  Bell,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
 import WelcomeModal from "../shared/WelcomeModal";
 import ThemeToggle from "../shared/ThemeToggle";
@@ -137,7 +140,7 @@ export default function DashboardLayout() {
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
         { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
-        { name: t("nav.volunteers_admin", "دراسة ملفات الأساتذة الجدد"), path: "/admin/volunteers", icon: UserCheck },
+        { name: t("nav.volunteers_admin", "دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة"), path: "/admin/volunteers", icon: UserCheck, isVolunteers: true },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
         {
           name: t("nav.supervisor_panel", "لوحة الإشراف التربوي"),
@@ -157,7 +160,7 @@ export default function DashboardLayout() {
         { name: t("nav.reports", "الإحصائيات والتقارير"), path: "/admin/reports", icon: BarChart3 },
         { name: t("nav.academic_distribution", "الإسناد الأكاديمي"), path: "/admin/distribution", icon: Calendar },
         { name: t("nav.recorded_lessons", "الدروس المسجلة 🎥"), path: "/admin/recorded-lessons", icon: Video },
-        { name: t("nav.volunteers_admin", "دراسة ملفات الأساتذة الجدد"), path: "/admin/volunteers", icon: UserCheck },
+        { name: t("nav.volunteers_admin", "دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة"), path: "/admin/volunteers", icon: UserCheck, isVolunteers: true },
         { name: t("nav.database", "قاعدة البيانات"), path: "/admin/database", icon: Users },
       ];
     }
@@ -225,7 +228,7 @@ export default function DashboardLayout() {
         icon: Video,
       },
       { name: t("nav.distribution", "التوزيع السنوي والشهري"), path: "/supervisor/distribution", icon: Calendar },
-      { name: t("nav.volunteers_supervisor", "دراسة ملفات أساتذة المادة"), path: "/supervisor/volunteers", icon: UserCheck },
+      { name: t("nav.volunteers_supervisor", "دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة"), path: "/supervisor/volunteers", icon: UserCheck, isVolunteers: true },
       {
         name: t("nav.schedule_weekly", "الجدول الأسبوعي"),
         path: "/supervisor/schedule",
@@ -293,6 +296,24 @@ export default function DashboardLayout() {
       },
     ];
   };
+
+  
+  const isAdmin = Boolean(['super_admin', 'admin'].includes(user?.primaryRole || ''));
+  const isSupervisorUser = Boolean(['subject_supervisor', 'supervisor'].includes(user?.primaryRole || '') || user?.isDualRole);
+  const shouldFetchVolunteers = isAdmin || (isSupervisorUser && (isSupervisorWorkspace || !user?.isDualRole));
+
+  const { data: pendingVolunteersData } = useQuery({
+    queryKey: ['pending_volunteers_count', user?.id, isSupervisorWorkspace],
+    queryFn: async () => {
+      const res = await api.get('/volunteer/pending-count');
+      return res.data;
+    },
+    enabled: Boolean(shouldFetchVolunteers),
+    refetchInterval: 30000,
+    staleTime: 15000,
+  });
+
+  const pendingVolunteersCount = Number(pendingVolunteersData?.count || 0);
 
   const navLinks = getNavLinks();
 
@@ -387,31 +408,51 @@ export default function DashboardLayout() {
             </div>
           )}
 
-          {navLinks.map((link) => {
+          {navLinks.map((link: any) => {
             const isActive = location.pathname.startsWith(link.path);
             const Icon = link.icon;
+            const isVolunteersLink = Boolean(link.isVolunteers);
+            const hasPendingFiles = isVolunteersLink && pendingVolunteersCount > 0;
+
             return (
-              <Link
-                key={link.name}
-                to={isLocked ? "#" : link.path}
-                onClick={(e) => {
-                  if (isLocked) {
-                    e.preventDefault();
-                  }
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                  isLocked ? "opacity-35 pointer-events-none cursor-not-allowed" : ""
-                } ${
-                  isActive
-                    ? `${
-                        isRtl ? "bg-gradient-to-l" : "bg-gradient-to-r"
-                      } from-[#EDF2EB] to-[#F5F2EA] dark:from-[#2A3722]/50 dark:to-[#1F2A18]/50 text-[#394C2A] dark:text-[#A8C794] font-bold border border-[#D5CEBC]/60 dark:border-[#394C2A]/40 shadow-xs`
-                    : "text-slate-600 dark:text-slate-400 hover:bg-[#F5F2EA] dark:hover:bg-slate-800/50 hover:text-[#19232D] dark:hover:text-white"
-                }`}
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                <span>{link.name}</span>
-              </Link>
+              <div key={link.name} className="relative group/nav">
+                {/* إذا وُجدت استمارات تحتاج للدراسة: يعلو الزر جرس صغير وعدد الملفات */}
+                {hasPendingFiles && (
+                  <span className={`absolute -top-2.5 ${isRtl ? 'left-3' : 'right-3'} z-20 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-600 text-white text-[10px] font-black shadow-lg shadow-rose-600/40 animate-bounce border-2 border-white dark:border-baaqoon-900 pointer-events-none`}>
+                    <Bell className="w-2.5 h-2.5 fill-white" />
+                    <span>{pendingVolunteersCount}</span>
+                  </span>
+                )}
+
+                <Link
+                  to={isLocked ? "#" : link.path}
+                  onClick={(e) => {
+                    if (isLocked) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
+                    isLocked ? "opacity-35 pointer-events-none cursor-not-allowed" : ""
+                  } ${
+                    hasPendingFiles
+                      ? "bg-gradient-to-r from-rose-50 via-red-50 to-rose-50 dark:from-rose-950/70 dark:via-red-950/50 dark:to-rose-950/70 text-red-700 dark:text-red-200 font-black border-2 border-red-500 dark:border-red-500 shadow-md shadow-red-500/20 hover:bg-red-100 dark:hover:bg-red-900/40 animate-pulse"
+                      : isActive
+                        ? `${
+                            isRtl ? "bg-gradient-to-l" : "bg-gradient-to-r"
+                          } from-[#EDF2EB] to-[#F5F2EA] dark:from-[#2A3722]/50 dark:to-[#1F2A18]/50 text-[#394C2A] dark:text-[#A8C794] font-bold border border-[#D5CEBC]/60 dark:border-[#394C2A]/40 shadow-xs`
+                        : "text-slate-600 dark:text-slate-400 hover:bg-[#F5F2EA] dark:hover:bg-slate-800/50 hover:text-[#19232D] dark:hover:text-white"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 shrink-0 ${hasPendingFiles ? 'text-red-600 dark:text-red-400' : ''}`} />
+                  <span className="flex-1 truncate">{link.name}</span>
+                  {hasPendingFiles && (
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+                    </span>
+                  )}
+                </Link>
+              </div>
             );
           })}
 
@@ -548,6 +589,25 @@ export default function DashboardLayout() {
               <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span className="hidden sm:inline">{t("guide.button", "دليل الاستخدام والأزرار")}</span>
             </button>
+
+            
+            {/* Topbar Quick Alert Pill for Pending Volunteer Files */}
+            {pendingVolunteersCount > 0 && (isAdmin || isSupervisorUser) && (
+              <Link
+                to={isAdmin ? "/admin/volunteers" : "/supervisor/volunteers"}
+                className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs shadow-md shadow-red-600/30 transition-all animate-pulse group cursor-pointer"
+                title="دراسة وفرز ملفات الأساتذة المتطوعين لطلبة غزة"
+              >
+                <div className="relative">
+                  <Bell className="w-3.5 h-3.5 fill-white animate-bounce" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-300 rounded-full animate-ping"></span>
+                </div>
+                <span className="hidden sm:inline">فرز ملفات المتطوعين</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-white text-red-700 text-[10px] font-black">
+                  {pendingVolunteersCount}
+                </span>
+              </Link>
+            )}
 
             <NotificationBell />
             <LangToggle />

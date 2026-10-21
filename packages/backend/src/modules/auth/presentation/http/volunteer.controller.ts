@@ -662,6 +662,74 @@ export class VolunteerController {
   }
 
   /**
+   * 3.5 Protected: Fast pending volunteer applications count for Admin & Supervisor
+   */
+  @Get('pending-count')
+  @UseGuards(JwtAuthGuard)
+  async getPendingCount(@Req() req: any) {
+    const user = req.user;
+    const role = user.primaryRole;
+    const isSuperOrAdmin = ['super_admin', 'admin'].includes(role);
+    const isSupervisor = ['subject_supervisor', 'supervisor'].includes(role);
+
+    if (!isSuperOrAdmin && !isSupervisor) {
+      return { count: 0, pendingSupervisorReview: 0, supervisorApproved: 0 };
+    }
+
+    if (isSupervisor && !isSuperOrAdmin) {
+      const supervisorUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { supervisedSubjectId: true, supervisedSubjectIds: true },
+      });
+      const subjectIdSet = new Set<string>();
+      if (supervisorUser?.supervisedSubjectId) subjectIdSet.add(supervisorUser.supervisedSubjectId);
+      if (Array.isArray(supervisorUser?.supervisedSubjectIds)) {
+        supervisorUser.supervisedSubjectIds.forEach((id: string) => id && subjectIdSet.add(id));
+      }
+
+      if (subjectIdSet.size === 0) {
+        return { count: 0, pendingSupervisorReview: 0, supervisorApproved: 0 };
+      }
+
+      const subjects = await this.prisma.subject.findMany({
+        where: { id: { in: Array.from(subjectIdSet) } },
+        select: { nameAr: true },
+      });
+      const subjectNames = subjects.map(s => s.nameAr);
+
+      const count = await this.prisma.volunteerApplication.count({
+        where: {
+          status: 'pending',
+          OR: [
+            { assignedSubjectId: { in: Array.from(subjectIdSet) } },
+            { subjects: { hasSome: subjectNames } },
+          ],
+        },
+      });
+
+      return {
+        count,
+        pendingSupervisorReview: count,
+        supervisorApproved: 0,
+      };
+    }
+
+    // For Admin:
+    const pendingSupervisorReview = await this.prisma.volunteerApplication.count({
+      where: { status: 'pending' },
+    });
+    const supervisorApproved = await this.prisma.volunteerApplication.count({
+      where: { status: 'supervisor_approved' },
+    });
+
+    return {
+      count: pendingSupervisorReview + supervisorApproved,
+      pendingSupervisorReview,
+      supervisorApproved,
+    };
+  }
+
+  /**
    * 4. Protected: List applications (Admin sees ALL, Supervisor sees ONLY their subject)
    */
   @Get('applications')
