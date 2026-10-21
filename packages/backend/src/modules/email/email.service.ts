@@ -14,8 +14,7 @@ import {
   InactiveUserNudgeEmailData,
   SupervisorClarificationEmailData,
   ImportantNotificationEmailData,
-  emojiToHtmlEntities,
-  cleanSubjectLine,
+  stripEmojis,
   getSafeFrontendUrl,
 } from './email.templates';
 
@@ -90,8 +89,9 @@ export class EmailService {
       return { success: false };
     }
 
-    const safeHtml = emojiToHtmlEntities(options.html);
-    const safeSubject = cleanSubjectLine(options.subject);
+    const safeHtml = stripEmojis(options.html);
+    const safeSubject = stripEmojis(options.subject);
+    const safeText = stripEmojis(options.text || '');
 
     // 1. Try sending via Google Apps Script HTTPS Gateway (Port 443 - Bypasses Render Port Blocks)
     if (this.gmailWebhookUrl) {
@@ -105,7 +105,7 @@ export class EmailService {
             to: options.to,
             subject: safeSubject,
             html: safeHtml,
-            text: options.text || '',
+            text: safeText,
             fromName: 'منصة باقون التعليمية',
           }),
         });

@@ -1,34 +1,20 @@
 /**
  * Baaqoon Educational Platform - Email HTML Templates
  * Fully responsive, RTL-oriented, inlined CSS for maximum client compatibility (Gmail, Outlook, Apple Mail).
+ * Strictly emoji-free to prevent any character encoding or question mark corruption (?) on email gateways.
  */
 
 /**
- * Safely convert multi-byte Unicode emojis (4-byte surrogate pairs) to standard HTML entities (&#xXXXX;).
- * This permanently prevents question mark corruption () in Google Apps Script, SMTP gateways, or older mail user agents.
+ * Strips all Unicode emojis, surrogate pairs, and replacement characters from any text string.
+ * Guarantees 100% clean, pristine Arabic typography across all mail clients.
  */
-export function emojiToHtmlEntities(str: string): string {
+export function stripEmojis(str: string): string {
   if (!str) return '';
-  return str.replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]/gu, (match) => {
-    return Array.from(match).map((c) => `&#x${c.codePointAt(0)!.toString(16)};`).join('');
-  });
-}
-
-/**
- * Remove or convert emojis from subject line into clean textual tags so they never render as  in inbox previews.
- */
-export function cleanSubjectLine(subject: string): string {
-  if (!subject) return '';
-  return subject
-    .replace(/🚨/g, '[عاجل] ')
-    .replace(/📢/g, '[تعميم] ')
-    .replace(/📌/g, '')
-    .replace(/🎉/g, '')
-    .replace(/🇵🇸/g, '')
-    .replace(/🌿/g, '')
-    .replace(/🕊️?/g, '')
-    .replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]/gu, '')
-    .replace(/\s+/g, ' ')
+  return str
+    .replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+    .replace(/\uFFFD/g, '')
+    .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
@@ -104,8 +90,9 @@ export interface ImportantNotificationEmailData {
  * Base wrapper for all Baaqoon emails with unified branding, header, and footer.
  */
 function getEmailWrapper(content: string, previewText: string = ''): string {
-  const safeContent = emojiToHtmlEntities(content);
-  const safePreview = emojiToHtmlEntities(previewText);
+  const safeContent = stripEmojis(content);
+  const safePreview = stripEmojis(previewText);
+
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -145,7 +132,7 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
       border: 1px solid #e2e8f0;
     }
     .header {
-      background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #0284c7 100%);
+      background: linear-gradient(135deg, #1F2A18 0%, #394C2A 60%, #4a6337 100%);
       padding: 36px 30px;
       text-align: center;
       color: #ffffff;
@@ -158,21 +145,16 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
     }
     .badge {
       display: inline-block;
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 9999px;
       font-size: 12px;
       font-weight: bold;
       margin-bottom: 12px;
     }
-    .badge-success {
-      background-color: rgba(255, 255, 255, 0.25);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-    }
     .credentials-box {
       background-color: #f8fafc;
       border: 1px solid #cbd5e1;
-      border-right: 4px solid #059669;
+      border-right: 4px solid #394C2A;
       border-radius: 12px;
       padding: 20px;
       margin: 24px 0;
@@ -180,7 +162,7 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
     .terms-box {
       background-color: #fffbeb;
       border: 1px solid #fef3c7;
-      border-right: 4px solid #f59e0b;
+      border-right: 4px solid #c9b48a;
       border-radius: 12px;
       padding: 18px 20px;
       margin: 20px 0;
@@ -189,15 +171,16 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
     }
     .btn {
       display: inline-block;
-      background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+      background: linear-gradient(135deg, #1F2A18 0%, #394C2A 100%);
       color: #ffffff !important;
       font-weight: bold;
       font-size: 15px;
-      padding: 14px 32px;
+      padding: 14px 34px;
       border-radius: 12px;
       text-align: center;
-      box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+      box-shadow: 0 4px 14px rgba(31, 42, 24, 0.25);
       margin: 16px 0;
+      border: 1px solid #c9b48a;
     }
     .footer {
       background-color: #f8fafc;
@@ -219,9 +202,11 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <div style="font-size: 28px; margin-bottom: 6px;">&#x1f1f5;&#x1f1f8;</div>
-      <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">منصة باقون التعليمية</h1>
-      <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9; font-weight: 500;">
+      <div style="display: inline-block; padding: 4px 16px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 9999px; font-size: 12px; font-weight: bold; margin-bottom: 12px; color: #c9b48a; letter-spacing: 0.5px;">
+        دولة فلسطين • قطاع غزة
+      </div>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff;">منصة باقون التعليمية</h1>
+      <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.95; font-weight: 500; color: #f1f5f9;">
         مبادرة تطوعية لدعم وإسناد طلبة فلسطين وقطاع غزة
       </p>
     </div>
@@ -233,8 +218,8 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
 
     <!-- Footer -->
     <div class="footer">
-      <p style="margin: 0 0 8px; font-weight: bold; color: #334155;">
-        «غزة باقية.. والعلم سلاحنا الذي لا يُهزم» &#x1f54a;&#xfe0f;
+      <p style="margin: 0 0 8px; font-weight: bold; color: #1F2A18; font-size: 13px;">
+        «غزة باقية.. والعلم سلاحنا الذي لا يُهزم»
       </p>
       <p style="margin: 0 0 8px;">
         هذه الرسالة آلية من نظام منصة باقون، يُرجى عدم الرد عليها مباشرة.
@@ -252,18 +237,20 @@ function getEmailWrapper(content: string, previewText: string = ''): string {
  * 1. Volunteer Approved Email Template
  */
 export function getVolunteerApprovedEmailTemplate(data: VolunteerApprovedEmailData): { subject: string; html: string } {
-  const subject = `🎉 مبارك قبولكم واعتمادكم رسمياً في منصة باقون التعليمية | أ. ${data.fullName}`;
-  
+  const cleanName = stripEmojis(data.fullName);
+  const subject = `[اعتماد ملف] مبارك قبولكم واعتمادكم رسمياً في منصة باقون التعليمية | أ. ${cleanName}`;
+  const loginUrl = getSafeFrontendUrl(data.loginUrl);
+
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac; font-size: 13px;">
-        ✅ تم اعتماد ملفكم الأكاديمي بنجاح
+        تم اعتماد ملفكم الأكاديمي بنجاح
       </span>
       <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        أهلاً وسهلاً بكم أستاذنا الفاضل: ${data.fullName}
+        الأستاذ الفاضل: ${cleanName}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 14px;">
-        يسعدنا انضمامكم إلى كوكبة الأساتذة المتطوعين لخدمة وتعليم طلبة غزة الأبرار
+        أهلاً ومرحباً بكم ضمن الهيئة التدريسية المعتمدة لمنصة باقون
       </p>
     </div>
 
@@ -276,14 +263,14 @@ export function getVolunteerApprovedEmailTemplate(data: VolunteerApprovedEmailDa
 
     ${data.assignedSubject ? `
     <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 18px; margin: 18px 0;">
-      <strong style="color: #065f46; font-size: 14px;">📚 المادة المقررة لتدريسها:</strong>
-      <span style="font-weight: 900; color: #047857; margin-right: 6px; font-size: 15px;">${data.assignedSubject}</span>
+      <strong style="color: #065f46; font-size: 14px;">المادة المقررة لتدريسها:</strong>
+      <span style="font-weight: 900; color: #047857; margin-right: 6px; font-size: 15px;">${stripEmojis(data.assignedSubject)}</span>
     </div>
     ` : ''}
 
     <div class="credentials-box">
       <h3 style="margin: 0 0 12px; font-size: 15px; color: #065f46; font-weight: 800;">
-        🔐 بيانات الدخول المبدئية إلى حسابكم الأكاديمي:
+        بيانات الدخول المبدئية إلى حسابكم الأكاديمي:
       </h3>
       <table style="width: 100%; font-size: 14px;">
         <tr>
@@ -310,7 +297,7 @@ export function getVolunteerApprovedEmailTemplate(data: VolunteerApprovedEmailDa
     <!-- Terms and Pledges Reminder -->
     <div class="terms-box">
       <h4 style="margin: 0 0 8px; font-size: 14px; color: #b45309; font-weight: 800;">
-        🛡️ تذكير بالشروط والتعهد الأكاديمي التطوعي:
+        تذكير بالشروط والتعهد الأكاديمي التطوعي:
       </h4>
       <ul style="margin: 0; padding-right: 20px; line-height: 1.7;">
         <li><strong>التطوع خالص لوجه الله:</strong> التدريس تطوعي بالكامل في سبيل الله وإسناداً لأهلنا، ولا يترتب عليه أي مقابل مالي، مع إتاحة الدعم في إطار الدورات والتكوين الأكاديمي المستمر.</li>
@@ -321,11 +308,11 @@ export function getVolunteerApprovedEmailTemplate(data: VolunteerApprovedEmailDa
     </div>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${data.loginUrl}" class="btn" target="_blank">
-        🚀 الدخول إلى حسابك في المنصة والبدء
+      <a href="${loginUrl}" class="btn" target="_blank">
+        الدخول إلى حسابك في المنصة والبدء &larr;
       </a>
       <div style="font-size: 12px; color: #94a3b8; margin-top: 6px;">
-        أو انسخ الرابط المباشر: <span style="direction: ltr; display: inline-block;">${data.loginUrl}</span>
+        أو انسخ الرابط المباشر: <span style="direction: ltr; display: inline-block;">${loginUrl}</span>
       </div>
     </div>
 
@@ -344,15 +331,16 @@ export function getVolunteerApprovedEmailTemplate(data: VolunteerApprovedEmailDa
  * 2. Volunteer Rejected Email Template
  */
 export function getVolunteerRejectedEmailTemplate(data: VolunteerRejectedEmailData): { subject: string; html: string } {
-  const subject = `بشأن طلب التطوع في منصة باقون التعليمية | أ. ${data.fullName}`;
+  const cleanName = stripEmojis(data.fullName);
+  const subject = `[إفادة ملف التطوع] بشأن طلب التطوع في منصة باقون التعليمية | أ. ${cleanName}`;
 
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-size: 13px;">
-        📋 إشعار مآل دراسة ملف التطوع
+        إشعار مآل دراسة ملف التطوع
       </span>
       <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        الأستاذ الفاضل: ${data.fullName}
+        الأستاذ الفاضل: ${cleanName}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 14px;">
         خالص الشكر والتقدير لمبادرتكم الكريمة ورغبتكم في مساندة طلبة غزة
@@ -372,16 +360,16 @@ export function getVolunteerRejectedEmailTemplate(data: VolunteerRejectedEmailDa
     ${data.reason ? `
     <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 4px solid #64748b; border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
       <h4 style="margin: 0 0 6px; font-size: 14px; color: #334155; font-weight: 800;">
-        💡 ملاحظة المشرف الأكاديمي:
+        ملاحظة المشرف الأكاديمي:
       </h4>
       <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.6;">
-        ${data.reason}
+        ${stripEmojis(data.reason)}
       </p>
     </div>
     ` : ''}
 
     <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px 20px; margin: 20px 0; color: #166534; font-size: 14px; line-height: 1.7;">
-      <strong>🌱 ملفكم محفوظ في بنك الكفاءات الاحتياطي:</strong>
+      <strong>ملفكم محفوظ في بنك الكفاءات الاحتياطي:</strong>
       <br>
       لقد تم حفظ سيرتكم وبياناتكم بكل عناية في قاعدة بيانات الكفاءات التعليمية للمنصة، وسيكون ملفكم على رأس الأولويات عند فتح أفواج دراسية جديدة أو التوسع في المواد خلال المراحل القادمة بإذن الله.
     </div>
@@ -401,15 +389,17 @@ export function getVolunteerRejectedEmailTemplate(data: VolunteerRejectedEmailDa
  * 3. Volunteer Application Received Email Template
  */
 export function getVolunteerApplicationReceivedEmailTemplate(data: VolunteerApplicationReceivedEmailData): { subject: string; html: string } {
-  const subject = `استلام طلب التطوع والتدريس بنجاح | منصة باقون`;
+  const cleanName = stripEmojis(data.fullName);
+  const subject = `[تأكيد الاستلام] استلام طلب التطوع والتدريس بنجاح | منصة باقون`;
+  const trackingUrl = getSafeFrontendUrl(data.trackingUrl);
 
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 13px;">
-        📬 تم استلام طلبكم بنجاح
+        تم استلام طلبكم بنجاح
       </span>
       <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        أهلاً بك أ. ${data.fullName}
+        أهلاً بك أ. ${cleanName}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 14px;">
         شكراً لمبادرتك النبيلة في التطوع لتعليم طلبة غزة
@@ -425,14 +415,14 @@ export function getVolunteerApplicationReceivedEmailTemplate(data: VolunteerAppl
 
     ${data.subjects && data.subjects.length > 0 ? `
     <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin: 18px 0;">
-      <strong style="color: #334155; font-size: 13px;">📚 المواد المختارة للتدريس:</strong>
-      <span style="font-weight: bold; color: #059669; margin-right: 6px;">${data.subjects.join('، ')}</span>
+      <strong style="color: #334155; font-size: 13px;">المواد المختارة للتدريس:</strong>
+      <span style="font-weight: bold; color: #059669; margin-right: 6px;">${data.subjects.map(s => stripEmojis(s)).join('، ')}</span>
     </div>
     ` : ''}
 
     <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px 20px; margin: 20px 0;">
       <h4 style="margin: 0 0 10px; font-size: 14px; color: #0f172a; font-weight: 800;">
-        ⏳ مراحل دراسة الملف واعتماد الحساب:
+        مراحل دراسة الملف واعتماد الحساب:
       </h4>
       <ol style="margin: 0; padding-right: 20px; font-size: 13px; color: #475569; line-height: 1.8;">
         <li>مراجعة التخصص والخبرة من قبل <strong>المشرف الأكاديمي للمادة</strong>.</li>
@@ -442,8 +432,8 @@ export function getVolunteerApplicationReceivedEmailTemplate(data: VolunteerAppl
     </div>
 
     <div style="text-align: center; margin: 24px 0;">
-      <a href="${data.trackingUrl}" class="btn" target="_blank">
-        🔍 الاستعلام عن حالة الملف من البوابة
+      <a href="${trackingUrl}" class="btn" target="_blank">
+        الاستعلام عن حالة الملف من البوابة &larr;
       </a>
     </div>
 
@@ -465,8 +455,10 @@ export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailDa
   const isStudent = data.role === 'student';
   const isTeacher = data.role === 'teacher';
 
+  const cleanName = stripEmojis(data.fullName);
   const roleTitle = isStudent ? 'الطالب العزيز' : isTeacher ? 'الأستاذ الفاضل' : 'الأخ/الأخت الفاضل(ة)';
-  const subject = `تنبيه متابعة واطمئنان من منصة باقون التعليمية | ${roleTitle} ${data.fullName}`;
+  const subject = `[تنبيه متابعة] اطمئنان ومتابعة من منصة باقون التعليمية | ${roleTitle} ${cleanName}`;
+  const loginUrl = getSafeFrontendUrl(data.loginUrl);
 
   const lastLoginFormatted = data.lastLoginAt
     ? new Date(data.lastLoginAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -475,10 +467,10 @@ export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailDa
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 13px;">
-        🔔 تنبيه متابعة واطمئنان
+        تنبيه متابعة واطمئنان
       </span>
       <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        ${roleTitle}: ${data.fullName}
+        ${roleTitle}: ${cleanName}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 14px;">
         نفتقد وجودك وتفاعلك معنا في منصة باقون التعليمية
@@ -493,12 +485,12 @@ export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailDa
     </p>
 
     <!-- Admin Message Box -->
-    <div style="background-color: #FAF7F2; border: 1px solid #e2d9cc; border-right: 5px solid #c9b48a; border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
+    <div style="background-color: #FAF7F2; border: 1px solid #e2d9cc; border-right: 5px solid #394C2A; border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
       <div style="font-weight: 800; color: #1F2A18; font-size: 14px; margin-bottom: 10px;">
-        ✉️ نص التنبيه ورسالة المتابعة:
+        نص التنبيه ورسالة المتابعة:
       </div>
       <div style="font-size: 15px; color: #334155; line-height: 1.8; white-space: pre-line; font-weight: 500;">
-        ${data.customMessage}
+        ${stripEmojis(data.customMessage)}
       </div>
     </div>
 
@@ -534,22 +526,22 @@ export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailDa
     </div>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${data.loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 32px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
-        🚀 تسجيل الدخول إلى المنصة واستئناف النشاط
+      <a href="${loginUrl}" class="btn" target="_blank">
+        تسجيل الدخول إلى المنصة واستئناف النشاط &larr;
       </a>
       <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
-        أو عبر الرابط المباشر: <span style="direction: ltr; display: inline-block;">${data.loginUrl}</span>
+        أو عبر الرابط المباشر: <span style="direction: ltr; display: inline-block;">${loginUrl}</span>
       </div>
     </div>
 
     <p style="margin-top: 24px; font-size: 13px; color: #64748b; text-align: center;">
-      معاً نبني الأمل ونواصل مسيرة العلم والحرية لأبناء شعبنا 🇵🇸🌿
+      معاً نبني الأمل ونواصل مسيرة العلم لأبناء شعبنا.
     </p>
   `;
 
   return {
     subject,
-    html: getEmailWrapper(content, `تنبيه متابعة واطمئنان من منصة باقون: ${data.customMessage.slice(0, 80)}...`),
+    html: getEmailWrapper(content, `تنبيه متابعة واطمئنان من منصة باقون: ${stripEmojis(data.customMessage).slice(0, 80)}...`),
   };
 }
 
@@ -557,18 +549,21 @@ export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailDa
  * 5. Supervisor Clarification & Direct Directive Email Template
  */
 export function getSupervisorClarificationEmailTemplate(data: SupervisorClarificationEmailData): { subject: string; html: string } {
-  const subject = `${data.isUrgent ? '🚨 تنبيه عاجل: ' : '📋 توجيه واستفسار إشرافي: '}${data.title} | أ. ${data.teacherName}`;
+  const cleanTeacher = stripEmojis(data.teacherName);
+  const cleanTitle = stripEmojis(data.title);
+  const subject = `[${data.isUrgent ? 'تنبيه إشرافي عاجل' : 'توجيه إشرافي'}] ${cleanTitle} | أ. ${cleanTeacher}`;
+  const loginUrl = getSafeFrontendUrl(data.loginUrl);
 
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: ${data.isUrgent ? '#fee2e2' : '#ecfdf5'}; color: ${data.isUrgent ? '#991b1b' : '#065f46'}; border: 1px solid ${data.isUrgent ? '#fca5a5' : '#a7f3d0'}; font-size: 13px;">
-        ${data.isUrgent ? '🚨 إشعار إشرافي عاجل وذو أولوية' : '📋 توجيه واستفسار إشرافي'}
+        ${data.isUrgent ? 'إشعار إشرافي عاجل وذو أولوية' : 'توجيه واستفسار إشرافي'}
       </span>
       <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        الأستاذ الفاضل: ${data.teacherName}
+        الأستاذ الفاضل: ${cleanTeacher}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 14px;">
-        من المشرف الأكاديمي: <strong>${data.supervisorName}</strong> ${data.subjectName ? `(مادة ${data.subjectName})` : ''}
+        من المشرف الأكاديمي: <strong>${stripEmojis(data.supervisorName)}</strong> ${data.subjectName ? `(مادة ${stripEmojis(data.subjectName)})` : ''}
       </p>
     </div>
 
@@ -582,27 +577,27 @@ export function getSupervisorClarificationEmailTemplate(data: SupervisorClarific
     <!-- Message Box -->
     <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 5px solid ${data.isUrgent ? '#ef4444' : '#059669'}; border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
       <div style="font-weight: 800; color: #0f172a; font-size: 15px; margin-bottom: 8px;">
-        📌 ${data.title}
+        ${cleanTitle}
       </div>
       <div style="font-size: 14px; color: #334155; line-height: 1.8; white-space: pre-line;">
-        ${data.content}
+        ${stripEmojis(data.content)}
       </div>
     </div>
 
     <div style="text-align: center; margin: 28px 0;">
-      <a href="${data.loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 30px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
-        💼 فتح بوابة الأستاذ والمتابعة
+      <a href="${loginUrl}" class="btn" target="_blank">
+        فتح بوابة الأستاذ والمتابعة &larr;
       </a>
     </div>
 
     <p style="font-size: 13px; color: #64748b; text-align: center;">
-      نسأل الله لكم التوفيق والسداد في أداء رسالتكم التعليمية النبيلة 🌿
+      نسأل الله لكم التوفيق والسداد في أداء رسالتكم التعليمية النبيلة.
     </p>
   `;
 
   return {
     subject,
-    html: getEmailWrapper(content, `${data.title}: ${data.content.slice(0, 80)}...`),
+    html: getEmailWrapper(content, `${cleanTitle}: ${stripEmojis(data.content).slice(0, 80)}...`),
   };
 }
 
@@ -622,22 +617,26 @@ export function getImportantNotificationEmailTemplate(data: ImportantNotificatio
     ? 'المشرف الأكاديمي الفاضل'
     : 'الأخ/الأخت الفاضل(ة)';
 
+  const cleanTitle = stripEmojis(data.title);
+  const cleanRecipient = stripEmojis(data.recipientName);
+  const cleanBody = stripEmojis(data.body);
+
   const urgencyPrefix = data.isUrgent ? 'إشعار رسمي عاجل: ' : 'إشعار وتعميم هام: ';
-  const subject = cleanSubjectLine(`[${data.isUrgent ? 'عاجل' : 'تعميم'}] ${urgencyPrefix}${data.title} | منصة باقون التعليمية`);
+  const subject = `[${data.isUrgent ? 'عاجل' : 'تعميم'}] ${urgencyPrefix}${cleanTitle} | منصة باقون التعليمية`;
 
   const loginUrl = getSafeFrontendUrl(data.actionUrl);
 
   const senderDisplay = data.senderName
-    ? `من: <strong>${data.senderName}</strong>`
+    ? `من: <strong>${stripEmojis(data.senderName)}</strong>`
     : `من: <strong>إدارة منصة باقون التعليمية</strong>`;
 
   const content = `
     <div style="text-align: center; margin-bottom: 24px;">
       <span class="badge" style="background-color: ${data.isUrgent ? '#fee2e2' : '#fef3c7'}; color: ${data.isUrgent ? '#991b1b' : '#92400e'}; border: 1px solid ${data.isUrgent ? '#fca5a5' : '#fde68a'}; font-size: 13px; font-weight: 800;">
-        ${data.isUrgent ? '🚨 إشعار رسمي هام وعاجل' : '📢 إشعار وتعميم رسمي هام'}
+        ${data.isUrgent ? 'إشعار رسمي هام وعاجل' : 'إشعار وتعميم رسمي هام'}
       </span>
       <h2 style="margin: 12px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
-        ${roleTitle}: ${data.recipientName}
+        ${roleTitle}: ${cleanRecipient}
       </h2>
       <p style="margin: 0; color: #64748b; font-size: 13px;">
         ${senderDisplay}
@@ -654,16 +653,16 @@ export function getImportantNotificationEmailTemplate(data: ImportantNotificatio
     <!-- Important Notice Box -->
     <div style="background-color: #FAF7F2; border: 1px solid #e2d9cc; border-right: 6px solid ${data.isUrgent ? '#dc2626' : '#394C2A'}; border-radius: 14px; padding: 22px 24px; margin: 24px 0;">
       <div style="font-weight: 900; color: ${data.isUrgent ? '#991b1b' : '#1F2A18'}; font-size: 16px; margin-bottom: 12px;">
-        ${data.isUrgent ? '⚠️ ' : '📌 '}${data.title}
+        ${cleanTitle}
       </div>
       <div style="font-size: 15px; color: #334155; line-height: 1.85; white-space: pre-line; font-weight: 500;">
-        ${data.body}
+        ${cleanBody}
       </div>
     </div>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 34px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
-        📌 الانتقال إلى المنصة ومتابعة الإشعار
+      <a href="${loginUrl}" class="btn" target="_blank">
+        الانتقال إلى المنصة ومتابعة الإشعار &larr;
       </a>
       <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
         رابط الوصول المباشر: <span style="direction: ltr; display: inline-block;">${loginUrl}</span>
@@ -671,12 +670,12 @@ export function getImportantNotificationEmailTemplate(data: ImportantNotificatio
     </div>
 
     <p style="margin-top: 24px; font-size: 13px; color: #64748b; text-align: center;">
-      معاً نحو تعليم رائد ومستقبل مشرق لأبناء فلسطين 🇵🇸🌿
+      معاً نحو تعليم رائد ومستقبل مشرق لأبناء فلسطين.
     </p>
   `;
 
   return {
     subject,
-    html: getEmailWrapper(content, `${data.title}: ${data.body.slice(0, 80)}...`),
+    html: getEmailWrapper(content, `${cleanTitle}: ${cleanBody.slice(0, 80)}...`),
   };
 }
