@@ -12,6 +12,7 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -649,164 +650,14 @@ export class VolunteerController {
   }
 
   /**
-   * 3. Public: Fast onboarding for CURRENT Baaqoon teachers
-   * Teachers who are ALREADY teaching in Baaqoon don't fill out the full form.
+   * 3. Disabled: Direct teacher onboarding is completely closed
+   * All teachers must submit a volunteer application, pass supervisor review, and receive admin approval.
    */
   @Post('existing-teacher-onboard')
-  async onboardExistingTeacher(@Body() body: any) {
-    const {
-      firstNameAr,
-      lastNameAr,
-      firstNameEn,
-      lastNameEn,
-      email,
-      phone,
-      password,
-      teachingSubjects,
-      currentCohortsDetails,
-      notes,
-    } = body;
-
-    if (!email || !phone || !password) {
-      throw new BadRequestException('البريد الإلكتروني ورقم الواتساب وكلمة المرور مطلوبة');
-    }
-
-    if (body.confirmPassword !== undefined && password !== body.confirmPassword) {
-      throw new BadRequestException('كلمة المرور وتأكيد كلمة المرور غير متطابقتين');
-    }
-
-    // 1. Assert no duplicate user in users table
-    const cleaned = await assertNoDuplicateUser(
-      this.prisma,
-      {
-        email,
-        phone,
-        firstNameAr,
-        lastNameAr,
-        firstNameEn,
-        lastNameEn,
-        primaryRole: 'teacher',
-      },
+  async onboardExistingTeacher() {
+    throw new ForbiddenException(
+      'تم إغلاق مسار التسجيل المباشر نهائياً. يلزم تقديم استمارة تطوع رسمية وتدقيقها من قبل المشرف الأكاديمي المختص واعتمادها رسمياً من إدارة المنصة.'
     );
-
-    // 2. Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    const subjectsArr = Array.isArray(teachingSubjects)
-      ? teachingSubjects
-      : teachingSubjects
-      ? [teachingSubjects]
-      : [];
-
-    // Smartly auto-resolve subject matching Palestinian curriculum
-    const { primaryId: primarySubjectId, allIds: matchedSubjectIds } = await resolveSubjectIds(
-      this.prisma,
-      subjectsArr,
-    );
-
-    // 3. Create the Teacher user account directly
-    const user = await this.prisma.user.create({
-      data: {
-        email: cleaned.normalizedEmail,
-        phone: cleaned.normalizedPhone,
-        firstName: cleaned.cleanFirstNameAr || cleaned.cleanFirstNameEn || cleaned.cleanFirstName || 'أستاذ',
-        lastName: cleaned.cleanLastNameAr || cleaned.cleanLastNameEn || cleaned.cleanLastName || 'باقون',
-        firstNameAr: cleaned.cleanFirstNameAr,
-        lastNameAr: cleaned.cleanLastNameAr,
-        firstNameEn: cleaned.cleanFirstNameEn,
-        lastNameEn: cleaned.cleanLastNameEn,
-        passwordHash,
-        primaryRole: 'teacher' as any,
-        status: 'active' as any,
-        mustChangePassword: false,
-        nationality: body.nationality || 'الجزائر',
-        supervisedSubjectId: primarySubjectId || null,
-        supervisedSubjectIds: matchedSubjectIds,
-      },
-    });
-
-    // Populate supervisor_subjects junction table so teacher appears in supervisor's roster
-    for (const subId of matchedSubjectIds) {
-      try {
-        await this.prisma.$executeRawUnsafe(
-          `INSERT INTO users.supervisor_subjects (user_id, subject_id)
-           VALUES ($1::uuid, $2::uuid)
-           ON CONFLICT (user_id, subject_id) DO NOTHING;`,
-          user.id,
-          subId,
-        );
-      } catch (_) {}
-    }
-
-    // 4. Create UserRoleAssignment
-    try {
-      await this.prisma.userRoleAssignment.create({
-        data: {
-          userId: user.id,
-          role: 'teacher' as any,
-        },
-      });
-    } catch (_) {}
-
-    // 5. Also log a record in volunteer_applications flagged as isExistingBaaqoonTeacher
-    await this.prisma.volunteerApplication.create({
-      data: {
-        isExistingBaaqoonTeacher: true,
-        fullNameAr: `${cleaned.cleanFirstNameAr || ''} ${cleaned.cleanLastNameAr || ''}`.trim() || null,
-        fullNameEn: `${cleaned.cleanFirstNameEn || ''} ${cleaned.cleanLastNameEn || ''}`.trim() || null,
-        email: cleaned.normalizedEmail,
-        phone: cleaned.normalizedPhone,
-        subjects: subjectsArr,
-        assignedSubjectId: primarySubjectId || null,
-        additionalNotes: `أستاذ حالي يدرس في باقون. تفاصيل الأفواج: ${currentCohortsDetails || 'لم تُحدد'}. ${notes || ''}`,
-        status: 'approved',
-        convertedUserId: user.id,
-        reviewedAt: new Date(),
-      },
-    });
-
-    // 6. Notify Admins and Supervisors
-    try {
-      const adminsAndSups = await this.prisma.user.findMany({
-        where: {
-          OR: [
-            { primaryRole: { in: ['admin', 'super_admin'] as any } },
-            {
-              primaryRole: { in: ['subject_supervisor', 'supervisor'] as any },
-              OR: [
-                { supervisedSubjectId: { in: matchedSubjectIds } },
-                { supervisedSubjectIds: { hasSome: matchedSubjectIds } },
-                { supervisedSubject: { nameAr: { in: subjectsArr } } },
-              ],
-            },
-          ],
-          status: 'active',
-        },
-        select: { id: true },
-      });
-
-      const teacherDisplayName = `${cleaned.cleanFirstNameAr || ''} ${cleaned.cleanLastNameAr || ''}`.trim() || cleaned.normalizedEmail;
-      const subStr = subjectsArr.join('، ') || 'أستاذ حالي';
-
-      for (const recipient of adminsAndSups) {
-        await this.prisma.notification.create({
-          data: {
-            userId: recipient.id,
-            title: `أستاذ حالي فعّل حسابه: أ. ${teacherDisplayName}`,
-            body: `قام الأستاذ «${teacherDisplayName}» (المواد: ${subStr}) بتفعيل حسابه الرسمي على المنصة. يمكن الآن إسناد وتدقيق أفواجه الميدانية مباشرة.`,
-            type: 'academic_update' as any,
-            actionUrl: '/supervisor/cohorts',
-          },
-        });
-      }
-    } catch (_) {}
-
-    const { passwordHash: _, ...safeUser } = user;
-    return {
-      success: true,
-      message: 'تم تفعيل حسابك كأستاذ في منصة باقون بنجاح! يمكنك الآن تسجيل الدخول مباشرة.',
-      user: safeUser,
-    };
   }
 
   /**

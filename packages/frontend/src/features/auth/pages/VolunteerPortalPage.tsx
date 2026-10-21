@@ -62,8 +62,8 @@ export default function VolunteerPortalPage() {
   const [searchParams] = useSearchParams();
   const { setAuth } = useAuthStore();
 
-  // Mode: 'gatekeeper' = question, 'existing' = Current Teacher, 'new' = New Volunteer Application, 'status' = Application Status & Completion
-  const [mode, setMode] = useState<'gatekeeper' | 'existing' | 'new' | 'status'>('gatekeeper');
+  // Mode: 'gatekeeper' = selector, 'new' = New Volunteer Application, 'status' = Application Status & Completion
+  const [mode, setMode] = useState<'gatekeeper' | 'new' | 'status'>('gatekeeper');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any>(null);
@@ -91,9 +91,7 @@ export default function VolunteerPortalPage() {
     const tab = searchParams.get('tab') || searchParams.get('action');
     if (tab === 'status' || tab === 'check') {
       setMode('status');
-    } else if (tab === 'existing') {
-      setMode('existing');
-    } else if (tab === 'new') {
+    } else if (tab === 'new' || tab === 'apply') {
       setMode('new');
     }
   }, [searchParams]);
@@ -122,25 +120,6 @@ export default function VolunteerPortalPage() {
         label: s.label,
         cleanName: s.label.split('·')[0].trim(),
       }));
-
-  // Form state for Current Teacher (Fast Onboarding)
-  const [existingForm, setExistingForm] = useState({
-    firstNameAr: '',
-    lastNameAr: '',
-    firstNameEn: '',
-    lastNameEn: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    teachingSubjects: [] as string[],
-    currentCohortsDetails: '',
-    notes: '',
-    nationality: 'الجزائر',
-  });
-
-  const [showExistingPassword, setShowExistingPassword] = useState(false);
-  const [showExistingConfirmPassword, setShowExistingConfirmPassword] = useState(false);
 
   // Form state for New Volunteer Teacher
   const [newForm, setNewForm] = useState({
@@ -174,28 +153,16 @@ export default function VolunteerPortalPage() {
     agreedToTerms: false,
   });
 
-  const toggleSubject = (subjectLabel: string, isExisting: boolean) => {
-    if (isExisting) {
-      setExistingForm(prev => {
-        const exists = prev.teachingSubjects.includes(subjectLabel);
-        return {
-          ...prev,
-          teachingSubjects: exists 
-            ? prev.teachingSubjects.filter(s => s !== subjectLabel)
-            : [...prev.teachingSubjects, subjectLabel]
-        };
-      });
-    } else {
-      setNewForm(prev => {
-        const exists = prev.subjects.includes(subjectLabel);
-        return {
-          ...prev,
-          subjects: exists 
-            ? prev.subjects.filter(s => s !== subjectLabel)
-            : [...prev.subjects, subjectLabel]
-        };
-      });
-    }
+  const toggleSubject = (subjectLabel: string) => {
+    setNewForm(prev => {
+      const exists = prev.subjects.includes(subjectLabel);
+      return {
+        ...prev,
+        subjects: exists 
+          ? prev.subjects.filter(s => s !== subjectLabel)
+          : [...prev.subjects, subjectLabel]
+      };
+    });
   };
 
   const toggleArrayItem = (key: 'availableTimes' | 'availableDays' | 'deviceType', val: string) => {
@@ -207,40 +174,6 @@ export default function VolunteerPortalPage() {
         [key]: exists ? arr.filter(item => item !== val) : [...arr, val]
       };
     });
-  };
-
-  const handleExistingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    if (existingForm.teachingSubjects.length === 0) {
-      setErrorMessage('يُرجى تحديد مادة واحدة على الأقل تدرسها حالياً في برنامج باقون');
-      return;
-    }
-
-    if (!existingForm.password || existingForm.password.length < 6) {
-      setErrorMessage('كلمة المرور يجب أن تتكون من 6 خانات على الأقل');
-      return;
-    }
-
-    if (existingForm.password !== existingForm.confirmPassword) {
-      setErrorMessage('كلمة المرور وتأكيد كلمة المرور غير متطابقتين، يُرجى التأكد من تطابقهما بدقة');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await api.post('/volunteer/existing-teacher-onboard', existingForm);
-      setSuccessResult({
-        type: 'existing',
-        message: res.data.message,
-        user: res.data.user
-      });
-    } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'تعذر تفعيل الحساب، يُرجى التأكد من البيانات المدخلة');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleNewSubmit = async (e: React.FormEvent) => {
@@ -389,17 +322,6 @@ export default function VolunteerPortalPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setMode('existing'); setErrorMessage(null); }}
-            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
-              mode === 'existing'
-                ? 'bg-emerald-600 text-white shadow-sm font-black'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            ⚡ أستاذ حالي في باقون
-          </button>
-          <button
-            type="button"
             onClick={() => { setMode('new'); setErrorMessage(null); }}
             className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
               mode === 'new'
@@ -431,52 +353,40 @@ export default function VolunteerPortalPage() {
 
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                {successResult.type === 'existing' ? 'تم تفعيل حسابك كأستاذ بنجاح! 🎉' : 'تم استلام استمارتك بنجاح! 🌿'}
+                تم استلام استمارتك بنجاح! 🌿
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto leading-relaxed">
                 {successResult.message}
               </p>
             </div>
 
-            {successResult.type === 'existing' ? (
-              <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-                <Link
-                  to="/login"
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg transition-all text-sm inline-flex items-center justify-center gap-2"
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-xl mx-auto space-y-4 text-right">
+              <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>الخطوة التالية المعتمدة:</span>
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                بعد إكمال تعبئة هذا النموذج، يُرجى الانضمام إلى قناة التنسيق الخاصة بالأساتذة المتطوعين لمطابقة طلبك واعتماده من قبل الإدارة:
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <a 
+                  href="https://t.me/+TeachersForGaza" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 px-4 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl text-center shadow-md transition-all flex items-center justify-center gap-2"
                 >
-                  <span>تسجيل الدخول إلى حسابك الآن</span>
-                  <ArrowLeft className="w-4 h-4" />
-                </Link>
+                  <span>الانضمام لقناة التلغرام (Telegram)</span>
+                </a>
+                <a 
+                  href="https://chat.whatsapp.com/TeachersForGaza" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl text-center shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <span>مجموعة الواتساب (WhatsApp)</span>
+                </a>
               </div>
-            ) : (
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-xl mx-auto space-y-4 text-right">
-                <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>الخطوة التالية المعتمدة:</span>
-                </h4>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  بعد إكمال تعبئة هذا النموذج، يُرجى الانضمام إلى قناة التنسيق الخاصة بالأساتذة المتطوعين لمطابقة طلبك واعتماده من قبل الإدارة:
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <a 
-                    href="https://t.me/+TeachersForGaza" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2.5 px-4 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl text-center shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <span>الانضمام لقناة التلغرام (Telegram)</span>
-                  </a>
-                  <a 
-                    href="https://chat.whatsapp.com/TeachersForGaza" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl text-center shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    <span>مجموعة الواتساب (WhatsApp)</span>
-                  </a>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -512,74 +422,46 @@ export default function VolunteerPortalPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl mx-auto">
                 
-                {/* Option 1: Current Teacher */}
-                <button
-                  type="button"
-                  onClick={() => { setMode('existing'); setErrorMessage(null); }}
-                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
-                        ١
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full dark:bg-emerald-900/60 dark:text-emerald-300">
-                        أستاذ حالي
-                      </span>
-                    </div>
-                    <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors">
-                      أنا أدرس حالياً مع طلاب باقون
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                      تفعيل الحساب الرسمي الفوري للأساتذة الميدانيين العاملين حالياً في المنصة.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-emerald-600 text-xs font-bold">
-                    <span>متابعة التفعيل السريع</span>
-                    <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
-                  </div>
-                </button>
-
-                {/* Option 2: New Volunteer */}
+                {/* Option 1: New Volunteer */}
                 <button
                   type="button"
                   onClick={() => { setMode('new'); setErrorMessage(null); }}
-                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-baaqoon-50/50 dark:hover:bg-baaqoon-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-baaqoon-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
+                  className="group p-5 bg-white dark:bg-slate-900 hover:bg-baaqoon-50/50 dark:hover:bg-baaqoon-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-baaqoon-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="w-7 h-7 rounded-lg bg-baaqoon-100 dark:bg-baaqoon-950 text-baaqoon-700 dark:text-baaqoon-300 flex items-center justify-center font-bold text-xs">
-                        ٢
+                        ١
                       </span>
                       <span className="text-[10px] font-black px-2 py-0.5 bg-baaqoon-100 text-baaqoon-800 rounded-full dark:bg-baaqoon-900/60 dark:text-baaqoon-300">
                         متطوع جديد
                       </span>
                     </div>
                     <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-baaqoon-600 transition-colors">
-                      أنا أستاذ جديد أرغب بالتطوع
+                      أنا أستاذ أرغب بالتطوع لتدريس طلبة غزة
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                      تقديم استمارة انضمام أكاديمية جديدة لتدريس طلبة غزة وفق شروط المبادرة.
+                      تقديم استمارة انضمام أكاديمية جديدة لتدريس طلبة غزة وفق شروط المبادرة وتدقيق المشرف الأكاديمي.
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-baaqoon-600 text-xs font-bold">
-                    <span>تعبئة الاستمارة</span>
+                    <span>تعبئة الاستمارة الأكاديمية</span>
                     <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   </div>
                 </button>
 
-                {/* Option 3: Status & Complete Registration */}
+                {/* Option 2: Status & Complete Registration */}
                 <button
                   type="button"
                   onClick={() => { setMode('status'); setErrorMessage(null); }}
-                  className="group p-4 sm:p-5 bg-white dark:bg-slate-900 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
+                  className="group p-5 bg-white dark:bg-slate-900 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-2xl text-right transition-all shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-xs">
-                        ٣
+                        ٢
                       </span>
                       <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full dark:bg-amber-900/60 dark:text-amber-300">
                         متابعة واعتماد
@@ -589,7 +471,7 @@ export default function VolunteerPortalPage() {
                       متابعة الطلب / استكمال التسجيل
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                      فحص نتيجة دراسة الملف، أو تعيين كلمة المرور واستكمال الحساب للمعتمدين.
+                      فحص نتيجة دراسة الملف الأكاديمي، أو تعيين كلمة المرور واستكمال الحساب للمعتمدين من الإدارة.
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-amber-600 text-xs font-bold">
@@ -611,253 +493,7 @@ export default function VolunteerPortalPage() {
           </div>
         )}
 
-        {/* ─── FORM 1: CURRENT TEACHER FAST REGISTRATION ─── */}
-        {!successResult && mode === 'existing' && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-800 space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <span className="text-[11px] font-black text-emerald-600 uppercase tracking-wider block">
-                  مسار الأساتذة الميدانيين الحاليين
-                </span>
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                  تثبيت وتفعيل حساب الأستاذ الحالي في باقون
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMode('gatekeeper')}
-                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold flex items-center gap-1"
-              >
-                <span>العودة للسؤال</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleExistingSubmit} className="space-y-6">
-              
-              {/* Bilingual Names */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
-                    الاسم واللقب باللغة العربية <span className="text-rose-500">*</span>
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      required
-                      placeholder="الاسم الأول (مثال: سهام)"
-                      value={existingForm.firstNameAr}
-                      onChange={e => setExistingForm({ ...existingForm, firstNameAr: e.target.value })}
-                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <input
-                      type="text"
-                      required
-                      placeholder="اللقب (مثال: مالكي)"
-                      value={existingForm.lastNameAr}
-                      onChange={e => setExistingForm({ ...existingForm, lastNameAr: e.target.value })}
-                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 block text-left" dir="ltr">
-                    Name in Latin (English / French)
-                  </span>
-                  <div className="grid grid-cols-2 gap-2" dir="ltr">
-                    <input
-                      type="text"
-                      placeholder="First name (e.g. Sihem)"
-                      value={existingForm.firstNameEn}
-                      onChange={e => setExistingForm({ ...existingForm, firstNameEn: e.target.value })}
-                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last name (e.g. Malki)"
-                      value={existingForm.lastNameEn}
-                      onChange={e => setExistingForm({ ...existingForm, lastNameEn: e.target.value })}
-                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    البريد الإلكتروني <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="example@gmail.com"
-                    value={existingForm.email}
-                    onChange={e => setExistingForm({ ...existingForm, email: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    رقم الواتساب بالرمز الدولي <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="+213 555 123 456"
-                    value={existingForm.phone}
-                    onChange={e => setExistingForm({ ...existingForm, phone: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left"
-                    dir="ltr"
-                  />
-                </div>
-              </div>
-
-              {/* Password & Confirm Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    كلمة المرور للحساب (6 خانات على الأقل) <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showExistingPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="••••••••"
-                      value={existingForm.password}
-                      onChange={e => setExistingForm({ ...existingForm, password: e.target.value })}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left pr-10"
-                      dir="ltr"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowExistingPassword(!showExistingPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                    >
-                      {showExistingPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    تأكيد كلمة المرور <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showExistingConfirmPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="••••••••"
-                      value={existingForm.confirmPassword}
-                      onChange={e => setExistingForm({ ...existingForm, confirmPassword: e.target.value })}
-                      className={`w-full px-3.5 py-2 rounded-xl border ${
-                        existingForm.confirmPassword && existingForm.password !== existingForm.confirmPassword
-                          ? 'border-rose-400 focus:ring-rose-500'
-                          : existingForm.confirmPassword && existingForm.password === existingForm.confirmPassword
-                          ? 'border-emerald-500 focus:ring-emerald-500'
-                          : 'border-slate-200 dark:border-slate-700'
-                      } bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 text-left pr-10`}
-                      dir="ltr"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowExistingConfirmPassword(!showExistingConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                    >
-                      {showExistingConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {existingForm.confirmPassword && (
-                    <div className="text-[11px] font-bold flex items-center gap-1 mt-1">
-                      {existingForm.password === existingForm.confirmPassword ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>كلمتا المرور متطابقتان</span>
-                        </span>
-                      ) : (
-                        <span className="text-rose-500 dark:text-rose-400 flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>كلمتا المرور غير متطابقتين</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Teaching Subject Selection */}
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-slate-800 dark:text-slate-200">
-                  المادة أو المواد التي تدرسها حالياً في برنامج باقون: <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {subjectsList.map(s => {
-                    const isSelected = existingForm.teachingSubjects.includes(s.cleanName);
-                    return (
-                      <button
-                        type="button"
-                        key={s.id}
-                        onClick={() => toggleSubject(s.cleanName, true)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold text-right transition-all flex items-center justify-between ${
-                          isSelected 
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-300 shadow-sm'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{s.cleanName}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Cohorts / Students description */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  أسماء الأفواج أو الطلبة الذين تدرسهم حالياً (إن أمكن للمطابقة السريعة):
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="مثال: أدرس فوج كيمياء 12 علمي وفوج حادي عشر، مع الأستاذ المشرف..."
-                  value={existingForm.currentCohortsDetails}
-                  onChange={e => setExistingForm({ ...existingForm, currentCohortsDetails: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-normal outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMode('gatekeeper')}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <span>جاري التفعيل...</span>
-                  ) : (
-                    <>
-                      <span>تأكيد وتفعيل الحساب الرسمي</span>
-                      <CheckCircle2 className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        )}
 
         {/* ─── FORM 2: NEW VOLUNTEER TEACHER (Tawjihi Teachers For Gaza) ─── */}
         {!successResult && mode === 'new' && (
@@ -1147,7 +783,7 @@ export default function VolunteerPortalPage() {
                         <button
                           type="button"
                           key={s.id}
-                          onClick={() => toggleSubject(s.cleanName, false)}
+                          onClick={() => toggleSubject(s.cleanName)}
                           className={`p-2.5 rounded-xl border text-xs font-bold text-right transition-all flex items-center justify-between ${
                             isSelected 
                               ? 'bg-baaqoon-50 dark:bg-baaqoon-950/60 border-baaqoon-500 text-baaqoon-800 dark:text-baaqoon-300 shadow-sm'
