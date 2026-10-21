@@ -1,6 +1,7 @@
 import { Controller, Get, Param, UseGuards, Query, Req, Post, Body } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
+import { EmailService } from '../../../email/email.service';
 
 function getCurrentAcademicPacing() {
   const now = new Date();
@@ -38,7 +39,10 @@ function getCurrentAcademicPacing() {
 @Controller('syllabus')
 @UseGuards(JwtAuthGuard)
 export class SyllabusController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Get()
   async getDistributions(@Query('courseId') courseId?: string, @Query('academicYear') academicYear?: string) {
@@ -316,6 +320,28 @@ export class SyllabusController {
         type: 'system'
       }
     });
+
+    // Send important notification email to teacher
+    try {
+      const teacher = await this.prisma.user.findUnique({
+        where: { id: teacherId },
+        select: { email: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true }
+      });
+      if (teacher?.email && teacher.email.includes('@')) {
+        const teacherName = `${teacher.firstNameAr || teacher.firstName || ''} ${teacher.lastNameAr || teacher.lastName || ''}`.trim() || 'الأستاذ';
+        const senderName = `${sender?.firstName || 'المشرف'} ${sender?.lastName || 'الأكاديمي'}`.trim();
+        await this.emailService.sendImportantNotificationEmail({
+          recipientName: teacherName,
+          email: teacher.email,
+          role: 'teacher',
+          title: warningTitle,
+          body: warningBody,
+          actionUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/teacher/schedule`,
+          isUrgent: true,
+          senderName
+        });
+      }
+    } catch (_) {}
 
     if (sender?.id) {
       await this.prisma.activityLog.create({

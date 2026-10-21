@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/axios';
@@ -84,6 +85,13 @@ export default function NotificationBell() {
   };
 
   const getNotificationIcon = (title: string) => {
+    if (title.includes('هام') || title.includes('عاجل') || title.includes('إنذار')) {
+      return (
+        <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center justify-center shrink-0">
+          <AlertTriangle className="w-5 h-5 animate-pulse" />
+        </div>
+      );
+    }
     if (title.includes('معسكر') || title.includes('تذكير') || title.includes('توجيه إشرافي')) {
       return (
         <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
@@ -163,6 +171,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((notif: any) => {
+                const isUrgent = notif.title.includes('هام') || notif.title.includes('عاجل') || notif.title.includes('إنذار');
                 const isCamp = notif.title.includes('معسكر') || notif.title.includes('توجيه إشرافي') || notif.title.includes('تذكير');
                 return (
                   <div
@@ -170,17 +179,24 @@ export default function NotificationBell() {
                     onClick={() => handleNotificationClick(notif)}
                     className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex items-start gap-3 relative ${
                       !notif.isRead 
-                        ? (isCamp ? 'bg-amber-50/60 dark:bg-amber-950/20' : 'bg-indigo-50/40 dark:bg-indigo-950/20') 
-                        : ''
+                        ? (isUrgent ? 'bg-rose-50/70 dark:bg-rose-950/30 border-r-4 border-rose-500' : isCamp ? 'bg-amber-50/60 dark:bg-amber-950/20' : 'bg-indigo-50/40 dark:bg-indigo-950/20') 
+                        : (isUrgent ? 'border-r-2 border-rose-300 dark:border-rose-900/60' : '')
                     }`}
                   >
                     {getNotificationIcon(notif.title)}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-1">
-                        <h4 className={`text-xs font-black truncate ${!notif.isRead ? 'text-slate-950 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {notif.title}
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          {isUrgent && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-600 text-white shrink-0">
+                              هام
+                            </span>
+                          )}
+                          <h4 className={`text-xs font-black truncate ${!notif.isRead ? 'text-slate-950 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {notif.title}
+                          </h4>
+                        </div>
                         {!notif.isRead && (
                           <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                         )}

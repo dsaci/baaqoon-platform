@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Req, Get, Param, Delete, Patch, UseGuards, Query, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
+import { EmailService } from '../../../email/email.service';
 
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
@@ -466,7 +467,10 @@ export class SessionsController {
     return { success: true };
   }
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Post('bulk-schedule')
   async bulkScheduleSessions(@Req() req: any, @Body() body: { cohortId: string; lessonIds: string[]; daysOfWeek: number[]; startTime: string; startDate: string }) {
@@ -729,16 +733,34 @@ export class SessionsController {
 
     let notificationId = 'simulated';
     if (targetUser) {
+      const notifTitle = type === 'attendance_alert' || type === 'live_nudge' ? 'تنبيه إشرافي مباشر: موعد الحصة وتأخر الدخول' : 'رسالة من المشرف الأكاديمي';
       const notif = await this.prisma.notification.create({
         data: {
           userId: targetUser.id,
-          title: type === 'attendance_alert' || type === 'live_nudge' ? 'تنبيه إشرافي مباشر: موعد الحصة وتأخر الدخول' : 'رسالة من المشرف الأكاديمي',
+          title: notifTitle,
           body: message,
           actionUrl: sessionId ? `/sessions/${sessionId}/room` : '/teacher/schedule',
           type: 'system'
         }
       }).catch(() => null);
       if (notif) notificationId = notif.id;
+
+      if (targetUser.email && targetUser.email.includes('@')) {
+        try {
+          const teacherFullName = `${targetUser.firstNameAr || targetUser.firstName || ''} ${targetUser.lastNameAr || targetUser.lastName || ''}`.trim() || 'الأستاذ';
+          const frontendBase = process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app';
+          await this.emailService.sendImportantNotificationEmail({
+            recipientName: teacherFullName,
+            email: targetUser.email,
+            role: 'teacher',
+            title: notifTitle,
+            body: message,
+            actionUrl: sessionId ? `${frontendBase}/sessions/${sessionId}/room` : `${frontendBase}/teacher/schedule`,
+            isUrgent: type === 'attendance_alert' || type === 'live_nudge',
+            senderName: senderId ? 'المشرف الأكاديمي' : 'إدارة المنصة'
+          });
+        } catch (_) {}
+      }
     }
 
     if (senderId) {

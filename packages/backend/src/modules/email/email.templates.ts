@@ -44,6 +44,17 @@ export interface SupervisorClarificationEmailData {
   loginUrl: string;
 }
 
+export interface ImportantNotificationEmailData {
+  recipientName: string;
+  email: string;
+  role?: string;
+  title: string;
+  body: string;
+  actionUrl?: string;
+  isUrgent?: boolean;
+  senderName?: string;
+}
+
 /**
  * Base wrapper for all Baaqoon emails with unified branding, header, and footer.
  */
@@ -545,5 +556,80 @@ export function getSupervisorClarificationEmailTemplate(data: SupervisorClarific
   return {
     subject,
     html: getEmailWrapper(content, `${data.title}: ${data.content.slice(0, 80)}...`),
+  };
+}
+
+/**
+ * 6. Important Notification & Urgent Announcement Email Template (إشعار وتعميم رسمي هام)
+ */
+export function getImportantNotificationEmailTemplate(data: ImportantNotificationEmailData): { subject: string; html: string } {
+  const isStudent = data.role === 'student';
+  const isTeacher = data.role === 'teacher';
+  const isSupervisor = data.role === 'subject_supervisor' || data.role === 'supervisor';
+
+  const roleTitle = isStudent
+    ? 'الطالب(ة) العزيز(ة)'
+    : isTeacher
+    ? 'الأستاذ(ة) الفاضل(ة)'
+    : isSupervisor
+    ? 'المشرف الأكاديمي الفاضل'
+    : 'الأخ/الأخت الفاضل(ة)';
+
+  const urgencyPrefix = data.isUrgent ? '🚨 إشعار رسمي عاجل: ' : '📢 إشعار وتعميم هام: ';
+  const subject = `${urgencyPrefix}${data.title} | منصة باقون التعليمية`;
+
+  const loginUrl = data.actionUrl || `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`;
+
+  const senderDisplay = data.senderName
+    ? `من: <strong>${data.senderName}</strong>`
+    : `من: <strong>إدارة منصة باقون التعليمية</strong>`;
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span class="badge" style="background-color: ${data.isUrgent ? '#fee2e2' : '#fef3c7'}; color: ${data.isUrgent ? '#991b1b' : '#92400e'}; border: 1px solid ${data.isUrgent ? '#fca5a5' : '#fde68a'}; font-size: 13px; font-weight: 800;">
+        ${data.isUrgent ? '🚨 إشعار رسمي هام وعاجل' : '📢 إشعار وتعميم رسمي هام'}
+      </span>
+      <h2 style="margin: 12px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
+        ${roleTitle}: ${data.recipientName}
+      </h2>
+      <p style="margin: 0; color: #64748b; font-size: 13px;">
+        ${senderDisplay}
+      </p>
+    </div>
+
+    <p>
+      السلام عليكم ورحمة الله وبركاته،
+    </p>
+    <p>
+      نلفت عنايتكم الكريمة في <strong>منصة باقون التعليمية</strong> إلى الإشعار والتعميم الهام التالي:
+    </p>
+
+    <!-- Important Notice Box -->
+    <div style="background-color: #FAF7F2; border: 1px solid #e2d9cc; border-right: 6px solid ${data.isUrgent ? '#dc2626' : '#394C2A'}; border-radius: 14px; padding: 22px 24px; margin: 24px 0;">
+      <div style="font-weight: 900; color: ${data.isUrgent ? '#991b1b' : '#1F2A18'}; font-size: 16px; margin-bottom: 12px;">
+        ${data.isUrgent ? '⚠️ ' : '📌 '}${data.title}
+      </div>
+      <div style="font-size: 15px; color: #334155; line-height: 1.85; white-space: pre-line; font-weight: 500;">
+        ${data.body}
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 34px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
+        📌 الانتقال إلى المنصة ومتابعة الإشعار
+      </a>
+      <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+        رابط الوصول المباشر: <span style="direction: ltr; display: inline-block;">${loginUrl}</span>
+      </div>
+    </div>
+
+    <p style="margin-top: 24px; font-size: 13px; color: #64748b; text-align: center;">
+      معاً نحو تعليم رائد ومستقبل مشرق لأبناء فلسطين 🇵🇸🌿
+    </p>
+  `;
+
+  return {
+    subject,
+    html: getEmailWrapper(content, `${data.title}: ${data.body.slice(0, 80)}...`),
   };
 }

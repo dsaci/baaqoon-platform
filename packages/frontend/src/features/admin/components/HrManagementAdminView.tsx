@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send, Mail } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send, Mail, Megaphone } from 'lucide-react';
 import { getUserActivityStatus } from '../../../utils/activityStatus';
 
 interface HrManagementAdminViewProps {
@@ -36,6 +36,14 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [showBulkNudgeModal, setShowBulkNudgeModal] = useState<boolean>(false);
   const [bulkNudgeMessage, setBulkNudgeMessage] = useState<string>("");
   const [isBulkNudging, setIsBulkNudging] = useState<boolean>(false);
+  const [showImportantModal, setShowImportantModal] = useState<boolean>(false);
+  const [importantNoticeTarget, setImportantNoticeTarget] = useState<string>('all');
+  const [importantNoticeUser, setImportantNoticeUser] = useState<any>(null);
+  const [importantNoticeTitle, setImportantNoticeTitle] = useState<string>('');
+  const [importantNoticeBody, setImportantNoticeBody] = useState<string>('');
+  const [importantNoticeActionUrl, setImportantNoticeActionUrl] = useState<string>('');
+  const [importantNoticeIsUrgent, setImportantNoticeIsUrgent] = useState<boolean>(false);
+  const [isSendingImportantNotice, setIsSendingImportantNotice] = useState<boolean>(false);
   const [viewEditSubjectId, setViewEditSubjectId] = useState<string>('');
   const [viewEditNationality, setViewEditNationality] = useState<string>('');
 
@@ -311,6 +319,23 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
           </button>
         )}
         
+        <button
+          onClick={() => {
+            setImportantNoticeTarget(roleFilter === 'all' || roleFilter === 'idle' ? 'all' : roleFilter);
+            setImportantNoticeUser(null);
+            setImportantNoticeTitle('');
+            setImportantNoticeBody('');
+            setImportantNoticeActionUrl('');
+            setImportantNoticeIsUrgent(false);
+            setShowImportantModal(true);
+          }}
+          className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-700 via-baaqoon-800 to-amber-700 hover:from-emerald-800 hover:to-amber-800 text-white shadow-md flex items-center gap-1.5 transition-all cursor-pointer mr-2"
+          title="إرسال تعميم أو إشعار هام يصل داخل المنصة وعلى البريد الإلكتروني فوراً"
+        >
+          <Megaphone className="w-4 h-4 text-amber-300" />
+          <span>إرسال إشعار وتعميم هام (منصة + بريد)</span>
+        </button>
+
         {pendingCount > 0 && (
           <div className="mr-auto bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
@@ -405,12 +430,27 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                                 : `مرحباً ${u.firstName}، نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.`
                             );
                           }}
-                          title="إرسال تنبيه خمول ومتابعة"
+                          title="إرسال تنبيه خمول ومتابعة (منصة + بريد)"
                           className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 rounded-lg transition-colors ml-1"
                         >
                           <Bell className="w-5 h-5 text-amber-600 animate-pulse" />
                         </button>
                       )}
+                      <button
+                        onClick={() => {
+                          setImportantNoticeUser(u);
+                          setImportantNoticeTarget('single');
+                          setImportantNoticeTitle('');
+                          setImportantNoticeBody('');
+                          setImportantNoticeActionUrl('');
+                          setImportantNoticeIsUrgent(false);
+                          setShowImportantModal(true);
+                        }}
+                        title={`إرسال إشعار هام إلى ${u.firstName} (منصة + بريد)`}
+                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors ml-1"
+                      >
+                        <Megaphone className="w-5 h-5 text-rose-600" />
+                      </button>
                       {u.status !== 'active' && (
                         <button
                           onClick={() => updateStatusMutation.mutate({ id: u.id, status: 'active' })}
@@ -937,6 +977,191 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 >
                   <Send className="w-4 h-4" />
                   {isNudging ? 'جاري الإرسال...' : 'إرسال التنبيه الآن'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showImportantModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-xl shadow-2xl p-6 border border-rose-100 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-md">
+                  <Megaphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">إرسال إشعار وتعميم رسمي هام</h3>
+                  <p className="text-xs text-slate-500 font-bold">تسليم مزدوج فوري: في شريط إشعارات المنصة + البريد الإلكتروني</p>
+                </div>
+              </div>
+              <button onClick={() => setShowImportantModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Target recipient info */}
+              {importantNoticeUser ? (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-slate-700 dark:text-slate-200">المستلم الفردي: </span>
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-black">{importantNoticeUser.firstName} {importantNoticeUser.lastName}</strong>
+                    <span className="text-slate-400 mr-2">({importantNoticeUser.primaryRole})</span>
+                  </div>
+                  <div className="font-mono text-slate-500 dark:text-slate-400" dir="ltr">
+                    {importantNoticeUser.email || 'بدون بريد مسجل'}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                    الفئة المستهدفة بالإشعار الهام:
+                  </label>
+                  <select
+                    value={importantNoticeTarget}
+                    onChange={(e) => setImportantNoticeTarget(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
+                  >
+                    <option value="all">جميع مستخدمي المنصة (الطلاب + الأساتذة + المشرفين)</option>
+                    <option value="student">جميع الطلاب فقط</option>
+                    <option value="teacher">جميع الأساتذة فقط</option>
+                    <option value="subject_supervisor">جميع المشرفين الأكاديميين فقط</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Title input */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
+                    عنوان الإشعار الهام:
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setImportantNoticeTitle('تنبيه هام وعاجل: موعد الاختبارات التجريبية')}
+                      className="text-[10px] text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg font-bold"
+                    >
+                      + اختبارات
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportantNoticeTitle('توجيه رسمي هام بشأن تسجيل ومتابعة الحصص')}
+                      className="text-[10px] text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg font-bold"
+                    >
+                      + حصص
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={importantNoticeTitle}
+                  onChange={(e) => setImportantNoticeTitle(e.target.value)}
+                  placeholder="مثال: تنبيه هام بشأن خطة الدراسة والتقييمات"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Body textarea */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                  نص الإشعار الهام والتعميم (المنصة + البريد الإلكتروني):
+                </label>
+                <textarea
+                  rows={4}
+                  value={importantNoticeBody}
+                  onChange={(e) => setImportantNoticeBody(e.target.value)}
+                  placeholder="اكتب التوجيه والتعميم بالتفصيل..."
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Action URL input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                  رابط الإجراء في المنصة (اختياري):
+                </label>
+                <input
+                  type="text"
+                  value={importantNoticeActionUrl}
+                  onChange={(e) => setImportantNoticeActionUrl(e.target.value)}
+                  placeholder="/student/schedule أو /teacher/dashboard"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Priority Toggle */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={importantNoticeIsUrgent}
+                  onChange={(e) => setImportantNoticeIsUrgent(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-rose-800 dark:text-rose-300">تمييز كإشعار عاجل ذو أولوية قصوى 🚨</span>
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400">يظهر بشارة تنبيه حمراء بارزة في الإشعارات وعنوان البريد الإلكتروني.</p>
+                </div>
+              </label>
+
+              {/* Dual delivery guarantee note */}
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-start gap-2.5">
+                <Mail className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p>الربط بالبريد الإلكتروني نشط تلقائياً 🌿</p>
+                  <p className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    يصل هذا الإشعار إلى شريط التنبيهات الداخلي، وتُرسل نسخة رسمية مطابقة عبر البريد الإلكتروني لكل مستهدف بهوية منصة باقون المعتمدة.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImportantModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  disabled={isSendingImportantNotice || !importantNoticeTitle.trim() || !importantNoticeBody.trim()}
+                  onClick={async () => {
+                    try {
+                      setIsSendingImportantNotice(true);
+                      const payload: any = {
+                        title: importantNoticeTitle.trim(),
+                        body: importantNoticeBody.trim(),
+                        actionUrl: importantNoticeActionUrl.trim() || undefined,
+                        isUrgent: importantNoticeIsUrgent,
+                      };
+                      if (importantNoticeUser) {
+                        payload.userId = importantNoticeUser.id;
+                      } else {
+                        payload.role = importantNoticeTarget;
+                      }
+
+                      const res = await api.post('/notifications/admin/broadcast-important', payload);
+                      alert(res.data?.message || 'تم إرسال الإشعار الهام بنجاح عبر المنصة والبريد الإلكتروني.');
+                      setShowImportantModal(false);
+                    } catch (err: any) {
+                      alert(err?.response?.data?.message || 'حدث خطأ أثناء إرسال الإشعار الهام');
+                    } finally {
+                      setIsSendingImportantNotice(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-gradient-to-r from-rose-600 via-rose-700 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  {isSendingImportantNotice ? 'جاري الإرسال المزدوج...' : 'إرسال الإشعار الهام الآن'}
                 </button>
               </div>
             </div>

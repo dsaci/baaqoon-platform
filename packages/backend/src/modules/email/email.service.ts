@@ -7,11 +7,13 @@ import {
   getVolunteerApplicationReceivedEmailTemplate,
   getInactiveUserNudgeEmailTemplate,
   getSupervisorClarificationEmailTemplate,
+  getImportantNotificationEmailTemplate,
   VolunteerApprovedEmailData,
   VolunteerRejectedEmailData,
   VolunteerApplicationReceivedEmailData,
   InactiveUserNudgeEmailData,
   SupervisorClarificationEmailData,
+  ImportantNotificationEmailData,
 } from './email.templates';
 
 @Injectable()
@@ -258,6 +260,46 @@ export class EmailService {
       return { success: res.success, messageId: res.messageId };
     } catch (err: any) {
       this.logger.error(`Error in sendSupervisorClarificationEmail for ${data.email}: ${err.message}`);
+      return { success: false };
+    }
+  }
+
+  /**
+   * 6. Send Important Notification / Urgent Announcement Email (إشعار وتعميم رسمي هام)
+   */
+  async sendImportantNotificationEmail(data: {
+    recipientName: string;
+    email: string;
+    role?: string;
+    title: string;
+    body: string;
+    actionUrl?: string;
+    isUrgent?: boolean;
+    senderName?: string;
+  }): Promise<{ success: boolean; messageId?: string }> {
+    try {
+      const loginUrl = data.actionUrl || `${this.frontendUrl}/login`;
+      const template = getImportantNotificationEmailTemplate({
+        recipientName: data.recipientName,
+        email: data.email,
+        role: data.role,
+        title: data.title,
+        body: data.body,
+        actionUrl: loginUrl,
+        isUrgent: data.isUrgent,
+        senderName: data.senderName,
+      });
+
+      const res = await this.sendMail({
+        to: data.email,
+        subject: template.subject,
+        html: template.html,
+        text: `${data.recipientName}\n\n${data.title}\n\n${data.body}\n\nرابط المتابعة: ${loginUrl}`,
+      });
+
+      return { success: res.success, messageId: res.messageId };
+    } catch (err: any) {
+      this.logger.error(`Error in sendImportantNotificationEmail for ${data.email}: ${err.message}`);
       return { success: false };
     }
   }
