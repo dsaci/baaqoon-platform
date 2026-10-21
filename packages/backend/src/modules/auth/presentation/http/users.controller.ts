@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { assertNoDuplicateUser, normalizeEmail, normalizePhone } from '../../application/identity-validator.util';
+import { EmailService } from '../../../email/email.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -120,22 +121,23 @@ export class UsersController {
   }
 
   @Post('admin/nudge-inactive')
-  async nudgeInactiveUser(@Req() req: any, @Body() body: { userId: string; message?: string }) {
+  async nudgeInactiveUser(@Req() req: any, @Body() body: { userId: string; message?: string; sendEmail?: boolean }) {
     if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(req.user.primaryRole)) {
       throw new UnauthorizedException();
     }
-    const { userId, message } = body;
+    const { userId, message, sendEmail = true } = body;
     const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!targetUser) {
       return { error: 'المستخدم غير موجود' };
     }
 
     const defaultMessage = targetUser.primaryRole === 'teacher'
-      ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة لفترة. يرجى تسجيل الدخول لمتابعة الأفواج والخطط الدراسية وجدول الحصص.'
-      : 'نلفت انتباهك إلى غيابك عن المنصة لفترة. يرجى تسجيل الدخول لمتابعة دروسك والتكليفات المدرسية بانتظام.';
+      ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية وجدول الحصص.'
+      : 'نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.';
 
     const noteBody = message?.trim() || defaultMessage;
 
+    // 1. In-platform Notification
     await this.prisma.notification.create({
       data: {
         userId,
@@ -146,23 +148,135 @@ export class UsersController {
       }
     });
 
+    // 2. Email Delivery (ربط ما يُرسل في المنصة بالبريد الإلكتروني للخامل)
+    let emailSent = false;
+    let emailError: string | null = null;
+    if (sendEmail && targetUser.email && targetUser.email.includes('@')) {
+      try {
+        const emailRes = await this.emailService.sendInactiveUserNudgeEmail({
+          fullName: `${targetUser.firstNameAr || targetUser.firstName || ''} ${targetUser.lastNameAr || targetUser.lastName || ''}`.trim() || 'مستخدم منصة باقون',
+          email: targetUser.email,
+          role: targetUser.primaryRole,
+          customMessage: noteBody,
+          lastLoginAt: targetUser.lastLoginAt,
+          loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
+        });
+        emailSent = Boolean(emailRes?.success);
+      } catch (err: any) {
+        emailError = err.message;
+      }
+    }
+
+    // 3. Activity Log
     try {
       await this.prisma.activityLog.create({
         data: {
           userId: req.user.id,
           action: 'NUDGE_INACTIVE_USER',
-          details: `إرسال تنبيه خمول للمستخدم ${targetUser.firstName} ${targetUser.lastName} (${targetUser.primaryRole})`
+          details: `إرسال تنبيه خمول للمستخدم ${targetUser.firstName} ${targetUser.lastName} (${targetUser.primaryRole}) عبر المنصة ${emailSent ? 'والبريد الإلكتروني' : ''}`
         }
       });
     } catch (_) {}
 
     return {
       success: true,
-      message: `تم إرسال تنبيه المتابعة بنجاح إلى ${targetUser.firstName} ${targetUser.lastName}`
+      message: `تم إرسال تنبيه المتابعة بنجاح إلى ${targetUser.firstName} ${targetUser.lastName}`,
+      emailSent,
+      recipientEmail: targetUser.email,
+      emailError
     };
   }
 
-  constructor(private readonly prisma: PrismaService) {}
+  @Post('admin/nudge-inactive-bulk')
+  async nudgeInactiveUsersBulk(
+    @Req() req: any,
+    @Body() body: { userIds?: string[]; role?: string; message?: string }
+  ) {
+    if (!['super_admin', 'admin', 'subject_supervisor', 'supervisor'].includes(req.user.primaryRole)) {
+      throw new UnauthorizedException();
+    }
+    const { userIds, role, message } = body;
+
+    let targetUsers: any[] = [];
+    if (userIds && userIds.length > 0) {
+      targetUsers = await this.prisma.user.findMany({
+        where: { id: { in: userIds } }
+      });
+    } else {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const whereClause: any = {
+        status: 'active',
+        OR: [
+          { lastLoginAt: null },
+          { lastLoginAt: { lt: sevenDaysAgo } }
+        ]
+      };
+      if (role && role !== 'all') {
+        whereClause.primaryRole = role;
+      }
+      targetUsers = await this.prisma.user.findMany({ where: whereClause });
+    }
+
+    let notifiedCount = 0;
+    let emailedCount = 0;
+
+    for (const u of targetUsers) {
+      const defaultMessage = u.primaryRole === 'teacher'
+        ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية وجدول الحصص.'
+        : 'نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.';
+      const noteBody = message?.trim() || defaultMessage;
+
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: u.id,
+            title: 'تنبيه متابعة: إشعار غياب وخمول عن المنصة',
+            body: noteBody,
+            type: 'system',
+            actionUrl: u.primaryRole === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'
+          }
+        });
+        notifiedCount++;
+      } catch (_) {}
+
+      if (u.email && u.email.includes('@')) {
+        try {
+          const res = await this.emailService.sendInactiveUserNudgeEmail({
+            fullName: `${u.firstNameAr || u.firstName || ''} ${u.lastNameAr || u.lastName || ''}`.trim() || 'مستخدم منصة باقون',
+            email: u.email,
+            role: u.primaryRole,
+            customMessage: noteBody,
+            lastLoginAt: u.lastLoginAt,
+            loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
+          });
+          if (res?.success) emailedCount++;
+        } catch (_) {}
+      }
+    }
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          action: 'BULK_NUDGE_INACTIVE_USERS',
+          details: `إرسال تنبيه خمول جماعي لـ ${notifiedCount} مستخدم (تم إرسال ${emailedCount} بريد إلكتروني)`
+        }
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      totalUsers: targetUsers.length,
+      notifiedCount,
+      emailedCount,
+      message: `تم إرسال التنبيه إلى ${notifiedCount} مستخدم في المنصة، وتوصيل ${emailedCount} رسالة بريد إلكتروني بنجاح.`
+    };
+  }
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Patch('me/profile')
   async updateMyProfile(

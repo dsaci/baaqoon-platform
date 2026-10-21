@@ -1,6 +1,7 @@
 import { Controller, Get, Req, Res, Post, Body, Param, Patch, Delete, UseGuards, Query, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
+import { EmailService } from '../../../email/email.service';
 import * as XLSX from 'xlsx';
 
 function getActivityStatusText(lastLogin?: Date | null, created?: Date | null) {
@@ -473,7 +474,10 @@ export class GroupsController {
     };
   }
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   private async getSupervisorSubjectIds(userId?: string, supervisedSubjectId?: string | null): Promise<string[]> {
     const ids = new Set<string>();
@@ -1511,6 +1515,24 @@ export class GroupsController {
         }
       });
     } catch (_) {}
+
+    // Send email to teacher if email exists
+    try {
+      const teacher = await this.prisma.user.findUnique({ where: { id: teacherId } });
+      if (teacher?.email && teacher.email.includes('@')) {
+        await this.emailService.sendSupervisorClarificationEmail({
+          teacherName: `${teacher.firstNameAr || teacher.firstName || ''} ${teacher.lastNameAr || teacher.lastName || ''}`.trim() || 'الأستاذ',
+          email: teacher.email,
+          supervisorName: `${req.user?.firstName || 'المشرف'} ${req.user?.lastName || 'الأكاديمي'}`,
+          title: title || 'توضيح واستفسار إشرافي',
+          content,
+          isUrgent,
+          loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/teacher/dashboard`
+        });
+      }
+    } catch (e: any) {
+      console.error('Failed to send clarification email to teacher:', e?.message);
+    }
 
     return { ok: true, result };
   }

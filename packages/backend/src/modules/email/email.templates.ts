@@ -24,6 +24,26 @@ export interface VolunteerApplicationReceivedEmailData {
   subjects?: string[];
 }
 
+export interface InactiveUserNudgeEmailData {
+  fullName: string;
+  email: string;
+  role: string;
+  customMessage: string;
+  lastLoginAt?: Date | string | null;
+  loginUrl: string;
+}
+
+export interface SupervisorClarificationEmailData {
+  teacherName: string;
+  email: string;
+  supervisorName: string;
+  subjectName?: string;
+  title: string;
+  content: string;
+  isUrgent?: boolean;
+  loginUrl: string;
+}
+
 /**
  * Base wrapper for all Baaqoon emails with unified branding, header, and footer.
  */
@@ -377,5 +397,153 @@ export function getVolunteerApplicationReceivedEmailTemplate(data: VolunteerAppl
   return {
     subject,
     html: getEmailWrapper(content, `تم استلام طلب تطوعكم في منصة باقون وهو قيد المراجعة والتدقيق.`),
+  };
+}
+
+/**
+ * 4. Inactive User Nudge Email Template (تنبيه المتابعة والغياب للمستخدم الخامل)
+ */
+export function getInactiveUserNudgeEmailTemplate(data: InactiveUserNudgeEmailData): { subject: string; html: string } {
+  const isStudent = data.role === 'student';
+  const isTeacher = data.role === 'teacher';
+
+  const roleTitle = isStudent ? 'الطالب العزيز' : isTeacher ? 'الأستاذ الفاضل' : 'الأخ/الأخت الفاضل(ة)';
+  const subject = `تنبيه متابعة واطمئنان من منصة باقون التعليمية | ${roleTitle} ${data.fullName}`;
+
+  const lastLoginFormatted = data.lastLoginAt
+    ? new Date(data.lastLoginAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'لم يتم تسجيل الدخول مسبقاً';
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span class="badge" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 13px;">
+        🔔 تنبيه متابعة واطمئنان
+      </span>
+      <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
+        ${roleTitle}: ${data.fullName}
+      </h2>
+      <p style="margin: 0; color: #64748b; font-size: 14px;">
+        نفتقد وجودك وتفاعلك معنا في منصة باقون التعليمية
+      </p>
+    </div>
+
+    <p>
+      السلام عليكم ورحمة الله وبركاته،
+    </p>
+    <p>
+      تحية طيبة ملؤها التقدير والاعتزاز بك في رحاب <strong>منصة باقون التعليمية</strong>.
+    </p>
+
+    <!-- Admin Message Box -->
+    <div style="background-color: #FAF7F2; border: 1px solid #e2d9cc; border-right: 5px solid #c9b48a; border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
+      <div style="font-weight: 800; color: #1F2A18; font-size: 14px; margin-bottom: 10px;">
+        ✉️ نص التنبيه ورسالة المتابعة:
+      </div>
+      <div style="font-size: 15px; color: #334155; line-height: 1.8; white-space: pre-line; font-weight: 500;">
+        ${data.customMessage}
+      </div>
+    </div>
+
+    ${isStudent ? `
+    <p style="color: #334155; line-height: 1.8;">
+      نود تذكيرك بأننا هنا لنقف بجانبك خطوة بخطوة في مسيرتك الدراسية رغم كل الظروف والتحديات في قطاع غزة وفلسطين. <strong>أساتذتك وزملاؤك بانتظارك</strong>، وحصصك الدراسية والتكليفات المدرسية وبنك الدروس المسجلة متاحة لك باستمرار لمساعدتك على التفوق وتحقيق حلمك.
+    </p>
+    ` : isTeacher ? `
+    <p style="color: #334155; line-height: 1.8;">
+      نثمن عالياً دوركم العظيم ورسالتكم الإنسانية السامية في تعليم وإسناد طلبة فلسطين وقطاع غزة. <strong>طلابكم بحاجة إلى وجودكم وتوجيهكم المستمر</strong> لاستكمال مسيرتهم التعليمية بثبات وأمل. نرجو منكم تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية.
+    </p>
+    ` : `
+    <p style="color: #334155; line-height: 1.8;">
+      نلفت عنايتكم إلى أهمية المتابعة المستمرة لمهامكم على المنصة لدعم سير العملية التعليمية.
+    </p>
+    `}
+
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin: 20px 0;">
+      <table style="width: 100%; font-size: 13px;">
+        <tr>
+          <td style="padding: 4px 0; color: #64748b; width: 140px;">البريد المسجل:</td>
+          <td style="padding: 4px 0; font-weight: bold; color: #0f172a; direction: ltr; text-align: right;">${data.email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #64748b;">الصفة في المنصة:</td>
+          <td style="padding: 4px 0; font-weight: bold; color: #059669;">${isStudent ? 'طالب' : isTeacher ? 'أستاذ متطوع' : data.role}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #64748b;">آخر تسجيل دخول:</td>
+          <td style="padding: 4px 0; font-weight: bold; color: #64748b;">${lastLoginFormatted}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${data.loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 32px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
+        🚀 تسجيل الدخول إلى المنصة واستئناف النشاط
+      </a>
+      <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">
+        أو عبر الرابط المباشر: <span style="direction: ltr; display: inline-block;">${data.loginUrl}</span>
+      </div>
+    </div>
+
+    <p style="margin-top: 24px; font-size: 13px; color: #64748b; text-align: center;">
+      معاً نبني الأمل ونواصل مسيرة العلم والحرية لأبناء شعبنا 🇵🇸🌿
+    </p>
+  `;
+
+  return {
+    subject,
+    html: getEmailWrapper(content, `تنبيه متابعة واطمئنان من منصة باقون: ${data.customMessage.slice(0, 80)}...`),
+  };
+}
+
+/**
+ * 5. Supervisor Clarification & Direct Directive Email Template
+ */
+export function getSupervisorClarificationEmailTemplate(data: SupervisorClarificationEmailData): { subject: string; html: string } {
+  const subject = `${data.isUrgent ? '🚨 تنبيه عاجل: ' : '📋 توجيه واستفسار إشرافي: '}${data.title} | أ. ${data.teacherName}`;
+
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span class="badge" style="background-color: ${data.isUrgent ? '#fee2e2' : '#ecfdf5'}; color: ${data.isUrgent ? '#991b1b' : '#065f46'}; border: 1px solid ${data.isUrgent ? '#fca5a5' : '#a7f3d0'}; font-size: 13px;">
+        ${data.isUrgent ? '🚨 إشعار إشرافي عاجل وذو أولوية' : '📋 توجيه واستفسار إشرافي'}
+      </span>
+      <h2 style="margin: 10px 0 4px; font-size: 20px; color: #0f172a; font-weight: 800;">
+        الأستاذ الفاضل: ${data.teacherName}
+      </h2>
+      <p style="margin: 0; color: #64748b; font-size: 14px;">
+        من المشرف الأكاديمي: <strong>${data.supervisorName}</strong> ${data.subjectName ? `(مادة ${data.subjectName})` : ''}
+      </p>
+    </div>
+
+    <p>
+      السلام عليكم ورحمة الله وبركاته،
+    </p>
+    <p>
+      يوجه إليكم المشرف الأكاديمي لمادتكم التوجيه/الاستفسار التالي لمتابعة سير الحصص والعملية التعليمية:
+    </p>
+
+    <!-- Message Box -->
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-right: 5px solid ${data.isUrgent ? '#ef4444' : '#059669'}; border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
+      <div style="font-weight: 800; color: #0f172a; font-size: 15px; margin-bottom: 8px;">
+        📌 ${data.title}
+      </div>
+      <div style="font-size: 14px; color: #334155; line-height: 1.8; white-space: pre-line;">
+        ${data.content}
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${data.loginUrl}" class="btn" style="background: linear-gradient(135deg, #1F2A18 0%, #394C2A 50%, #c9b48a 100%); padding: 14px 30px; font-size: 15px; font-weight: 800; border-radius: 12px; color: #ffffff; display: inline-block; text-decoration: none;" target="_blank">
+        💼 فتح بوابة الأستاذ والمتابعة
+      </a>
+    </div>
+
+    <p style="font-size: 13px; color: #64748b; text-align: center;">
+      نسأل الله لكم التوفيق والسداد في أداء رسالتكم التعليمية النبيلة 🌿
+    </p>
+  `;
+
+  return {
+    subject,
+    html: getEmailWrapper(content, `${data.title}: ${data.content.slice(0, 80)}...`),
   };
 }

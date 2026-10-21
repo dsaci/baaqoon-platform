@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
-import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send } from 'lucide-react';
+import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send, Mail } from 'lucide-react';
 import { getUserActivityStatus } from '../../../utils/activityStatus';
 
 interface HrManagementAdminViewProps {
@@ -33,6 +33,9 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [nudgeUserModal, setNudgeUserModal] = useState<any>(null);
   const [nudgeMessage, setNudgeMessage] = useState<string>('');
   const [isNudging, setIsNudging] = useState<boolean>(false);
+  const [showBulkNudgeModal, setShowBulkNudgeModal] = useState<boolean>(false);
+  const [bulkNudgeMessage, setBulkNudgeMessage] = useState<string>("");
+  const [isBulkNudging, setIsBulkNudging] = useState<boolean>(false);
   const [viewEditSubjectId, setViewEditSubjectId] = useState<string>('');
   const [viewEditNationality, setViewEditNationality] = useState<string>('');
 
@@ -294,6 +297,19 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
             {idleCount}
           </span>
         </button>
+
+        {roleFilter === 'idle' && idleCount > 0 && (
+          <button
+            onClick={() => {
+              setBulkNudgeMessage('نلفت عنايتكم الكريمة إلى انقطاعكم عن منصة باقون مؤخراً. نرجو تسجيل الدخول ومتابعة مهامكم وحصصكم والتكليفات بانتظام.');
+              setShowBulkNudgeModal(true);
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Mail className="w-4 h-4" />
+            <span>تنبيه كافة الخاملين ({idleCount}) عبر المنصة والبريد</span>
+          </button>
+        )}
         
         {pendingCount > 0 && (
           <div className="mr-auto bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
@@ -867,8 +883,14 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
             </div>
 
             <div className="space-y-4">
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-bold">
-                سيصل هذا الإشعار التنبيهي مباشرة إلى حساب المستخدم في شريط الإشعارات لدعوته لاستئناف نشاطه ومتابعة مهامه التعليمية.
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-start gap-2.5">
+                <Mail className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p>الربط بالبريد الإلكتروني مفعل تلقائياً 🌿</p>
+                  <p className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    سيصل هذا التنبيه مباشرة إلى شريط إشعارات المستخدم داخل المنصة، <strong>وكذلك رسالة رسمية فورية إلى بريده الإلكتروني:</strong> <span className="font-mono text-emerald-900 dark:text-emerald-200" dir="ltr">{nudgeUserModal.email || 'غير مسجل'}</span>
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -902,7 +924,8 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                         userId: nudgeUserModal.id,
                         message: nudgeMessage.trim()
                       });
-                      alert(`تم إرسال تنبيه المتابعة بنجاح إلى ${nudgeUserModal.firstName} ${nudgeUserModal.lastName}`);
+                      const emailNotice = nudgeUserModal.email ? ' وعبر البريد الإلكتروني (' + nudgeUserModal.email + ')' : '';
+                      alert('تم إرسال تنبيه المتابعة بنجاح إلى ' + nudgeUserModal.firstName + ' ' + nudgeUserModal.lastName + ' في المنصة' + emailNotice + '.');
                       setNudgeUserModal(null);
                     } catch (err: any) {
                       alert(err?.response?.data?.message || 'حدث خطأ أثناء إرسال التنبيه');
@@ -914,6 +937,79 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                 >
                   <Send className="w-4 h-4" />
                   {isNudging ? 'جاري الإرسال...' : 'إرسال التنبيه الآن'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showBulkNudgeModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl p-6 border border-rose-100 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">تنبيه متابعة جماعي لكافة الخاملين</h3>
+                  <p className="text-xs text-slate-500 font-bold">العدد الإجمالي المستهدف: {idleCount} مستخدم</p>
+                </div>
+              </div>
+              <button onClick={() => setShowBulkNudgeModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-bold">
+                سيتم إرسال هذا التنبيه دفعة واحدة إلى كافة المستخدمين المنقطعين عن المنصة؛ حيث يصلهم إشعار داخلي في المنصة مع رسالة بريد إلكتروني مخصصة باسم كل مستخدم ورابط تسجيل الدخول.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                  نص التنبيه الجماعي (المنصة + البريد الإلكتروني):
+                </label>
+                <textarea
+                  rows={4}
+                  value={bulkNudgeMessage}
+                  onChange={(e) => setBulkNudgeMessage(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkNudgeModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkNudging || !bulkNudgeMessage.trim()}
+                  onClick={async () => {
+                    try {
+                      setIsBulkNudging(true);
+                      const res = await api.post('/users/admin/nudge-inactive-bulk', {
+                        message: bulkNudgeMessage.trim()
+                      });
+                      alert(res.data?.message || 'تم إرسال التنبيه الجماعي بنجاح إلى المستخدمين في المنصة والبريد.');
+                      setShowBulkNudgeModal(false);
+                    } catch (err) {
+                      alert(err?.response?.data?.message || 'حدث خطأ أثناء الإرسال الجماعي');
+                    } finally {
+                      setIsBulkNudging(false);
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  {isBulkNudging ? 'جاري الإرسال الجماعي...' : 'إرسال للجميع (' + idleCount + ')'}
                 </button>
               </div>
             </div>

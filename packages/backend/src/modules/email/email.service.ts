@@ -5,9 +5,13 @@ import {
   getVolunteerApprovedEmailTemplate,
   getVolunteerRejectedEmailTemplate,
   getVolunteerApplicationReceivedEmailTemplate,
+  getInactiveUserNudgeEmailTemplate,
+  getSupervisorClarificationEmailTemplate,
   VolunteerApprovedEmailData,
   VolunteerRejectedEmailData,
   VolunteerApplicationReceivedEmailData,
+  InactiveUserNudgeEmailData,
+  SupervisorClarificationEmailData,
 } from './email.templates';
 
 @Injectable()
@@ -179,6 +183,82 @@ export class EmailService {
     } catch (err: any) {
       this.logger.error(`Error in sendVolunteerApplicationReceivedEmail: ${err.message}`);
       return false;
+    }
+  }
+
+  /**
+   * 4. Send Inactive User Nudge Email (تنبيه المتابعة للمنقطع والخامل عن المنصة)
+   */
+  async sendInactiveUserNudgeEmail(data: {
+    fullName: string;
+    email: string;
+    role: string;
+    customMessage: string;
+    lastLoginAt?: Date | string | null;
+    loginUrl?: string;
+  }): Promise<{ success: boolean; messageId?: string }> {
+    try {
+      const loginUrl = data.loginUrl || `${this.frontendUrl}/login`;
+      const template = getInactiveUserNudgeEmailTemplate({
+        fullName: data.fullName,
+        email: data.email,
+        role: data.role,
+        customMessage: data.customMessage,
+        lastLoginAt: data.lastLoginAt,
+        loginUrl,
+      });
+
+      const res = await this.sendMail({
+        to: data.email,
+        subject: template.subject,
+        html: template.html,
+        text: `${data.fullName}\n\n${data.customMessage}\n\nرابط الدخول: ${loginUrl}`,
+      });
+
+      return { success: res.success, messageId: res.messageId };
+    } catch (err: any) {
+      this.logger.error(`Error in sendInactiveUserNudgeEmail for ${data.email}: ${err.message}`);
+      return { success: false };
+    }
+  }
+
+  /**
+   * 5. Send Supervisor Clarification / Directive Email to Teacher
+   */
+  async sendSupervisorClarificationEmail(data: {
+    teacherName: string;
+    email: string;
+    supervisorName: string;
+    subjectName?: string;
+    title: string;
+    content: string;
+    isUrgent?: boolean;
+    loginUrl?: string;
+  }): Promise<{ success: boolean; messageId?: string }> {
+    try {
+      const loginUrl = data.loginUrl || `${this.frontendUrl}/teacher/dashboard`;
+      const template = getSupervisorClarificationEmailTemplate({
+        teacherName: data.teacherName,
+        email: data.email,
+        supervisorName: data.supervisorName,
+        subjectName: data.subjectName,
+        title: data.title,
+        content: data.content,
+        isUrgent: data.isUrgent,
+        loginUrl,
+      });
+
+      const res = await this.sendMail({
+        to: data.email,
+        subject: template.subject,
+        html: template.html,
+        text: `الأستاذ ${data.teacherName}\n\nمن المشرف الأكاديمي: ${data.supervisorName}\n\n${data.title}\n\n${data.content}\n\nرابط الدخول: ${loginUrl}`,
+      });
+
+      return { success: res.success, messageId: res.messageId };
+    } catch (err: any) {
+      this.logger.error(`Error in sendSupervisorClarificationEmail for ${data.email}: ${err.message}`);
+      return { success: false };
     }
   }
 }
