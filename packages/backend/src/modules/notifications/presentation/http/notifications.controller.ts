@@ -130,6 +130,7 @@ export class NotificationsController {
     let notifiedCount = 0;
     let emailedCount = 0;
 
+    // 1. Dispatch in-platform notifications
     for (const u of targetUsers) {
       try {
         await this.prisma.notification.create({
@@ -138,18 +139,27 @@ export class NotificationsController {
             title: title.trim(),
             body: contentBody.trim(),
             type: "system",
-            actionUrl: actionUrl?.trim() || "/student/dashboard",
+            actionUrl: actionUrl?.trim() || (u.primaryRole === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'),
           },
         });
         notifiedCount++;
       } catch (_) {}
+    }
 
-      if (u.email && u.email.includes("@")) {
-        try {
-          const fullName = `${u.firstNameAr || u.firstName || ""} ${u.lastNameAr || u.lastName || ""}`.trim() || "مستخدم منصة باقون";
+    // 2. Dispatch branded emails concurrently in batches to avoid HTTP timeouts
+    const validEmailUsers = targetUsers.filter((u) => 
+      u.email && typeof u.email === 'string' && u.email.includes('@') && !u.email.includes(' ')
+    );
+
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < validEmailUsers.length; i += BATCH_SIZE) {
+      const batch = validEmailUsers.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (u) => {
+          const fullName = `${u.firstNameAr || u.firstName || ""}`.trim() || "مستخدم منصة باقون";
           const res = await this.emailService.sendImportantNotificationEmail({
             recipientName: fullName,
-            email: u.email,
+            email: u.email.trim(),
             role: u.primaryRole,
             title: title.trim(),
             body: contentBody.trim(),
@@ -157,8 +167,14 @@ export class NotificationsController {
             isUrgent: Boolean(isUrgent),
             senderName: senderFullName,
           });
-          if (res?.success) emailedCount++;
-        } catch (_) {}
+          return res?.success ? 1 : 0;
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value === 1) {
+          emailedCount++;
+        }
       }
     }
 

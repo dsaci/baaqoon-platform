@@ -25,15 +25,15 @@ export class EmailService {
   private readonly frontendUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = Number(this.configService.get<string>('SMTP_PORT')) || 587;
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
-    const secure = this.configService.get<string>('SMTP_SECURE') === 'true' || port === 465;
+    const host = this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com';
+    const port = Number(this.configService.get<string>('SMTP_PORT')) || 465;
+    const user = this.configService.get<string>('SMTP_USER') || 'baaqoon@gmail.com';
+    const pass = this.configService.get<string>('SMTP_PASS') || 'qlsdemcnlkmvgmsm';
+    const secure = (this.configService.get<string>('SMTP_SECURE') === 'true') || port === 465;
 
     this.fromAddress =
       this.configService.get<string>('SMTP_FROM') ||
-      '"منصة باقون التعليمية" <no-reply@baaqoon.org>';
+      '"منصة باقون التعليمية" <baaqoon@gmail.com>';
 
     this.frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
@@ -51,14 +51,14 @@ export class EmailService {
           },
         });
         this.isConfigured = true;
-        this.logger.log(`✅ EmailService: SMTP transporter initialized (${host}:${port})`);
+        this.logger.log(`✅ EmailService: SMTP transporter initialized (${host}:${port}) for ${user}`);
       } catch (err: any) {
         this.logger.error(`❌ EmailService: Failed to initialize SMTP transporter: ${err.message}`);
         this.isConfigured = false;
       }
     } else {
       this.logger.warn(
-        '⚠️ EmailService: SMTP credentials (SMTP_HOST, SMTP_USER, SMTP_PASS) not set in .env. Running in simulation/dev mode.',
+        '⚠️ EmailService: SMTP credentials not available. Running in simulation/dev mode.',
       );
     }
   }
@@ -78,10 +78,10 @@ export class EmailService {
     }
 
     if (!this.isConfigured || !this.transporter) {
-      this.logger.log(
-        `📨 [Email Simulated] To: ${options.to} | Subject: "${options.subject}" | (Configure SMTP in .env for live delivery)`,
+      this.logger.warn(
+        `📨 [Email Simulated - Not Configured] To: ${options.to} | Subject: "${options.subject}"`,
       );
-      return { success: true, simulated: true };
+      return { success: false, simulated: true };
     }
 
     try {
