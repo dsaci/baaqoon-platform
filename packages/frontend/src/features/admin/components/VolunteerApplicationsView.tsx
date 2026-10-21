@@ -1280,7 +1280,7 @@ export default function VolunteerApplicationsView() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => handleCopyCredentials(`أهلاً وسهلاً بك أستاذنا الفاضل في منصة باقون لتعليم طلبة غزة 🌿\nتم اعتماد ملفكم وتفعيل حسابكم الرسمي:\nرابط المنصة: https://baaqoon.ps/login\nالبريد: ${conversionModal.result.user?.email}\nكلمة المرور: ${conversionModal.result.initialPassword || 'المحددة من طرفكم'}\nنرجو تغيير كلمة المرور عند أول تسجيل دخول.`)}
+                onClick={() => handleCopyCredentials(`أهلاً وسهلاً بك أستاذنا الفاضل في منصة باقون لتعليم طلبة غزة 🌿\nتم اعتماد ملفكم وتفعيل حسابكم الرسمي:\nرابط المنصة: https://baaqoon-platform.vercel.app/login\nالبريد: ${conversionModal.result.user?.email}\nكلمة المرور: ${conversionModal.result.initialPassword || 'المحددة من طرفكم'}\nنرجو تغيير كلمة المرور عند أول تسجيل دخول.`)}
                 className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

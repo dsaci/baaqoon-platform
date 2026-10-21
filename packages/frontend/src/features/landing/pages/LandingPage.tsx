@@ -343,11 +343,11 @@ export default function LandingPage() {
                 {t("landing.contact_email_title", "البريد الإلكتروني")}
               </h3>
               <a
-                href="mailto:contact@baaqoon.ps"
+                href="mailto:baaqoon@gmail.com"
                 dir="ltr"
                 className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium hover:text-emerald-600"
               >
-                contact@baaqoon.ps
+                baaqoon@gmail.com
               </a>
             </div>
 
@@ -490,8 +490,8 @@ export default function LandingPage() {
                     <p className="text-[11px] text-baaqoon-gold">
                       {t("landing.contact_email_title", "البريد الإلكتروني")}
                     </p>
-                    <a href="mailto:contact@baaqoon.ps" dir="ltr" className="hover:text-baaqoon-gold transition-colors">
-                      contact@baaqoon.ps
+                    <a href="mailto:baaqoon@gmail.com" dir="ltr" className="hover:text-baaqoon-gold transition-colors">
+                      baaqoon@gmail.com
                     </a>
                   </div>
                 </li>
