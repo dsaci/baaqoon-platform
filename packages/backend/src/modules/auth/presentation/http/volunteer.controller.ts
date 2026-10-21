@@ -548,6 +548,7 @@ export class VolunteerController {
           motivation: body.motivation || existingApp.motivation,
           discoveryChannel: body.discoveryChannel || existingApp.discoveryChannel,
           additionalNotes: body.additionalNotes || existingApp.additionalNotes,
+          isExistingBaaqoonTeacher: body.isExistingBaaqoonTeacher !== undefined ? Boolean(body.isExistingBaaqoonTeacher) : existingApp.isExistingBaaqoonTeacher,
           status: 'pending',
           updatedAt: new Date(),
         },
@@ -556,7 +557,7 @@ export class VolunteerController {
       // Create new application
       appRecord = await this.prisma.volunteerApplication.create({
         data: {
-          isExistingBaaqoonTeacher: false,
+          isExistingBaaqoonTeacher: Boolean(body.isExistingBaaqoonTeacher),
           fullNameAr,
           fullNameEn,
           age: body.age ? parseInt(body.age, 10) : null,

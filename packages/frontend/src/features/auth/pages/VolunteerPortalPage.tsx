@@ -123,6 +123,8 @@ export default function VolunteerPortalPage() {
 
   // Form state for New Volunteer Teacher
   const [newForm, setNewForm] = useState({
+    isExistingBaaqoonTeacher: false,
+    currentCohortsDetails: '',
     fullNameAr: '',
     fullNameEn: '',
     age: '',
@@ -192,7 +194,13 @@ export default function VolunteerPortalPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await api.post('/volunteer/apply', newForm);
+      const payload = {
+        ...newForm,
+        additionalNotes: newForm.isExistingBaaqoonTeacher && newForm.currentCohortsDetails
+          ? `[أستاذ ميداني حالي في باقون - أفواج/مشرف: ${newForm.currentCohortsDetails}] ${newForm.additionalNotes || ''}`
+          : newForm.additionalNotes,
+      };
+      const res = await api.post('/volunteer/apply', payload);
       setSuccessResult({
         type: 'new',
         message: res.data.message,
@@ -531,6 +539,45 @@ export default function VolunteerPortalPage() {
 
             <form onSubmit={handleNewSubmit} className="space-y-8">
               
+              {/* Field Teacher Status Toggle */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                newForm.isExistingBaaqoonTeacher 
+                  ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' 
+                  : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+              }`}>
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newForm.isExistingBaaqoonTeacher}
+                    onChange={e => setNewForm({ ...newForm, isExistingBaaqoonTeacher: e.target.checked })}
+                    className="w-5 h-5 mt-0.5 text-emerald-600 rounded cursor-pointer shrink-0 accent-emerald-600"
+                  />
+                  <div className="space-y-1">
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white block">
+                      هل تدرس حالياً مع طلاب باقون في الميدان؟ (تثبيت حساب أستاذ ميداني قائم)
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block leading-relaxed">
+                      إذا كنت تدرس بالفعل أحد الأفواج، فعّل هذا الخيار ليتم تمييز طلبك بوسم «أستاذ حالي» لمطابقة أفواجك واعتماد حسابك بأولوية فورية من المشرف الأكاديمي.
+                    </span>
+                  </div>
+                </label>
+
+                {newForm.isExistingBaaqoonTeacher && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800/60 animate-fade-in space-y-1.5">
+                    <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                      اسم المشرف الميداني أو أسماء الأفواج التي تدرسها حالياً (إن أمكن للتدقيق والمطابقة السريعة):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: أدرس فوج كيمياء 12 علمي مع الأستاذ المشرف..."
+                      value={newForm.currentCohortsDetails}
+                      onChange={e => setNewForm({ ...newForm, currentCohortsDetails: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Section 1: Personal Info */}
               <div className="space-y-4">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
