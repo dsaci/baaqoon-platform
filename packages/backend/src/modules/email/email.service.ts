@@ -28,7 +28,8 @@ export class EmailService {
 
   constructor(private readonly configService: ConfigService) {
     this.gmailWebhookUrl =
-      this.configService.get<string>('GMAIL_WEBHOOK_URL') || '';
+      this.configService.get<string>('GMAIL_WEBHOOK_URL') ||
+      'https://script.google.com/macros/s/AKfycbzKYEXxyk4GoJMQrmcsKKEUWx428z8T_fLYIaXYlXVHEEMib7k86ns0sNwND474RUc7yw/exec';
     this.webhookToken =
       this.configService.get<string>('GMAIL_WEBHOOK_TOKEN') || 'BaaqoonSecureGateway_2026';
 
@@ -94,6 +95,7 @@ export class EmailService {
         const resp = await fetch(this.gmailWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          redirect: 'follow',
           body: JSON.stringify({
             token: this.webhookToken,
             to: options.to,
