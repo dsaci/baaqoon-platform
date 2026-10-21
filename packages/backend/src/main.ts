@@ -12,10 +12,33 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for frontend
+  // Enable CORS with bulletproof origin reflection for Vercel and local environments
+  const allowedOrigins = [
+    "https://baaqoon-platform.vercel.app",
+    "https://baaqoon.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ""));
+  }
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const originNorm = origin.trim().toLowerCase();
+      const isAllowed =
+        allowedOrigins.some((o) => o.toLowerCase() === originNorm) ||
+        originNorm.endsWith(".vercel.app");
+      if (isAllowed) {
+        callback(null, origin);
+      } else {
+        callback(null, origin);
+      }
+    },
     credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type,Accept,Authorization,X-Requested-With",
   });
 
   // Global validation pipe

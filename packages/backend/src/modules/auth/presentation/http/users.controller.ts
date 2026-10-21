@@ -241,54 +241,53 @@ export class UsersController {
     }
 
     const validEmailUsers = targetUsers.filter((u) => 
-      u.email && typeof u.email === 'string' && u.email.includes('@') && !u.email.includes(' ')
+      u.email && typeof u.email === 'string' && u.email.includes('@') && !u.email.includes(' ') && !u.email.startsWith('null')
     );
-
-    const BATCH_SIZE = 6;
-    for (let i = 0; i < validEmailUsers.length; i += BATCH_SIZE) {
-      const batch = validEmailUsers.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map(async (u) => {
-          const defaultMessage = u.primaryRole === 'teacher'
-            ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية وجدول الحصص.'
-            : 'نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.';
-          const noteBody = message?.trim() || defaultMessage;
-
-          const res = await this.emailService.sendInactiveUserNudgeEmail({
-            fullName: `${u.firstNameAr || u.firstName || ''} ${u.lastNameAr || u.lastName || ''}`.trim() || 'مستخدم منصة باقون',
-            email: u.email.trim(),
-            role: u.primaryRole,
-            customMessage: noteBody,
-            lastLoginAt: u.lastLoginAt,
-            loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
-          });
-          return res?.success ? 1 : 0;
-        })
-      );
-
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value === 1) {
-          emailedCount++;
-        }
-      }
-    }
 
     try {
       await this.prisma.activityLog.create({
         data: {
           userId: req.user.id,
           action: 'BULK_NUDGE_INACTIVE_USERS',
-          details: `إرسال تنبيه خمول جماعي لـ ${notifiedCount} مستخدم (تم إرسال ${emailedCount} بريد إلكتروني)`
+          details: `إرسال تنبيه خمول جماعي لـ ${notifiedCount} مستخدم (جاري تسليم ${validEmailUsers.length} بريد إلكتروني)`
         }
       });
     } catch (_) {}
+
+    // Asynchronous background email delivery
+    setImmediate(async () => {
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < validEmailUsers.length; i += BATCH_SIZE) {
+        const batch = validEmailUsers.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(
+          batch.map(async (u) => {
+            const defaultMessage = u.primaryRole === 'teacher'
+              ? 'نلفت عنايتكم الكريمة إلى انقطاعكم عن المنصة مؤخراً، نرجو تسجيل الدخول ومتابعة الأفواج والخطط الأكاديمية وجدول الحصص.'
+              : 'نلاحظ غيابك عن المنصة مؤخراً، نرجو تسجيل الدخول للاطلاع على الحصص والتكليفات المدرسية بانتظام.';
+            const noteBody = message?.trim() || defaultMessage;
+
+            return this.emailService.sendInactiveUserNudgeEmail({
+              fullName: `${u.firstNameAr || u.firstName || ''} ${u.lastNameAr || u.lastName || ''}`.trim() || 'مستخدم منصة باقون',
+              email: u.email.trim(),
+              role: u.primaryRole,
+              customMessage: noteBody,
+              lastLoginAt: u.lastLoginAt,
+              loginUrl: `${process.env.FRONTEND_URL || 'https://baaqoon-platform.vercel.app'}/login`
+            });
+          })
+        );
+        if (i + BATCH_SIZE < validEmailUsers.length) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+      }
+    });
 
     return {
       success: true,
       totalUsers: targetUsers.length,
       notifiedCount,
-      emailedCount,
-      message: `تم إرسال التنبيه إلى ${notifiedCount} مستخدم في المنصة، وتوصيل ${emailedCount} رسالة بريد إلكتروني بنجاح.`
+      emailedCount: validEmailUsers.length,
+      message: `تم إرسال التنبيه إلى ${notifiedCount} مستخدم في المنصة، وجاري تسليم ${validEmailUsers.length} رسالة بريد إلكتروني بنجاح.`
     };
   }
 

@@ -128,9 +128,8 @@ export class NotificationsController {
       : `${frontendBase}/login`;
 
     let notifiedCount = 0;
-    let emailedCount = 0;
 
-    // 1. Dispatch in-platform notifications
+    // 1. Dispatch in-platform notifications immediately
     for (const u of targetUsers) {
       try {
         await this.prisma.notification.create({
@@ -146,54 +145,54 @@ export class NotificationsController {
       } catch (_) {}
     }
 
-    // 2. Dispatch branded emails concurrently in batches to avoid HTTP timeouts
+    // 2. Filter valid recipient emails
     const validEmailUsers = targetUsers.filter((u) => 
-      u.email && typeof u.email === 'string' && u.email.includes('@') && !u.email.includes(' ')
+      u.email && typeof u.email === 'string' && u.email.includes('@') && !u.email.includes(' ') && !u.email.startsWith('null')
     );
 
-    const BATCH_SIZE = 6;
-    for (let i = 0; i < validEmailUsers.length; i += BATCH_SIZE) {
-      const batch = validEmailUsers.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map(async (u) => {
-          const fullName = `${u.firstNameAr || u.firstName || ""}`.trim() || "مستخدم منصة باقون";
-          const res = await this.emailService.sendImportantNotificationEmail({
-            recipientName: fullName,
-            email: u.email.trim(),
-            role: u.primaryRole,
-            title: title.trim(),
-            body: contentBody.trim(),
-            actionUrl: fullActionUrl,
-            isUrgent: Boolean(isUrgent),
-            senderName: senderFullName,
-          });
-          return res?.success ? 1 : 0;
-        })
-      );
-
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value === 1) {
-          emailedCount++;
-        }
-      }
-    }
-
+    // 3. Log activity immediately
     try {
       await this.prisma.activityLog.create({
         data: {
           userId: req.user.id,
           action: "BROADCAST_IMPORTANT_NOTIFICATION",
-          details: `إرسال إشعار هام "${title}" إلى ${notifiedCount} مستخدم (تم توصيل ${emailedCount} بريد إلكتروني)`,
+          details: `إرسال إشعار هام "${title}" إلى ${notifiedCount} مستخدم (جاري تسليم ${validEmailUsers.length} بريد إلكتروني)`,
         },
       });
     } catch (_) {}
+
+    // 4. Asynchronously deliver emails in the background so the HTTP response returns immediately without proxy timeouts
+    setImmediate(async () => {
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < validEmailUsers.length; i += BATCH_SIZE) {
+        const batch = validEmailUsers.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(
+          batch.map(async (u) => {
+            const fullName = `${u.firstNameAr || u.firstName || ""}`.trim() || "مستخدم منصة باقون";
+            return this.emailService.sendImportantNotificationEmail({
+              recipientName: fullName,
+              email: u.email.trim(),
+              role: u.primaryRole,
+              title: title.trim(),
+              body: contentBody.trim(),
+              actionUrl: fullActionUrl,
+              isUrgent: Boolean(isUrgent),
+              senderName: senderFullName,
+            });
+          })
+        );
+        if (i + BATCH_SIZE < validEmailUsers.length) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+      }
+    });
 
     return {
       success: true,
       totalTargeted: targetUsers.length,
       notifiedCount,
-      emailedCount,
-      message: `تم إرسال الإشعار الهام بنجاح إلى ${notifiedCount} مستخدم في المنصة، وتوصيل ${emailedCount} رسالة بريد إلكتروني.`,
+      emailedCount: validEmailUsers.length,
+      message: `تم إرسال الإشعار الهام بنجاح إلى ${notifiedCount} مستخدم في المنصة، وجاري تسليم ${validEmailUsers.length} رسالة بريد إلكتروني.`,
     };
   }
 }
