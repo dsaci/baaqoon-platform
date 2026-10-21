@@ -654,29 +654,29 @@ export default function DashboardLayout() {
           {/* Missing Contact / Subject Info Urgent Banner */}
           {hasIncompleteContact && (
             <div
-              className={`mb-6 relative overflow-hidden rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md animate-fade-in ${
+              className={`mb-6 relative w-full max-w-full overflow-hidden rounded-2xl border transition-all duration-300 shadow-md hover:shadow-lg animate-fade-in ${
                 isMissingSubject
-                  ? 'bg-gradient-to-br from-purple-50/90 via-white to-indigo-50/40 border-purple-200/80 dark:bg-gradient-to-br dark:from-purple-950/70 dark:via-slate-900/90 dark:to-indigo-950/50 dark:border-purple-800/60'
-                  : 'bg-gradient-to-br from-amber-50/80 via-[#FAF7F2] to-emerald-50/20 border-amber-200/80 dark:bg-gradient-to-br dark:from-slate-900/95 dark:via-slate-900/85 dark:to-slate-800/70 dark:border-amber-500/30'
+                  ? 'bg-gradient-to-br from-[#1e1b4b] via-[#2e1065] to-[#1F2A18] border-purple-400/40 text-white'
+                  : 'bg-gradient-to-br from-[#1F2A18] via-[#26351F] to-[#172012] border-[#c9b48a]/40 text-white'
               }`}
               dir={isRtl ? 'rtl' : 'ltr'}
             >
               {/* Top Accent Gradient Bar */}
               <div
-                className={`h-1 w-full ${
+                className={`h-1.5 w-full ${
                   isMissingSubject
-                    ? 'bg-gradient-to-r from-purple-600 via-indigo-500 to-[#394C2A]'
-                    : 'bg-gradient-to-r from-[#c9b48a] via-amber-500 to-[#394C2A]'
+                    ? 'bg-gradient-to-r from-purple-400 via-indigo-300 to-[#c9b48a]'
+                    : 'bg-gradient-to-r from-[#c9b48a] via-[#e5d8be] to-[#394C2A]'
                 }`}
               />
 
-              <div className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-start gap-3.5">
+              <div className="p-4 sm:p-5 lg:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 lg:gap-6 w-full max-w-full">
+                <div className="flex items-start gap-3.5 sm:gap-4 flex-1 min-w-0 w-full">
                   <div
-                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                    className={`w-11 h-11 sm:w-13 sm:h-13 rounded-2xl flex items-center justify-center shrink-0 shadow-inner backdrop-blur-xs ${
                       isMissingSubject
-                        ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-purple-600/25 ring-4 ring-purple-500/10'
-                        : 'bg-gradient-to-br from-[#1F2A18] to-[#394C2A] text-[#c9b48a] border border-[#c9b48a]/30 shadow-[#1F2A18]/20 ring-4 ring-amber-500/10'
+                        ? 'bg-white/10 border border-purple-300/30 text-purple-200'
+                        : 'bg-white/10 border border-[#c9b48a]/30 text-[#c9b48a]'
                     }`}
                   >
                     {isMissingSubject ? (
@@ -686,20 +686,23 @@ export default function DashboardLayout() {
                     )}
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black border ${
                           isMissingSubject
-                            ? 'bg-purple-100 text-purple-900 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                            : 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80'
+                            ? 'bg-purple-500/20 text-purple-200 border-purple-400/30'
+                            : 'bg-[#c9b48a]/20 text-[#e6d9bf] border-[#c9b48a]/40'
                         }`}
                       >
-                        {isMissingSubject ? '📚 إسناد مادة التدريس' : '🛡️ تنبيه أمان وتحديث بيانات'}
+                        <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                        {isMissingSubject
+                          ? (isRtl ? 'إسناد مادة التدريس إجباري' : 'Mandatory Subject Assignment')
+                          : (isRtl ? 'تنبيه أمني هام' : 'Important Security Notice')}
                       </span>
                     </div>
 
-                    <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                    <h4 className="text-sm sm:text-base lg:text-lg font-black text-white tracking-tight break-words">
                       {isRtl
                         ? (isMissingSubject
                             ? `تنبيه أكاديمي: حسابك يحتاج إلى تحديد ${missingContactText}`
@@ -707,7 +710,7 @@ export default function DashboardLayout() {
                         : `Your account is missing ${missingContactText}`}
                     </h4>
 
-                    <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed mt-0.5 max-w-2xl">
+                    <p className="text-xs sm:text-[13px] text-slate-200/90 font-medium leading-relaxed break-words max-w-3xl">
                       {isRtl
                         ? (isMissingSubject
                             ? 'يرجى تحديد مادة التدريس الخاصة بك فوراً لتتمكن إدارة المنصة والمشرفون من تفويجك وإسناد الحصص والطلاب إليك والظهور في جدول الإسناد الأكاديمي.'
@@ -717,23 +720,25 @@ export default function DashboardLayout() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setIsCompleteContactOpen(true)}
-                  className={`w-full md:w-auto px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-black rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 group whitespace-nowrap cursor-pointer shrink-0 ${
-                    isMissingSubject
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-purple-600/20'
-                      : 'bg-gradient-to-r from-[#1F2A18] via-[#394C2A] to-[#2d3d20] hover:from-[#141b10] hover:to-[#223018] text-[#fbf8f2] border border-[#c9b48a]/40 shadow-black/10'
-                  }`}
-                >
-                  <span>
-                    {isRtl
-                      ? (isMissingSubject
-                          ? 'تحديد مادة التدريس واستكمال البيانات'
-                          : 'استكمال البيانات الآن')
-                      : 'Complete Info Now'}
-                  </span>
-                  <ArrowRightLeft className="w-3.5 h-3.5 opacity-80 group-hover:scale-110 transition-transform" />
-                </button>
+                <div className="w-full lg:w-auto shrink-0 flex items-center justify-end pt-2 lg:pt-0 border-t border-white/10 lg:border-t-0">
+                  <button
+                    onClick={() => setIsCompleteContactOpen(true)}
+                    className={`w-full sm:w-auto px-6 py-3 text-xs sm:text-sm font-black rounded-xl shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer shrink-0 active:scale-[0.98] ${
+                      isMissingSubject
+                        ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-purple-600/25 border border-purple-400/30'
+                        : 'bg-gradient-to-r from-[#c9b48a] via-[#e5d8be] to-[#c9b48a] hover:brightness-105 text-[#1F2A18] font-black shadow-black/20 border border-[#c9b48a]/80'
+                    }`}
+                  >
+                    <span>
+                      {isRtl
+                        ? (isMissingSubject
+                            ? 'تحديد مادة التدريس واستكمال البيانات'
+                            : 'استكمال البيانات الآن')
+                        : 'Complete Info Now'}
+                    </span>
+                    <ArrowRightLeft className={`w-3.5 h-3.5 opacity-90 group-hover:scale-110 transition-transform ${isMissingSubject ? 'text-white' : 'text-[#1F2A18]'}`} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
