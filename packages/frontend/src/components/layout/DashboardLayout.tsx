@@ -28,6 +28,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
 import { useAuthStore } from "../../store/useAuthStore";
+import { isDummyOrMissingEmail } from "../../utils/emailValidation";
 import WelcomeModal from "../shared/WelcomeModal";
 import ThemeToggle from "../shared/ThemeToggle";
 import LangToggle from "../shared/LangToggle";
@@ -56,7 +57,7 @@ export default function DashboardLayout() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === 'ar';
 
-  const isMissingEmail = !user?.email || user.email.trim() === '';
+  const isMissingEmail = isDummyOrMissingEmail(user?.email);
   const isMissingPhone = !user?.phone || user.phone.trim() === '';
   const isTeacherOrSupervisor = Boolean(
     user?.primaryRole === 'teacher' || 
@@ -78,19 +79,25 @@ export default function DashboardLayout() {
     missingFieldsList.push(isRtl ? 'الجنسية' : 'Nationality');
   }
   if (isMissingEmail) {
-    missingFieldsList.push(isRtl ? 'البريد الإلكتروني' : 'Email');
+    missingFieldsList.push(isRtl ? 'البريد الإلكتروني الشخصي الحقيقي' : 'Personal Email');
   }
   if (isMissingPhone) {
     missingFieldsList.push(isRtl ? 'رقم الهاتف' : 'Phone');
   }
   const missingContactText = missingFieldsList.join(isRtl ? ' و ' : ' & ');
 
-  // Auto-prompt teachers who haven't set their teaching subject yet
+  // Auto-prompt teachers who haven't set their teaching subject yet, or accounts lacking a real personal email
   useEffect(() => {
     if (user && isMissingSubject) {
       setIsCompleteContactOpen(true);
+    } else if (user && isMissingEmail) {
+      const dismissedKey = `baaqoon_dismissed_email_prompt_${user.id}`;
+      const dismissed = sessionStorage.getItem(dismissedKey);
+      if (!dismissed) {
+        setIsCompleteContactOpen(true);
+      }
     }
-  }, [user?.id, isMissingSubject]);
+  }, [user?.id, isMissingSubject, isMissingEmail]);
 
   // Listen to open guide custom event
   useEffect(() => {
@@ -758,6 +765,8 @@ export default function DashboardLayout() {
                         <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                         {isMissingSubject
                           ? (isRtl ? 'إسناد مادة التدريس إجباري' : 'Mandatory Subject Assignment')
+                          : isMissingEmail
+                          ? (isRtl ? 'تنبيه أمني هام: استكمال البريد الشخصي للمتابعة' : 'Important Security Notice: Personal Email')
                           : (isRtl ? 'تنبيه أمني هام' : 'Important Security Notice')}
                       </span>
                     </div>
@@ -766,6 +775,8 @@ export default function DashboardLayout() {
                       {isRtl
                         ? (isMissingSubject
                             ? `تنبيه أكاديمي: حسابك يحتاج إلى تحديد ${missingContactText}`
+                            : isMissingEmail
+                            ? `تنبيه أمني: حسابك يفتقر إلى بريد إلكتروني شخصي فعلي للتواصل والمتابعة`
                             : `حسابك يفتقر إلى ${missingContactText}`)
                         : `Your account is missing ${missingContactText}`}
                     </h4>
@@ -774,6 +785,8 @@ export default function DashboardLayout() {
                       {isRtl
                         ? (isMissingSubject
                             ? 'يرجى تحديد مادة التدريس الخاصة بك فوراً لتتمكن إدارة المنصة والمشرفون من تفويجك وإسناد الحصص والطلاب إليك والظهور في جدول الإسناد الأكاديمي.'
+                            : isMissingEmail
+                            ? 'حسابك مسجل حالياً بدون بريد إلكتروني شخصي (أو ببريد نظام تجريبي). يُرجى ربط بريدك الشخصي الفعلي المعتمد (مثل Gmail أو Outlook أو Yahoo) لاستلام إشعارات الحصص والتواصل الأكاديمي وضمان استرجاع الحساب.'
                             : 'يرجى استكمال بياناتك الإلزامية لتأمين الحساب واستلام الإشعارات وضمان إمكانية استرجاعه بسهولة في حال نسيان كلمة المرور.')
                         : 'Please complete your mandatory profile information so administrators and supervisors can assign cohorts and manage your account properly.'}
                     </p>
@@ -793,6 +806,8 @@ export default function DashboardLayout() {
                       {isRtl
                         ? (isMissingSubject
                             ? 'تحديد مادة التدريس واستكمال البيانات'
+                            : isMissingEmail
+                            ? 'ربط البريد وتأمين الحساب الآن'
                             : 'استكمال البيانات الآن')
                         : 'Complete Info Now'}
                     </span>

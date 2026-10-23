@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../lib/axios';
 import UserAvatar, { PRESET_AVATARS } from './UserAvatar';
 import { useTranslation } from 'react-i18next';
+import { isDummyOrMissingEmail, validatePersonalEmail } from '../../utils/emailValidation';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -119,6 +120,15 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setError('');
 
     const isTeacherOrSupervisor = user?.primaryRole === 'teacher' || user?.primaryRole === 'subject_supervisor' || user?.isDualRole;
+    if (formData.email) {
+      const emailValidation = validatePersonalEmail(formData.email);
+      if (!emailValidation.isValid) {
+        setError(emailValidation.error || 'يرجى إدخال عنوان بريد إلكتروني شخصي صالح');
+        setSaving(false);
+        return;
+      }
+    }
+
     if (isTeacherOrSupervisor && !formData.supervisedSubjectId) {
       setError('تحديد مادة التدريس إجباري وحتمي لمواصلة استخدام المنصة. يرجى اختيار المادة.');
       setSaving(false);
@@ -328,6 +338,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 dir="ltr"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold focus:ring-2 focus:ring-violet-500 outline-none text-left transition-all"
               />
+              {isDummyOrMissingEmail(formData.email) && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+                  ⚠️ حسابك مسجل ببريد تجريبي. يُرجى تغييره إلى بريدك الشخصي الفعلي (Gmail أو Outlook أو Yahoo) لاستلام الإشعارات وتأمين الحساب.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

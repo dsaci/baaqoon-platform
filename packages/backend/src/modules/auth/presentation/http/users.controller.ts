@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Req, Post, Unau
 import * as bcrypt from 'bcrypt';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 import { PrismaService } from '../../../../core/database/prisma.service';
-import { assertNoDuplicateUser, normalizeEmail, normalizePhone } from '../../application/identity-validator.util';
+import { assertNoDuplicateUser, normalizeEmail, normalizePhone, isDummyOrSyntheticEmail } from '../../application/identity-validator.util';
 import { EmailService } from '../../../email/email.service';
 
 @Controller('users')
@@ -321,6 +321,9 @@ export class UsersController {
 
     if (body.email) {
       const normEmail = normalizeEmail(body.email);
+      if (isDummyOrSyntheticEmail(normEmail)) {
+        throw new BadRequestException('يُشترط إدخال بريد إلكتروني شخصي حقيقي وفعّال (مثل Gmail أو Outlook أو Yahoo أو بريدك المعتمد) لاستلام الإشعارات والتواصل، وليس بريداً تجريبياً أو وهمياً.');
+      }
       const existingEmail = await this.prisma.user.findFirst({
         where: {
           email: { equals: normEmail, mode: 'insensitive' },
@@ -331,6 +334,13 @@ export class UsersController {
         throw new ConflictException('البريد الإلكتروني المدخل مستخدم مسبقاً بحساب آخر');
       }
       updateData.email = normEmail;
+
+      try {
+        await this.prisma.volunteerApplication.updateMany({
+          where: { convertedUserId: userId },
+          data: { email: normEmail },
+        });
+      } catch (_) {}
     }
 
     if (body.phone !== undefined) {
@@ -680,7 +690,24 @@ export class UsersController {
       updateData.phone = body.phone || null;
     }
     if (body.email !== undefined) {
-      updateData.email = body.email || null;
+      if (body.email && body.email.trim()) {
+        const normEmail = normalizeEmail(body.email);
+        if (isDummyOrSyntheticEmail(normEmail)) {
+          throw new BadRequestException('يُرجى إدخال بريد إلكتروني شخصي حقيقي وليس بريداً تجريبياً أو وهمياً.');
+        }
+        const existingEmail = await this.prisma.user.findFirst({
+          where: {
+            email: { equals: normEmail, mode: 'insensitive' },
+            id: { not: id },
+          },
+        });
+        if (existingEmail) {
+          throw new ConflictException('البريد الإلكتروني المدخل مستخدم مسبقاً بحساب آخر');
+        }
+        updateData.email = normEmail;
+      } else {
+        updateData.email = null;
+      }
     }
     if (body.firstName && body.firstName.trim()) {
       updateData.firstName = body.firstName.trim();

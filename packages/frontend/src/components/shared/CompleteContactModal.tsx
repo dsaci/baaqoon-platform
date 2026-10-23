@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ShieldAlert, Mail, Phone, Loader2, CheckCircle2, BookOpen, MapPin } from 'lucide-react';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../store/useAuthStore';
+import { isDummyOrMissingEmail, validatePersonalEmail } from '../../utils/emailValidation';
 
 interface CompleteContactModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export default function CompleteContactModal({
   isMissingNationality = false
 }: CompleteContactModalProps) {
   const { user, initialize, logout } = useAuthStore();
-  const [email, setEmail] = useState(user?.email || '');
+  const [email, setEmail] = useState(() => (isDummyOrMissingEmail(user?.email) ? '' : (user?.email || '')));
   const [phone, setPhone] = useState(user?.phone || '');
   const [countryCode, setCountryCode] = useState('+970');
   const [supervisedSubjectId, setSupervisedSubjectId] = useState(user?.supervisedSubjectId || '');
@@ -44,11 +45,18 @@ export default function CompleteContactModal({
   useEffect(() => {
     if (user?.supervisedSubjectId) setSupervisedSubjectId(user.supervisedSubjectId);
     if (user?.nationality) setNationality(user.nationality);
-    if (user?.email) setEmail(user.email);
+    setEmail(isDummyOrMissingEmail(user?.email) ? '' : (user?.email || ''));
     if (user?.phone) setPhone(user.phone);
   }, [user]);
 
   if (!isOpen) return null;
+
+  const handleDismiss = () => {
+    if (user?.id) {
+      sessionStorage.setItem(`baaqoon_dismissed_email_prompt_${user.id}`, '1');
+    }
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,9 +72,12 @@ export default function CompleteContactModal({
       return;
     }
 
-    if (isMissingEmail && !email.trim()) {
-      setError('يرجى إدخال عنوان البريد الإلكتروني');
-      return;
+    if (isMissingEmail) {
+      const emailValidation = validatePersonalEmail(email);
+      if (!emailValidation.isValid) {
+        setError(emailValidation.error || 'يرجى إدخال عنوان بريدك الإلكتروني الشخصي الحقيقي');
+        return;
+      }
     }
 
     if (isMissingPhone && !phone.trim()) {
@@ -103,7 +114,14 @@ export default function CompleteContactModal({
         onClose();
       }, 1500);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'حدث خطأ أثناء حفظ البيانات، يرجى المحاولة لاحقاً');
+      const msg = err?.response?.data?.message;
+      if (typeof msg === 'string') {
+        setError(msg);
+      } else if (Array.isArray(msg)) {
+        setError(msg.join(' - '));
+      } else {
+        setError('حدث خطأ أثناء حفظ البيانات، يرجى التأكد من صحة البريد والمحاولة لاحقاً');
+      }
     } finally {
       setLoading(false);
     }
@@ -117,27 +135,40 @@ export default function CompleteContactModal({
         <div className={`p-6 ${
           isMissingSubject 
             ? 'bg-gradient-to-r from-purple-800 via-indigo-900 to-slate-950 border-b border-purple-500/30' 
+            : isMissingEmail
+            ? 'bg-gradient-to-r from-[#1F2A18] via-[#2d3e23] to-[#172012] border-b border-amber-500/30'
             : 'bg-gradient-to-r from-[#1F2A18] via-[#394C2A] to-[#24331b] border-b border-[#c9b48a]/30'
         } text-white flex justify-between items-center relative`}>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner text-[#c9b48a]">
-              {isMissingSubject ? <BookOpen className="w-6 h-6 text-purple-200" /> : <ShieldAlert className="w-6 h-6 text-[#c9b48a]" />}
+            <div className={`w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner ${isMissingEmail ? 'text-amber-300' : 'text-[#c9b48a]'}`}>
+              {isMissingSubject ? (
+                <BookOpen className="w-6 h-6 text-purple-200" />
+              ) : (
+                <ShieldAlert className="w-6 h-6 text-amber-300" />
+              )}
             </div>
             <div>
               <h3 className="text-lg font-black text-white">
-                {isMissingSubject ? 'تحديد مادة التدريس إجباري لمتابعة استخدام المنصة' : 'استكمال بيانات الحساب وتأمين التواصل'}
+                {isMissingSubject 
+                  ? 'تحديد مادة التدريس إجباري لمتابعة استخدام المنصة' 
+                  : isMissingEmail
+                  ? 'تنبيه أمني: ربط بريد إلكتروني شخصي فعلي'
+                  : 'استكمال بيانات الحساب وتأمين التواصل'}
               </h3>
               <p className="text-xs text-[#c9b48a] font-medium mt-0.5">
                 {isMissingSubject 
                   ? 'لا يمكن استخدام الحساب حتى يتم تحديد مادة التدريس'
+                  : isMissingEmail
+                  ? 'إلزامي للمتابعة الأكاديمية وإشعارات الحصص واسترجاع الحساب'
                   : 'تأمين الحساب واستكمال معلومات التواصل الرسمية'}
               </p>
             </div>
           </div>
           {!isMissingSubject && (
             <button
-              onClick={onClose}
+              onClick={handleDismiss}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              title="إغلاق"
             >
               <X className="w-4 h-4" />
             </button>
@@ -149,10 +180,22 @@ export default function CompleteContactModal({
           <div className={`p-4 ${
             isMissingSubject 
               ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200' 
+              : isMissingEmail
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200'
               : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
           } rounded-2xl border text-xs leading-relaxed font-bold`}>
             {isMissingSubject ? (
               <span><strong>قرار إداري ملزم:</strong> تم تعليق استخدام المنصة مؤقتاً لحسابك حتى تقوم باختيار مادة تدريسك الرسمية. بعد تحديد المادة، سيتم فوراً تفعيل وتثبيت كافة صلاحيات التدريس والأفواج والحصص الخاصة بك.</span>
+            ) : isMissingEmail ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-black text-xs">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>تنبيه أمني هام للمتابعة والتواصل الأكاديمي:</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+                  وفقاً لتعليمات إدارة منصة باقون، يلزم توفر <strong>بريدك الإلكتروني الشخصي الفعلي المعتمد</strong> (مثل Gmail أو Outlook أو Yahoo أو بريدك المعتمد) لاستلام إشعارات الحصص، الروابط الدراسية، ورسائل المتابعة، وضمان استرجاع حسابك. <u>لا يُقبل البريد التجريبي أو الوهمي</u>.
+                </p>
+              </div>
             ) : (
               <span><strong>إشعار أمان:</strong> وفقاً لمعايير منصة باقون، يلزم توفر البريد الإلكتروني ورقم الهاتف والجنسية لضمان أمان الحساب وتلقي الإشعارات الهامة.</span>
             )}
@@ -167,7 +210,7 @@ export default function CompleteContactModal({
           {success && (
             <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              <span>تم تحديث وتثبيت بياناتك ومادتك بنجاح! شكراً لك.</span>
+              <span>تم تحديث وتثبيت بريدك وبياناتك بنجاح! شكراً لك.</span>
             </div>
           )}
 
@@ -243,21 +286,28 @@ export default function CompleteContactModal({
 
           {/* Missing Email Field */}
           {isMissingEmail && (
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                البريد الإلكتروني <span className="text-rose-500">*</span>
+            <div className="space-y-1.5 p-3.5 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-300 dark:border-amber-800/60">
+              <label className="block text-xs font-black text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-amber-600" />
+                  البريد الإلكتروني الشخصي الحقيقي
+                </span>
+                <span className="text-rose-500 font-bold text-[11px]">* إجباري للمتابعة</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="email"
                   required
-                  placeholder="name@example.com"
+                  placeholder="مثال: yourname@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pr-10 pl-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none dir-ltr text-left transition-all"
+                  className="w-full pr-10 pl-3 py-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 outline-none dir-ltr text-left transition-all shadow-xs"
                 />
               </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                يُرجى إدخال بريدك الفعلي لاستلام إشعارات الحصص والتكليفات وتأمين حسابك
+              </p>
             </div>
           )}
 
@@ -330,7 +380,7 @@ export default function CompleteContactModal({
             ) : (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleDismiss}
                 className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 تذكيري لاحقاً
@@ -347,7 +397,13 @@ export default function CompleteContactModal({
                   <span>جاري الحفظ والتثبيت...</span>
                 </>
               ) : (
-                <span>{isMissingSubject ? 'تثبيت مادة التدريس ومواصلة الاستخدام' : 'حفظ وتأكيد البيانات'}</span>
+                <span>
+                  {isMissingSubject
+                    ? 'تثبيت مادة التدريس ومواصلة الاستخدام'
+                    : isMissingEmail
+                    ? 'ربط وتأكيد البريد الشخصي الآن'
+                    : 'حفظ وتأكيد البيانات'}
+                </span>
               )}
             </button>
           </div>

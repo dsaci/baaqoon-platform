@@ -12,6 +12,27 @@ export function normalizeEmail(email?: string | null): string {
 }
 
 /**
+ * Checks if an email is synthetic, dummy, or temporary (e.g. @baaqoon.ps, @example.com, .test, .local)
+ */
+export function isDummyOrSyntheticEmail(email?: string | null): boolean {
+  if (!email) return true;
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed || !trimmed.includes('@')) return true;
+  const parts = trimmed.split('@');
+  if (parts.length !== 2) return true;
+  const domain = parts[1];
+  if (!domain || !domain.includes('.')) return true;
+  return (
+    domain === 'baaqoon.ps' ||
+    domain.endsWith('.baaqoon.ps') ||
+    domain === 'example.com' ||
+    domain.endsWith('.example.com') ||
+    domain.endsWith('.test') ||
+    domain.endsWith('.local')
+  );
+}
+
+/**
  * Clean and normalize phone numbers across Palestinian, Algerian, Egyptian, and international formats:
  * - Strips all non-digit characters except leading '+'
  * - Converts leading '00' to '+'

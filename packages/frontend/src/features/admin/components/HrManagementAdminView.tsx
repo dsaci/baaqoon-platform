@@ -5,6 +5,7 @@ import { api } from '../../../lib/axios';
 import PasswordRequestsModal from './PasswordRequestsModal';
 import { CheckCircle, XCircle, Users, User, Shield, ShieldAlert, GraduationCap, Trash2 , UserPlus, Key, Bell, X, Eye, BookOpen, MapPin, Sparkles, ArrowRightLeft, Clock, AlertTriangle, Send, Mail, Megaphone } from 'lucide-react';
 import { getUserActivityStatus } from '../../../utils/activityStatus';
+import { isDummyOrMissingEmail } from '../../../utils/emailValidation';
 
 interface HrManagementAdminViewProps {
   initialRoleFilter?: string;
@@ -46,6 +47,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   const [isSendingImportantNotice, setIsSendingImportantNotice] = useState<boolean>(false);
   const [viewEditSubjectId, setViewEditSubjectId] = useState<string>('');
   const [viewEditNationality, setViewEditNationality] = useState<string>('');
+  const [viewEditEmail, setViewEditEmail] = useState<string>('');
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['admin_subjects_list'],
@@ -107,10 +109,11 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
   });
 
   const updateDetailsMutation = useMutation({
-    mutationFn: async ({ id, supervisedSubjectId, nationality }: { id: string; supervisedSubjectId?: string | null; nationality?: string | null }) => {
+    mutationFn: async ({ id, supervisedSubjectId, nationality, email }: { id: string; supervisedSubjectId?: string | null; nationality?: string | null; email?: string | null }) => {
       const res = await api.patch(`/users/admin/${id}/details`, {
         supervisedSubjectId,
-        nationality
+        nationality,
+        email
       });
       return res.data;
     },
@@ -164,6 +167,9 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
 
   const idleCount = users.filter((u: any) => getUserActivityStatus(u.lastLoginAt, u.createdAt).isIdle).length;
 
+  const usersWithoutRealEmail = users.filter((u: any) => isDummyOrMissingEmail(u.email));
+  const noRealEmailCount = usersWithoutRealEmail.length;
+
   const teachersWithoutSubject = users.filter((u: any) => 
     (u.primaryRole === 'teacher') && !u.supervisedSubjectId && !u.isDualRole
   );
@@ -174,6 +180,9 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
     }
     if (roleFilter === 'no_subject') {
       return (u.primaryRole === 'teacher') && !u.supervisedSubjectId && !u.isDualRole;
+    }
+    if (roleFilter === 'no_real_email') {
+      return isDummyOrMissingEmail(u.email);
     }
     if (roleFilter === 'all') return true;
     if (roleFilter === 'teacher') {
@@ -289,6 +298,22 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
         >
           المشرفون
         </button>
+
+        <button 
+          onClick={() => setRoleFilter(roleFilter === 'no_real_email' ? 'all' : 'no_real_email')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            roleFilter === 'no_real_email' 
+              ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400' 
+              : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+          }`}
+          title="عرض الحسابات التي تفتقر إلى بريد شخصي فعلي وبحاجة لاستبدال البريد التجريبي"
+        >
+          <Mail className="w-4 h-4 text-amber-500" />
+          <span>بحاجة لبريد شخصي</span>
+          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200">
+            {noRealEmailCount}
+          </span>
+        </button>
         
         <button 
           onClick={() => setRoleFilter('idle')}
@@ -344,6 +369,31 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
         )}
       </div>
 
+      {/* Warning banner for users without real email */}
+      {noRealEmailCount > 0 && (
+        <div className="flex items-center gap-3 p-3.5 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+          <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-900 dark:text-amber-200 font-bold text-sm">
+              متابعة التواصل: يوجد {noRealEmailCount} حساب مسجل ببريد تجريبي أو مفقود
+            </p>
+            <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">
+              يظهر لهؤلاء المستخدمين تنبيه أمني دائم ومطالبة فورية عند الدخول لربط بريدهم الشخصي المعتمد (Gmail/Outlook) لاستلام إشعارات الحصص والروابط وتأمين حساباتهم.
+            </p>
+          </div>
+          <button
+            onClick={() => setRoleFilter(roleFilter === 'no_real_email' ? 'all' : 'no_real_email')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
+              roleFilter === 'no_real_email' 
+                ? 'bg-amber-600 text-white' 
+                : 'bg-white dark:bg-slate-800 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-50'
+            }`}
+          >
+            {roleFilter === 'no_real_email' ? 'عرض كافة الحسابات' : 'فلترة هذه الحسابات'}
+          </button>
+        </div>
+      )}
+
       {/* Warning banner for teachers without subject */}
       {teachersWithoutSubject.length > 0 && (
         <div className="flex items-center gap-3 p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl">
@@ -392,8 +442,16 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                     <div className="text-xs text-slate-500">{new Date(u.createdAt).toLocaleDateString('ar-EG')}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-slate-700 dark:text-slate-300">{u.email || 'لا يوجد إيميل'}</div>
-                    <div className="text-xs text-slate-500 font-mono" dir="ltr">{u.phone || 'لا يوجد هاتف'}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-slate-700 dark:text-slate-300 font-mono text-xs" dir="ltr">{u.email || 'لا يوجد إيميل'}</span>
+                      {isDummyOrMissingEmail(u.email) && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/60" title="هذا الحساب مسجل ببريد تجريبي أو بدون بريد فعلي، ويظهر له تنبيه أمني لاستبداله ببريد شخصي">
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                          يحتاج بريد شخصي
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5" dir="ltr">{u.phone || 'لا يوجد هاتف'}</div>
                   </td>
                   <td className="px-6 py-4">
                     {getRoleBadge(u)}
@@ -484,6 +542,7 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                           setSelectedUserForView(u); 
                           setViewEditSubjectId(u.supervisedSubjectId || '');
                           setViewEditNationality(u.nationality || '');
+                          setViewEditEmail(u.email || '');
                           setIsViewDetailsOpen(true); 
                         }}
                         title="عرض كل التفاصيل"
@@ -691,9 +750,43 @@ export default function HrManagementAdminView({ initialRoleFilter = 'all' }: HrM
                   <div className="text-lg font-black text-slate-900 dark:text-white">{selectedUserForView.lastName}</div>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">البريد الإلكتروني</span>
-                  <div className="text-lg font-bold text-slate-900 dark:text-white" dir="ltr">{selectedUserForView.email || '—'}</div>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">البريد الإلكتروني</span>
+                    {isDummyOrMissingEmail(selectedUserForView.email) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300">
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                        يحتاج بريد شخصي
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                        شخصي فعلي
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={viewEditEmail}
+                      onChange={(e) => setViewEditEmail(e.target.value)}
+                      placeholder="user@gmail.com"
+                      className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono outline-none focus:ring-2 focus:ring-slate-400 text-left"
+                      dir="ltr"
+                    />
+                    <button
+                      onClick={() => {
+                        updateDetailsMutation.mutate({
+                          id: selectedUserForView.id,
+                          email: viewEditEmail || null
+                        });
+                      }}
+                      disabled={updateDetailsMutation.isPending}
+                      className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50 shrink-0"
+                    >
+                      تثبيت
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
