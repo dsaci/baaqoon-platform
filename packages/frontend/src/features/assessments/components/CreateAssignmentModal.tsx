@@ -22,8 +22,10 @@ import {
   Edit3,
   ListOrdered,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Image as ImageIcon
 } from 'lucide-react';
+import GeneratedImageDocument from './GeneratedImageDocument';
 
 interface CreateAssignmentModalProps {
   isOpen: boolean;
@@ -64,8 +66,9 @@ export default function CreateAssignmentModal({
   const [aiSuggestion, setAiSuggestion] = useState<any>(null);
   const [showAiCard, setShowAiCard] = useState(false);
   const [aiNotification, setAiNotification] = useState('');
-  const [activePreviewTab, setActivePreviewTab] = useState<'full' | 'questions' | 'rubric' | 'edit'>('full');
+  const [activePreviewTab, setActivePreviewTab] = useState<'image' | 'full' | 'questions' | 'rubric' | 'edit'>('image');
   const [editableDescription, setEditableDescription] = useState<string>('');
+  const [showManualImagePreview, setShowManualImagePreview] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -185,7 +188,7 @@ export default function CreateAssignmentModal({
       setAiSuggestion(res.data);
       setEditableDescription(res.data.suggestedDescription || '');
       setShowAiCard(true);
-      setActivePreviewTab('full');
+      setActivePreviewTab('image');
     } catch (err: any) {
       setErrorMessage(err.response?.data?.message || 'تعذر تشغيل المساعد الذكي حالياً.');
     } finally {
@@ -295,7 +298,7 @@ export default function CreateAssignmentModal({
       }}
     >
       <div 
-        className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto transition-all transform scale-100 animate-slide-up"
+        className={`bg-white dark:bg-slate-900 rounded-3xl w-full ${showAiCard || showManualImagePreview ? 'max-w-4xl' : 'max-w-3xl'} shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto transition-all duration-300 transform scale-100 animate-slide-up`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -449,7 +452,7 @@ export default function CreateAssignmentModal({
                           onClick={() => setSelectedDifficulty(d.id as any)}
                           className={`px-2.5 py-1 rounded-lg transition-all ${
                             selectedDifficulty === d.id
-                              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black shadow-xs'
+                              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black shadow-sm'
                               : `${d.color} hover:bg-slate-100 dark:hover:bg-slate-700`
                           }`}
                         >
@@ -549,13 +552,25 @@ export default function CreateAssignmentModal({
               {/* Preview Tabs */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 bg-white/70 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
+                  <div className="flex items-center gap-1 bg-white/70 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold overflow-x-auto">
+                    <button
+                      type="button"
+                      onClick={() => setActivePreviewTab('image')}
+                      className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1 shrink-0 ${
+                        activePreviewTab === 'image'
+                          ? 'bg-violet-600 text-white font-black shadow-sm'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>🖼️ صورة الواجب (RTL)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setActivePreviewTab('full')}
-                      className={`px-3 py-1 rounded-lg transition-colors ${
+                      className={`px-3 py-1 rounded-lg transition-colors shrink-0 ${
                         activePreviewTab === 'full'
-                          ? 'bg-violet-600 text-white font-black'
+                          ? 'bg-violet-600 text-white font-black shadow-sm'
                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
@@ -564,9 +579,9 @@ export default function CreateAssignmentModal({
                     <button
                       type="button"
                       onClick={() => setActivePreviewTab('questions')}
-                      className={`px-3 py-1 rounded-lg transition-colors ${
+                      className={`px-3 py-1 rounded-lg transition-colors shrink-0 ${
                         activePreviewTab === 'questions'
-                          ? 'bg-violet-600 text-white font-black'
+                          ? 'bg-violet-600 text-white font-black shadow-sm'
                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
@@ -575,9 +590,9 @@ export default function CreateAssignmentModal({
                     <button
                       type="button"
                       onClick={() => setActivePreviewTab('rubric')}
-                      className={`px-3 py-1 rounded-lg transition-colors ${
+                      className={`px-3 py-1 rounded-lg transition-colors shrink-0 ${
                         activePreviewTab === 'rubric'
-                          ? 'bg-violet-600 text-white font-black'
+                          ? 'bg-violet-600 text-white font-black shadow-sm'
                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
@@ -586,19 +601,38 @@ export default function CreateAssignmentModal({
                     <button
                       type="button"
                       onClick={() => setActivePreviewTab('edit')}
-                      className={`px-3 py-1 rounded-lg transition-colors ${
+                      className={`px-3 py-1 rounded-lg transition-colors shrink-0 ${
                         activePreviewTab === 'edit'
-                          ? 'bg-violet-600 text-white font-black'
+                          ? 'bg-violet-600 text-white font-black shadow-sm'
                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
                       ✏️ تعديل مسبق
                     </button>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-400">
+                  <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
                     يمكنك تعديل أي جزئية قبل اعتمادها
                   </span>
                 </div>
+
+                {/* Tab 0: Visual RTL Document Image View */}
+                {activePreviewTab === 'image' && (
+                  <div className="pt-1">
+                    <GeneratedImageDocument
+                      title={aiSuggestion.suggestedTitle || formData.title || 'واجب مدرسي'}
+                      documentTypeLabel={formData.type === 'exam' ? 'امتحان / اختبار' : formData.type === 'quiz' ? 'فرض محروس' : 'واجب منزلي'}
+                      subjectName={aiSuggestion.suggestedSubject || formData.subject}
+                      gradeLevel={myCohorts.find((c: any) => c.id === formData.cohortId)?.name || 'التعليم الثانوي'}
+                      cohortName={myCohorts.find((c: any) => c.id === formData.cohortId)?.name}
+                      dueDate={formData.dueDate}
+                      maxScore={aiSuggestion.suggestedMaxScore || formData.maxScore || 20}
+                      content={editableDescription || aiSuggestion.suggestedDescription}
+                      aiModel="Baaqoon Educational AI (APC)"
+                      fileName={aiSuggestion.suggestedTitle || formData.title}
+                      showToolbar={true}
+                    />
+                  </div>
+                )}
 
                 {/* Tab 1: Full Preview */}
                 {activePreviewTab === 'full' && (
@@ -844,20 +878,31 @@ export default function CreateAssignmentModal({
 
           {/* Description & Detailed Instructions */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
               <label className="block text-sm font-black text-slate-800 dark:text-slate-200">
                 تفاصيل الواجب والأسئلة والتعليمات
               </label>
-              <button
-                type="button"
-                onClick={() => handleAiAssist('refine_draft')}
-                disabled={isAiAssisting}
-                className="text-xs font-black text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 cursor-pointer transition-colors"
-                title="توليد أو إكمال الأسئلة بذكاء"
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                <span>إكمال وتجويد مسودتي ✨</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowManualImagePreview(!showManualImagePreview)}
+                  className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 cursor-pointer transition-colors px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800"
+                  title="معاينة الواجب الحالي كصورة معتمدة وتصديرها"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>{showManualImagePreview ? 'إخفاء معاينة الصورة' : 'معاينة وتصدير كصورة (RTL) 📷'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAiAssist('refine_draft')}
+                  disabled={isAiAssisting}
+                  className="text-xs font-black text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="توليد أو إكمال الأسئلة بذكاء"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>إكمال وتجويد مسودتي ✨</span>
+                </button>
+              </div>
             </div>
             <textarea 
               rows={5}
@@ -866,6 +911,37 @@ export default function CreateAssignmentModal({
               placeholder="اكتب نص الأسئلة، الصفحات المقررة في الكتاب المدرسي، طريقة الحل، أو أي إرشادات للطلبة... أو اضغط 'توليد واقتراح متكامل' للمساعد الذكي."
               className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:border-violet-600 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all resize-none leading-relaxed placeholder:text-slate-400 font-mono text-xs"
             />
+
+            {/* Manual Image Document Preview & Export */}
+            {showManualImagePreview && (
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 animate-fade-in">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    <span>معاينة الواجب كبطاقة بصرية رسمية جاهزة للتحميل والنشر</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualImagePreview(false)}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    إغلاق المعاينة ✕
+                  </button>
+                </div>
+                <GeneratedImageDocument
+                  title={formData.title || 'واجب دراسي جديد'}
+                  documentTypeLabel={formData.type === 'exam' ? 'امتحان / اختبار' : formData.type === 'quiz' ? 'فرض محروس' : 'واجب منزلي'}
+                  subjectName={formData.subject}
+                  gradeLevel={myCohorts.find((c: any) => c.id === formData.cohortId)?.name || 'التعليم الثانوي'}
+                  cohortName={myCohorts.find((c: any) => c.id === formData.cohortId)?.name}
+                  dueDate={formData.dueDate}
+                  maxScore={formData.maxScore || 20}
+                  content={formData.description || 'لم يتم إدخال تفاصيل الواجب بعد.'}
+                  fileName={formData.title || 'واجب_منصة_باقون'}
+                  showToolbar={true}
+                />
+              </div>
+            )}
           </div>
 
           {/* Action Buttons in Footer */}
