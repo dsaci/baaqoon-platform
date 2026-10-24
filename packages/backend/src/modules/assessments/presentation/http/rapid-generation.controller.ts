@@ -32,7 +32,7 @@ export class AssessmentsController {
   @Post()
   async createManualAssessment(
     @Req() req: any,
-    @Body() body: { title: string; cohortId?: string; description?: string; subject?: string; dueDate?: string; maxScore?: number; type?: string }
+    @Body() body: { title: string; cohortId?: string; description?: string; subject?: string; dueDate?: string; maxScore?: number; type?: string; curriculumLessonId?: string }
   ) {
     try {
       // 1. Resolve author / teacher ID
@@ -107,7 +107,8 @@ export class AssessmentsController {
           maxScore: body.maxScore ? Number(body.maxScore) : 20,
           type: validAssessmentType,
           cohortId: cohortId!,
-          createdById: teacherId!
+          createdById: teacherId!,
+          curriculumLessonId: body.curriculumLessonId && isUuid(body.curriculumLessonId) ? body.curriculumLessonId : undefined,
         }
       });
     } catch (err: any) {

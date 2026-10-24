@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiProviderService } from './ai-provider.service';
 import { EducationalRagService, CurriculumContext } from './educational-rag.service';
+import { PrismaService } from '../../../core/database/prisma.service';
 
 export type GenerationOutputType =
   | 'lesson_structure'       // البناء التعلمي للدرس
@@ -46,6 +47,7 @@ export class EducationalGenerationService {
   constructor(
     private readonly aiProvider: AiProviderService,
     private readonly rag: EducationalRagService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async generate(request: GenerationRequest): Promise<GenerationResponse> {
@@ -97,6 +99,8 @@ export class EducationalGenerationService {
 
   /**
    * Assists a teacher with assignment creation (suggest, auto-complete, or refine).
+   * Supports curriculum auto-linking, multiple pedagogical archetypes (APC, Drill, Quiz, Remediation, Project),
+   * granular difficulty tiers, and precise fractional scoring rubrics.
    */
   async assistAssignment(dto: {
     title?: string;
@@ -105,48 +109,199 @@ export class EducationalGenerationService {
     type?: string;
     maxScore?: number;
     cohortId?: string;
+    lessonId?: string;
+    style?: 'standard_practice' | 'apc_integration' | 'quick_quiz' | 'remediation' | 'research_project';
+    difficulty?: 'average' | 'remedial' | 'advanced';
+    actionPrompt?: 'full_build' | 'refine_draft' | 'add_rubric' | 'apc_convert';
   }): Promise<{
     suggestedTitle: string;
     suggestedSubject: string;
     suggestedType: string;
     suggestedMaxScore: number;
+    style: string;
+    difficulty: string;
+    lessonTitle?: string;
+    unitTitle?: string;
+    gradeLevel?: string;
+    branch?: string;
+    instructions: string;
+    questionsText: string;
+    rubricText: string;
+    criteriaText: string;
+    hintsText: string;
     suggestedDescription: string;
     explanation: string;
     provider: string;
     model: string;
   }> {
     const rawTitle = (dto.title || '').trim();
-    const rawSubject = (dto.subject || '').trim();
     const rawDesc = (dto.existingDescription || '').trim();
-    const targetType = dto.type || 'assignment';
-    const maxScore = Number(dto.maxScore) || 20;
+    const selectedStyle = dto.style || (
+      dto.type === 'quiz' ? 'quick_quiz' :
+      dto.type === 'project' ? 'research_project' :
+      'standard_practice'
+    );
+    const selectedDifficulty = dto.difficulty || 'average';
+    const maxScore = Number(dto.maxScore) || (selectedStyle === 'quick_quiz' ? 10 : 20);
+    const targetType = dto.type || (selectedStyle === 'quick_quiz' ? 'quiz' : selectedStyle === 'research_project' ? 'project' : 'assignment');
 
-    // If AI provider is configured, call AI
+    // 1. Resolve Curriculum Context (from lessonId or cohortId)
+    let curriculumContext: CurriculumContext | null = null;
+    let cohortInfo: any = null;
+
+    const isUuid = (id?: string | null) => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    if (dto.lessonId && isUuid(dto.lessonId)) {
+      try {
+        curriculumContext = await this.rag.getCurriculumContext(dto.lessonId);
+      } catch (err: any) {
+        this.logger.warn(`Could not load lesson context for ${dto.lessonId}: ${err.message}`);
+      }
+    }
+
+    if (!curriculumContext && dto.cohortId && isUuid(dto.cohortId)) {
+      try {
+        const cohort = await this.prisma.cohort.findUnique({
+          where: { id: dto.cohortId },
+        });
+        if (cohort) {
+          const course = await this.prisma.course.findUnique({
+            where: { id: cohort.courseId },
+            include: {
+              subject: true,
+              versions: {
+                where: { id: cohort.curriculumVersionId || undefined },
+                take: 1,
+                include: {
+                  units: {
+                    orderBy: { orderIndex: 'asc' },
+                    include: {
+                      lessons: {
+                        orderBy: { orderIndex: 'asc' },
+                        take: 6,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (course) {
+            cohortInfo = { cohort, course };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not load cohort context for ${dto.cohortId}: ${err.message}`);
+      }
+    }
+
+    // 2. Resolve Subject, Lesson, Unit, Grade & Branch Names
+    let subjectName = (dto.subject || '').trim();
+    let lessonTitle = '';
+    let unitTitle = '';
+    let gradeLevel = '';
+    let branch = '';
+
+    if (curriculumContext) {
+      subjectName = curriculumContext.subject.nameAr || subjectName;
+      lessonTitle = curriculumContext.lesson.title;
+      unitTitle = curriculumContext.unit.title;
+      gradeLevel = this.formatGradeLevel(curriculumContext.course.gradeLevel);
+      branch = this.formatBranch(curriculumContext.course.academicBranch);
+    } else if (cohortInfo) {
+      subjectName = cohortInfo.course.subject?.nameAr || subjectName;
+      gradeLevel = this.formatGradeLevel(cohortInfo.course.gradeLevel);
+      branch = this.formatBranch(cohortInfo.course.academicBranch);
+      const firstUnit = cohortInfo.course.versions?.[0]?.units?.[0];
+      if (firstUnit) {
+        unitTitle = firstUnit.title;
+        lessonTitle = firstUnit.lessons?.[0]?.title || '';
+      }
+    }
+
+    if (!subjectName) {
+      const probe = (rawTitle + ' ' + rawDesc).toLowerCase();
+      if (probe.includes('رياضيات') || probe.includes('دوال') || probe.includes('هندسة') || probe.includes('تكامل') || probe.includes('متتاليات') || probe.includes('احتمال')) {
+        subjectName = 'الرياضيات';
+      } else if (probe.includes('فيزياء') || probe.includes('كيمياء') || probe.includes('نيوتن') || probe.includes('دارة') || probe.includes('أكسدة') || probe.includes('ميكانيك')) {
+        subjectName = 'العلوم الفيزيائية والتكنولوجيا';
+      } else if (probe.includes('أحياء') || probe.includes('طبيعة') || probe.includes('حياة') || probe.includes('بروتين') || probe.includes('مناعة') || probe.includes('خلية')) {
+        subjectName = 'علوم الطبيعة والحياة';
+      } else if (probe.includes('عربية') || probe.includes('لغة') || probe.includes('نحو') || probe.includes('بلاغة') || probe.includes('إعراب') || probe.includes('شعر')) {
+        subjectName = 'اللغة العربية وآدابها';
+      } else if (probe.includes('إسلام') || probe.includes('شريعة') || probe.includes('قرآن') || probe.includes('حديث') || probe.includes('فقه')) {
+        subjectName = 'التربية الإسلامية';
+      } else if (probe.includes('تاريخ') || probe.includes('جغرافيا') || probe.includes('اجتماعيات') || probe.includes('خرائط')) {
+        subjectName = 'التاريخ والجغرافيا';
+      } else if (probe.includes('إنجليز') || probe.includes('english')) {
+        subjectName = 'اللغة الإنجليزية';
+      } else {
+        subjectName = 'المقرر العام';
+      }
+    }
+
+    const styleLabels: Record<string, string> = {
+      standard_practice: 'واجب تطبيقي تدريبي متدرج',
+      apc_integration: 'وضعية إدماجية مركبة (المقاربة بالكفاءات APC)',
+      quick_quiz: 'فحص فهم واختبار قصير تكويني (Quiz)',
+      remediation: 'واجب علاجي وتدارك فاقد تعليمي',
+      research_project: 'مشروع وبحث تطبيقي استكشافي',
+    };
+
+    const diffLabels: Record<string, string> = {
+      remedial: 'ميسر / دعم وعلاج (تفكيك الصعوبات وتدرج بسيط)',
+      average: 'متوسط / قياسي (مطابق للمنهاج الرسمي وللامتحانات)',
+      advanced: 'متقدم / تحدي واستدلال فكري مع تعليل عميق',
+    };
+
+    // 3. If AI provider is configured, call LLM with our enriched pedagogical prompt
     if (this.aiProvider.isConfigured()) {
       try {
-        const systemPrompt = `أنت مساعد تربوي ذكي ورفيق للأستاذ في منصة باقون التعليمية.
-مهمتك مساعدة الأستاذ في بناء وصياغة وتكميل واجب منزلي أو تكليف بيداغوجي بطريقة احترافية متكاملة تجمع بين رغبة الأستاذ والمعايير التربوية.
-المطلوب صياغة واجب منسق باللغة العربية يشمل:
-1. عنوان دقيق ومناسب.
-2. تحديد المبحث بدقة.
-3. تفاصيل الواجب تشمل: تعليمات واضحة للطلبة، 3 إلى 4 أسئلة تطبيقية متدرجة، وسلم توزيع الدرجات المقترح من إجمالي ${maxScore} درجة.
-أعد النتيجة حصراً بتنسيق JSON بالشكل التالي:
+        const systemPrompt = `أنت خبير تربوي ومفتش بيداغوجي أول متخصص في بناء وتصميم التقييمات والواجبات المدرسية بالمقاربة بالكفاءات (APC) والمنهاج التربوي المعتمد.
+مهمتك: مساعدة الأستاذ في منصة باقون في صياغة وتوليد واجب دراسي احترافي، متكامل، رفيع المستوى، يثير دافعية الطلاب ويحقق أهداف المنهاج بدقة متناهية.
+
+نمط الواجب المطلوب: ${styleLabels[selectedStyle] || selectedStyle}
+مستوى الصعوبة: ${diffLabels[selectedDifficulty] || selectedDifficulty}
+الدرجة القصوى: ${maxScore} درجة
+المبحث الدراسي: ${subjectName}
+المرحلة والشعبة: ${gradeLevel || 'التعليم الثانوي / الأساسي'} — ${branch || 'العام'}
+الدرس / الموضوع المستهدف: ${lessonTitle || rawTitle || 'موضوع الدرس المقرر'}
+الوحدة التعليمية: ${unitTitle || 'الوحدة المقررة'}
+
+القواعد البيداغوجية الصارمة:
+1. التدرج الدقيق وفق مستويات بلوم (تذكر، فهم، تطبيق، تحليل، تركيب، تقويم).
+2. صياغة تعليمات إنجاز واضحة ومنهجية موجهة للطلبة.
+3. تفكيك وتوزيع الدرجات بدقة متناهية لكل سؤال وجزئياته (مثلاً: 0.5 ن، 1.0 ن، 1.5 ن) بحيث يكون المجموع الإجمالي مساوياً تماماً لـ ${maxScore} درجة دون أي زيادة أو نقصان.
+4. إدراج سلّم تنقيط نموذجي مفصل يوضح معايير الإجابة المقبولة وتوزيع النقاط على الخطوات.
+5. في نمط الوضعية الإدماجية (APC): تضمين سياق واقعي ذي دلالة، وسندات معتمدة (سند 1، سند 2)، وتعليمات إجرائية بأفعال أداء صريحة، مع شبكة تقويم بمعايير الكفاءة (م1: الوجاهة، م2: الاستعمال السليم لأدوات المادة، م3: الانسجام، م4: الإتقان).
+6. في نمط الدعم والمعالجة: تشخيص الخلل، وتقديم محطات متدرجة (تذكير بالقاعدة، تصحيح خطأ شائع، إعادة استثمار مستقل).
+7. في نمط الاختبار القصير (Quiz): أسئلة فحص فهم، اختيار من متعدد مبرر، وصحيح/خطأ مع تعليل، محددة بـ 20 دقيقة.
+8. إضافة تلميحات إرشادية وتنبيهات لتفادي الأخطاء الشائعة لدى الطلبة.
+
+أعد المخرجات حصراً بصيغة JSON نظيفة وصحيحة على الشكل الآتي:
 {
-  "suggestedTitle": "عنوان الواجب المقترح",
-  "suggestedSubject": "المبحث / موضوع الدرس",
+  "suggestedTitle": "عنوان بيداغوجي دقيق وجذاب للواجب",
+  "suggestedSubject": "${subjectName}",
   "suggestedType": "${targetType}",
   "suggestedMaxScore": ${maxScore},
-  "suggestedDescription": "نص الواجب الكامل المنسق والأسئلة وسلم التنقيط",
-  "explanation": "شرح موجز للأستاذ حول بنية الواجب وكيف تم تكميله"
+  "instructions": "نص تعليمات الإنجاز وإرشادات التسليم",
+  "questionsText": "نص الأسئلة والتمارين كاملة مع درجات كل سؤال وجزئياته",
+  "rubricText": "سلّم التنقيط النموذجي المفصل وتوزيع الدرجات على الخطوات",
+  "criteriaText": "شبكة معايير التقييم البيداغوجي (معايير ومؤشرات APC)",
+  "hintsText": "تلميحات وإرشادات للطلبة لتفادي الأخطاء الشائعة",
+  "suggestedDescription": "المحتوى الكامل والمنسق بماركداون احترافي يشمل التعليمات، الأسئلة، سلّم التنقيط، والشبكة",
+  "explanation": "شرح تربوي للأستاذ يوضح فلسفة بناء هذا الواجب وكيف يحقق الأهداف المنشودة"
 }`;
 
-        const userPrompt = `معطيات الأستاذ الحالية:
-- العنوان المدخل: ${rawTitle || 'غير محدد بعد'}
-- المبحث المدخل: ${rawSubject || 'غير محدد بعد'}
+        const userPrompt = `معطيات الأستاذ:
+- العنوان المدخل: ${rawTitle || 'غير محدد بعد (اقترح عنواناً تربوياً مناسباً)'}
+- المبحث المدخل: ${subjectName}
 - نوع التكليف: ${targetType}
-- مسودة الأستاذ / الملاحظات الحالية: ${rawDesc || 'لا توجد تفاصيل بعد، اقترح واجباً متكاملاً ومناسباً للمنهاج'}
+- الدرجة المحددة: ${maxScore}
+- مسودة الأستاذ / الملاحظات الحالية:
+${rawDesc || 'لا توجد ملاحظات سابقة، قم ببناء الواجب بالكامل وفق المنهاج.'}
 
-قم بإكمال وصياغة الواجب بالكامل بأسلوب تربوي متميز وسلس.`;
+قم بإعداد التكليف باحترافية بيداغوجية فائقة.`;
 
         const res = await this.aiProvider.generateCompletion([
           { role: 'system', content: systemPrompt },
@@ -156,76 +311,688 @@ export class EducationalGenerationService {
         const jsonMatch = res.content.match(/```json\s*([\s\S]*?)```/i) || res.content.match(/\{[\s\S]*"suggestedTitle"[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+          const fullDesc = parsed.suggestedDescription || [
+            `### 📌 تعليمات وإرشادات الإنجاز:\n${parsed.instructions || ''}`,
+            `---\n\n### ❓ أسئلة التكليف:\n${parsed.questionsText || ''}`,
+            `---\n\n### ⚖️ سلّم التنقيط المفصل:\n${parsed.rubricText || ''}`,
+            parsed.criteriaText ? `---\n\n### 📊 شبكة معايير التقييم البيداغوجي:\n${parsed.criteriaText}` : '',
+            parsed.hintsText ? `---\n\n### 💡 إرشادات وتوجيهات للطلبة:\n${parsed.hintsText}` : '',
+          ].filter(Boolean).join('\n\n');
+
           return {
-            suggestedTitle: parsed.suggestedTitle || rawTitle || 'واجب تطبيقي منزلي',
-            suggestedSubject: parsed.suggestedSubject || rawSubject || 'المقرر العام',
+            suggestedTitle: parsed.suggestedTitle || rawTitle || `${styleLabels[selectedStyle] || 'واجب'} في ${subjectName}`,
+            suggestedSubject: parsed.suggestedSubject || subjectName,
             suggestedType: parsed.suggestedType || targetType,
-            suggestedMaxScore: parsed.suggestedMaxScore || maxScore,
-            suggestedDescription: parsed.suggestedDescription || res.content,
-            explanation: parsed.explanation || 'تم إكمال وصياغة الواجب بالذكاء الاصطناعي استناداً لفكرتك.',
+            suggestedMaxScore: Number(parsed.suggestedMaxScore) || maxScore,
+            style: selectedStyle,
+            difficulty: selectedDifficulty,
+            lessonTitle,
+            unitTitle,
+            gradeLevel,
+            branch,
+            instructions: parsed.instructions || '',
+            questionsText: parsed.questionsText || '',
+            rubricText: parsed.rubricText || '',
+            criteriaText: parsed.criteriaText || '',
+            hintsText: parsed.hintsText || '',
+            suggestedDescription: fullDesc,
+            explanation: parsed.explanation || 'تم توليد وصياغة هذا التكليف بالذكاء الاصطناعي وفق المقاربة بالكفاءات ومنهاج المادة.',
             provider: res.provider,
             model: res.model,
           };
         }
       } catch (err: any) {
-        this.logger.warn(`AI assistAssignment error: ${err.message} — falling back to synthesis engine`);
+        this.logger.warn(`AI assistAssignment error: ${err.message} — using enriched pedagogical synthesizer`);
       }
     }
 
-    // High quality pedagogical fallback:
-    return this.synthesizeAssignmentAssistance(rawTitle, rawSubject, rawDesc, targetType, maxScore);
+    // 4. High-Yield Pedagogical Synthesis Fallback (Authentic, Curricular, and Multi-Subject)
+    return this.synthesizeAssignmentAssistance({
+      rawTitle,
+      rawDesc,
+      subjectName,
+      lessonTitle,
+      unitTitle,
+      gradeLevel,
+      branch,
+      selectedStyle,
+      selectedDifficulty,
+      maxScore,
+      targetType,
+    });
   }
 
-  private synthesizeAssignmentAssistance(
-    title: string,
-    subject: string,
-    desc: string,
-    type: string,
-    maxScore: number,
-  ) {
-    const finalSubject = subject || (title.includes('فيزياء') ? 'فيزياء' : title.includes('رياضيات') ? 'رياضيات' : title.includes('عربية') || title.includes('لغة') ? 'لغة عربية' : 'المقرر العام');
-    const finalTitle = title || `واجب تطبيقي في ${finalSubject}`;
+  /**
+   * Deep Multi-Subject Pedagogical Synthesizer for Assignment Co-Pilot
+   */
+  private synthesizeAssignmentAssistance(p: {
+    rawTitle: string;
+    rawDesc: string;
+    subjectName: string;
+    lessonTitle: string;
+    unitTitle: string;
+    gradeLevel: string;
+    branch: string;
+    selectedStyle: 'standard_practice' | 'apc_integration' | 'quick_quiz' | 'remediation' | 'research_project';
+    selectedDifficulty: 'average' | 'remedial' | 'advanced';
+    maxScore: number;
+    targetType: string;
+  }) {
+    const s = p.subjectName.toLowerCase();
 
-    const q1Score = Math.round(maxScore * 0.3);
-    const q2Score = Math.round(maxScore * 0.4);
-    const q3Score = maxScore - q1Score - q2Score;
+    if (s.includes('رياضيات') || s.includes('حساب') || s.includes('math')) {
+      return this.synthesizeMathAssignment(p);
+    }
+    if (s.includes('فيزياء') || s.includes('كيمياء') || s.includes('physic')) {
+      return this.synthesizePhysicsChemistryAssignment(p);
+    }
+    if (s.includes('أحياء') || s.includes('طبيعة') || s.includes('حياة') || s.includes('bio')) {
+      return this.synthesizeLifeSciencesAssignment(p);
+    }
+    if (s.includes('عرب') || s.includes('لغة') || s.includes('أدب')) {
+      return this.synthesizeArabicAssignment(p);
+    }
+    if (s.includes('إسلام') || s.includes('تاريخ') || s.includes('جغرافيا') || s.includes('شريعة')) {
+      return this.synthesizeSocialIslamicAssignment(p);
+    }
 
-    let richDescription = `### 📌 تعليمات وإرشادات الإنجاز:
-- يُطلب من جميع الطلبة قراءة الأسئلة بعناية وتدوين الحل بخط واضح ومنظم.
-- يُرجى مراعاة استخدام المصطلحات العلمية السليمة وتبرير الخطوات.
-${desc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${desc}\n` : ''}
----
+    return this.synthesizeGeneralAssignment(p);
+  }
 
-### ❓ أسئلة التكليف:
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 1: Mathematics (الرياضيات)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizeMathAssignment(p: any) {
+    const { rawTitle, rawDesc, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'دراسة الدوال العددية وحساب النهايات';
+    const finalTitle = rawTitle || (
+      selectedStyle === 'apc_integration' ? `وضعية إدماجية: نمذجة وتحسين مسألة في الرياضيات (${topic})` :
+      selectedStyle === 'quick_quiz' ? `اختبار قصير: فحص الفهم في الرياضيات (${topic})` :
+      selectedStyle === 'remediation' ? `دعم وتدارك: معالجة صعوبات ${topic}` :
+      selectedStyle === 'research_project' ? `مشروع استكشافي: التطبيقات العملية لموضوع ${topic}` :
+      `واجب تطبيقي متدرج: ${topic}`
+    );
 
-#### السؤال الأول (${q1Score} درجات): استرجاع وتنظيم المفاهيم
-- اشرح المفاهيم الجوهرية المرتبطة بموضوع **«${finalTitle}»** مع ذكر مثالين توضيحيين.
+    const q1Score = Math.max(1, Math.round(maxScore * 0.25));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.45));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
 
-#### السؤال الثاني (${q2Score} درجات): تطبيق مباشر وحل مسألة
-- طبّق القواعد المدروسة لمعالجة المسألة التطبيقية التالية وبيّن خطوات الحل بدقة:
-  1. تحديد المعطيات واستدعاء القاعدة المناسبة.
-  2. إجراء الحسابات أو البرهان العلمي مع التبرير المنطقي.
+    let instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- يُطلب من جميع الطلبة قراءة المسائل بعناية وتدوين الحل في ورقة منظمة مع ترقيم الأسئلة بوضوح.
+- يجب تبرير كل خطوة حسابية أو برهان رياضي بذكر القاعدة، النظرية، أو المبرهنة المستعملة.
+- تُحسب النتائج العددية بدقة مع كتابة القيم المضبوطة قبل التقريب إن وجد.
+${rawDesc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${rawDesc}` : ''}`;
 
-#### السؤال الثالث (${q3Score} درجات): استنتاج وموقف تحليلي
-- قدّم خلاصة تحليلية في 3 أسطر تُبرز كيف تساهم هذه المفاهيم في حل المشكلات المرتبطة بالواقع العملي لمادة ${finalSubject}.
+    let questionsText = '';
+    let rubricText = '';
+    let criteriaText = '';
+    let hintsText = '';
 
----
+    if (selectedStyle === 'apc_integration') {
+      const p1 = Math.round(maxScore * 0.2);
+      const p2 = Math.round(maxScore * 0.4);
+      const p3 = maxScore - p1 - p2;
 
-### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
-- **السؤال 1:** ${q1Score} ن (دقة التعريف والوضوح).
-- **السؤال 2:** ${q2Score} ن (صحة الخطوات والنتائج).
-- **السؤال 3:** ${q3Score} ن (سلامة التعليل والاستنتاج).
-- يُخصم نصف نقطة في حال عدم وضوح الخط أو عدم تنظيم ورقة الإجابة.`;
+      questionsText = `#### 📖 السياق الواقعي (Le Contexte):
+ترغب مؤسسة ناشئة في تصميم حاوية شحن معدنية على شكل متوازي مستطيلات ذي قاعدة مربعة طول ضلعها $x$ متر وارتفاعها $h$ متر، بحيث يكون حجمها الإجمالي ثابتاً ويساوي $V = 16\\text{ m}^3$. تسعى المؤسسة لتقليص تكلفة المعدن المستعمل إلى أدنى حد ممكن عن طريق تصغير المساحة الكلية للحاوية.
+
+#### 📊 السندات المعتمدة:
+- **السند (1):** صيغة حجم متوازي المستطيلات: $V = x^2 \\cdot h$.
+- **السند (2):** صيغة المساحة الكلية للمعدن: $S(x) = 2x^2 + 4xh = 2x^2 + \\frac{64}{x}$ لكل $x > 0$.
+- **السند (3):** جدول يوضح تكلفة المتر المربع من المعدن (1200 دج/م²).
+
+#### ✍️ التعليمات الإجرائية (Les Consignes):
+1. **التعليمة الأولى (${p1} درجات):** بيّن رياضياً انطلاقاً من السندات أن المساحة الكلية $S(x)$ تُعطى بالعبارة $S(x) = \\frac{2x^3 + 64}{x}$، وحدّد مجموعة التعريف الملائمة للمسألة.
+2. **التعليمة الثانية (${p2} درجات):** احسب المشتقة $S'(x)$ وادرس إشارتها على المجال $]0; +\\infty[$، ثم استنتج جدول تغيرات الدالة $S$ وعيّن قيمة $x$ التي تجعل المساحة أصغر ما يمكن.
+3. **التعليمة الثالثة (${p3} درجات):** احسب في هذه الحالة أبعاد الحاوية ($x$ و$h$)، وقدّم تقديراً مبرراً لأقل تكلفة ممكنة لصنع الحاوية، مبيناً الفائدة العملية للنمذجة الرياضية.`;
+
+      rubricText = `#### ⚖️ سلّم التنقيط المفصل (${maxScore} درجة):
+- **التعليمة 1 (${p1} ن):** التعبير عن $h$ بدلالة $x$ ($1.0$ ن) + إثبات عبارة $S(x)$ وتحديد المجال ($1.0$ ن) + سلامة الرموز الرياضية ($0.5$ ن).
+- **التعليمة 2 (${p2} ن):** حساب المشتقة $S'(x) = 4x - 64/x^2 = \\frac{4(x^3 - 16)}{x^2}$ ($2.5$ ن) + حل المعادلة $S'(x) = 0$ واستخراج $x = \\sqrt[3]{16} \\approx 2.52$ ($2.0$ ن) + جدول التغيرات واستنتاج القيمة الحدية الصغرى ($1.5$ ن).
+- **التعليمة 3 (${p3} ن):** حساب الارتفاع $h$ والمساحة الصغرى ($2.0$ ن) + حساب التكلفة الإجمالية بالدينار ($1.5$ ن) + الخلاصة المنهجية ($1.5$ ن).`;
+
+      criteriaText = `| معيار التقويم (APC) | المؤشرات الإجرائية | العلامة المخصصة |
+| :--- | :--- | :---: |
+| **م1: وجاهة المنتوج (Pertinence)** | فهم المشكلة، احترام التعليمات، واستغلال سندات المسألة | **${Math.round(maxScore * 0.25)} ن** |
+| **م2: الاستعمال السليم لأدوات المادة** | التطبيق الصحيح للاشتقاق، حل المعادلات، وجدول التغيرات | **${Math.round(maxScore * 0.40)} ن** |
+| **م3: انسجام وتناسق المنتوج** | تسلسل منطقي للبرهان واستنتاج سليم للأبعاد والتكلفة | **${Math.round(maxScore * 0.25)} ن** |
+| **م4: الإتقان والتميز** | نظافة الورقة، دقة الحسابات، وتنظيم ورقة الإجابة | **${maxScore - Math.round(maxScore * 0.25) - Math.round(maxScore * 0.40) - Math.round(maxScore * 0.25)} ن** |`;
+
+      hintsText = `💡 **إرشادات للطلبة:** انتبه لعدم نسيان تربيع المقام عند اشتقاق الكسر، وتأكد من التحقق من أن المشتقة تنعدم وتغير إشارتها من السالب إلى الموجب لضمان أنها قيمة حدية صغرى وليست عظمى.`;
+    } else if (selectedStyle === 'quick_quiz') {
+      questionsText = `#### ⏱️ المدة الزمنية: 20 دقيقة | مجموع الدرجات: ${maxScore} درجة
+
+#### الجزء الأول: أسئلة الاختيار من متعدد مع التعليل (${q1Score + 1} درجات)
+1. إذا كانت $f$ دالة معرفة على $\\mathbb{R}$ بـ $f(x) = \\frac{2x - 1}{x^2 + 1}$، فإن مشتقتها $f'(x)$ تساوي:
+   - **(أ)** $\\frac{2}{2x}$
+   - **(ب)** $\\frac{-2x^2 + 2x + 2}{(x^2 + 1)^2}$
+   - **(ج)** $\\frac{2(1 - x^2)}{(x^2 + 1)^2}$
+   *(علل اختيارك بحساب رياضي مقتضب في سطرين)*.
+
+2. نهاية الدالة $g(x) = \\sqrt{x^2 + 3} - x$ لما يؤول $x$ إلى $+\\infty$ هي:
+   - **(أ)** $+\\infty$
+   - **(ب)** $0$
+   - **(ج)** $3$
+   *(بيّن طريقة إزالة حالة عدم التعيين)*.
+
+#### الجزء الثاني: صحيح أو خطأ مع تصحيح الخطأ (${q2Score - 1} درجات)
+1. "إذا كانت مشتقة دالة موجبة تماماً على مجال $I$ فإن الدالة متزايدة تماماً على هذا المجال." **(صحيح / خطأ مع التعليل)**
+2. "المستقيم ذو المعادلة $x = 2$ هو مقارب أفقي للمنحنى $C_f$ عند اللانهاية." **(صحيح / خطأ مع التعليل)**
+
+#### الجزء الثالث: مسألة مصغرة وسريعة (${q3Score} درجات)
+- عيّن إشارة العبارة $P(x) = 2x^2 - 5x + 2$ على $\\mathbb{R}$ بعد حساب المميز $\\Delta$، واستنتج حلول المتراجحة $P(x) \\le 0$.`;
+
+      rubricText = `#### ⚖️ سلّم التنقيط السريع (${maxScore} ن):
+- السؤال 1 (QCM): اختيار صحيح ($1.0$ ن) + تعليل الحساب ($1.5$ ن).
+- السؤال 2 (QCM): اختيار صحيح ($1.0$ ن) + إزالة حالة عدم التعيين بالضرب في المرافق ($1.5$ ن).
+- الجزء الثاني (ص/خ): العبارة 1 ($1.5$ ن) + العبارة 2 وتصحيحها ($1.5$ ن).
+- المسألة المصغرة: حساب $\\Delta = 9$ وتحديد الجذرين $x_1 = 1/2, x_2 = 2$ ($2.0$ ن) + جدول الإشارة ومجموعة الحلول ($1.5$ ن).`;
+
+      criteriaText = `فحص سريع للمكتسبات: التركيز على السرعة، سلامة القواعد الأساسية، والقدرة على التبرير السريع.`;
+      hintsText = `💡 **تنبيه:** في إزالة حالات عدم التعيين من شكل $\\infty - \\infty$ للجذور التربيعية، استعمال المرافق هو المفتاح الأسرع.`;
+    } else if (selectedStyle === 'remediation') {
+      questionsText = `#### 🩺 تشخيص الهدف: تدارك الخلط في دراسة الإشارة وتطبيق مبرهنة القيم المتوسطة
+
+#### المحطة الأولى: تذكير وتطبيق مسعف خطوة بخطوة (${q1Score} درجات)
+- لتكن الدالة $h(x) = x^3 - 3x + 1$ معرفة على $[0; 2]$.
+  1. احسب المشتقة $h'(x)$ وضعها في جداء عوامل.
+  2. بمساعدتك بالجدول المرفق، املأ إشارة $h'(x)$ على المجال المعطى.
+
+#### المحطة الثانية: تفكيك وتحليل خطأ شائع (${q2Score} درجات)
+- كتب زميلك في ورقة إجابته: *"بما أن $h(0) = 1$ و$h(2) = 3$ فإن المعادلة $h(x) = 0$ لا تقبل أي حل في $[0; 2]$ لأن جداءهما موجب"*!
+  1. أين يكمن الخطأ المنهجي في استنتاج زميلك؟ (تلميح: هل الدالة رتيبة على المجال بالكامل؟)
+  2. احسب $h(1)$ وأعد صياغة البرهان الصحيح لتطبيق مبرهنة القيم المتوسطة على المجال $[0; 1]$ أو $[1; 2]$.
+
+#### المحطة الثالثة: إعادة استثمار مستقل ومحفز (${q3Score} درجات)
+- طبّق ما تعلمته لإثبات أن المعادلة $x^3 + 2x - 5 = 0$ تقبل حلاً وحيداً $\\alpha$ في المجال $[1; 2]$، مع تحديد حصر له سعته $0.1$.`;
+
+      rubricText = `#### ⚖️ سلّم التنقيط التشجيعي (${maxScore} ن):
+- المحطة 1: حساب المشتقة والتحليل ($1.5$ ن) + جدول الإشارة الصحيح ($1.5$ ن).
+- المحطة 2: اكتشاف موضع الخلل وتفسيره ($2.0$ ن) + صياغة شروط المبرهنة (الاستمرار والرتابة) ($2.0$ ن).
+- المحطة 3: إثبات الاستمرار والرتابة ($1.5$ ن) + إثبات اختلاف الإشارة وحساب الحصر ($1.5$ ن).`;
+
+      criteriaText = `معايير العلاج: الجرأة على تشخيص الخطأ، استيعاب شروط النظريات بدقة، وتطبيقها دون تسرع.`;
+      hintsText = `💡 **قاعدة ذهبية:** لا يمكن تطبيق مبرهنة القيم المتوسطة إلا بعد التأكد من شرطين معاً: الاستمرارية والرتابة التامة على المجال المستهدف.`;
+    } else if (selectedStyle === 'research_project') {
+      questionsText = `#### 🔬 مشروع بحث واستكشاف رياضي تطبيقي (${maxScore} درجة)
+**عنوان المشروع:** «النمذجة الرياضية بالدوال والمتتاليات في التنبؤ بانتشار الأوبئة وتدبير الموارد الاقتصادية»
+
+#### محاور التكليف والمهام المطلوبة:
+1. **المحور الأول (التأصيل النظري):** ابحث في كيفية تحويل ظاهرة تزايد أعداد المصابين أو نمو رؤوس الأموال إلى متتالية هندسية أو دالة لوجستية أسية (نموذج مالتوس ونموذج فيرهولست).
+2. **المحور الثاني (المعالجة الحسابية):** اختر مجموعة بيانات واقعية افتراضية (مثلاً تطور عدد مستخدمي تطبيق رقمي خلال 12 شهراً)، وأنشئ جدولاً بيانياً، ثم استخرج معادلة الانحدار أو الدالة الرياضية المقاربة.
+3. **المحور الثالث (الاستنتاج والتوصيات):** أعد تقريراً من صفحتين يتضمن:
+   - مقدمة حول نشأة النمذجة الرياضية.
+   - التمثيل البياني بواسطة برنامج جيوجبرا (GeoGebra) أو إكسل (Excel).
+   - قراءة نقدية لحدود النموذج الرياضي في التنبؤات طويلة الأجل.`;
+
+      rubricText = `#### ⚖️ سلّم تقييم المشروع البحثي (${maxScore} ن):
+- جودة التوثيق العلمي وصحة العلاقات الرياضية المستخدمة: 7 درجات.
+- سلامة الحسابات والتمثيل البياني بالبرمجيات: 6 درجات.
+- التنسيق والتنظيم ودقة المصطلحات والخلاصة النقدية: 5 درجات.
+- الالتزام بموعد التسليم وشروط العرض: درجتان.`;
+
+      criteriaText = `معايير تقييم المشروع: الأصالة العلمية، التوظيف العملي للبرمجيات، والقدرة على الربط بين الرياضيات والواقع المعاش.`;
+      hintsText = `💡 **نصيحة:** استعن بموقع GeoGebra المجاني لتمثيل المنحنيات وإدراج الصور التوضيحية داخل التقرير لرفع درجة تميز عملك.`;
+    } else {
+      // Standard Practice
+      questionsText = `#### ❓ المسألة الأولى (${q1Score} درجات): استرجاع وتنظيم المفاهيم
+1. عرّف بدقة مفهوم قابلية اشتقاق دالة عند نقطة $x_0$، وما هو التفسير الهندسي للعدد المشتق $f'(x_0)$؟
+2. اكتب معادلة مماس منحنى الدالة عند النقطة ذات الفاصلة $x_0$.
+3. اذكر شرطين كافيين لتكون النقطة $A(x_0, f(x_0))$ نقطة انعطاف لمنحنى دالة.
+
+#### ❓ المسألة الثانية (${q2Score} درجات): دراسة وتطبيق إجرائي لدالة عددية
+نعتبر الدالة $f$ المعرفة على $D = \\mathbb{R} \\setminus \\{1\\}$ بـ: $f(x) = \\frac{x^2 - 3x + 6}{x - 1}$. وليكن $(C_f)$ تمثيلها البياني في معلم متعامد ومتجانس.
+1. عيّن الأعداد الحقيقية $a$ و$b$ و$c$ بحيث يكون من أجل كل $x \\in D$: $f(x) = ax + b + \\frac{c}{x - 1}$.
+2. احسب نهايات الدالة $f$ عند أطراف مجالات التعريف، واستنتج معادلات المستقيمات المقاربة الموازية للمحاور.
+3. بيّن أن المستقيم $(\\Delta)$ ذو المعادلة $y = x - 2$ مقارب مائل للمنحنى $(C_f)$ عند $\\pm \\infty$.
+4. احسب المشتقة $f'(x)$ وأثبت أنها تنعدم عند قيمتين يُطلب تعيينهما، ثم شكّل جدول تغيرات الدالة $f$.
+
+#### ❓ المسألة الثالثة (${q3Score} درجات): إدماج واستنتاج بياني
+1. ادرس الوضع النسبي للمنحنى $(C_f)$ والمستقيم المقارب المائل $(\\Delta)$.
+2. أثبت أن النقطة $\\Omega(1, -1)$ هي مركز تناظر للمنحنى $(C_f)$.
+3. ارسم المستقيمات المقاربة والمنحنى $(C_f)$ بدقة مع إبراز الذروات ومراكز التناظر.`;
+
+      rubricText = `#### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
+- **المسألة الأولى (${q1Score} ن):** تعريف قابلية الاشتقاق والتفسير الهندسي ($1.5$ ن) + معادلة المماس ($1.0$ ن) + شروط نقطة الانعطاف ($1.5$ ن).
+- **المسألة الثانية (${q2Score} ن):** المطابقة واستخراج $a=1, b=-2, c=4$ ($1.5$ ن) + حساب النهايات الأربعة ($2.0$ ن) + برهان المقارب المائل ($1.5$ ن) + حساب $f'(x) = \\frac{x^2-2x-3}{(x-1)^2}$ وجدول التغيرات ($2.5$ ن).
+- **المسألة الثالثة (${q3Score} ن):** دراسة إشارة الفرق $f(x)-y$ وتحديد الوضع النسبي ($1.5$ ن) + إثبات مركز التناظر بالقانون $f(2a-x)+f(x)=2b$ ($2.0$ ن) + دقة الرسم الهندسي ($1.5$ ن).`;
+
+      criteriaText = `| المعيار | المؤشر الإجرائي | النسبة |
+| :--- | :--- | :---: |
+| **دقة القواعد الرياضية** | تطبيق قوانين النهايات والاشتقاق دون أخطاء حسابية | **40%** |
+| **سلامة البرهان المنطقي** | التدرج في الاستنتاج وتبرير كل خطوة بالقوانين الرياضية | **35%** |
+| **الدقة والتمثيل البياني** | رسم المنحنى واحترام المقاربات والذروات | **25%** |`;
+
+      hintsText = `💡 **توجيهات للحل:** عند حساب النهايات عند القيمة الممنوعة $1$، ادرس إشارة المقام $(x - 1)$ بدقة لتمييز بقيم كبرى عن بقيم صغرى.`;
+    }
+
+    const fullDesc = [
+      instructions,
+      `---\n\n${questionsText}`,
+      `---\n\n${rubricText}`,
+      criteriaText ? `---\n\n### 📊 معايير وشبكة التقييم:\n${criteriaText}` : '',
+      hintsText ? `---\n\n${hintsText}` : '',
+    ].filter(Boolean).join('\n\n');
 
     return {
       suggestedTitle: finalTitle,
-      suggestedSubject: finalSubject,
-      suggestedType: type,
+      suggestedSubject: 'الرياضيات',
+      suggestedType: targetType,
       suggestedMaxScore: maxScore,
-      suggestedDescription: richDescription,
-      explanation: 'قام المساعد الذكي بصياغة واجب متكامل ومتدرج مع تعليمات وسلم تنقيط استناداً إلى فكرتك.',
-      provider: 'pedagogical_copilot',
-      model: 'copilot_synthesizer_v1',
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `قام المساعد التربوي بصياغة هذا التكليف المتكامل في مادة الرياضيات بأسلوب «${selectedStyle}» ومستوى «${selectedDifficulty}»، شاملاً السندات والأسئلة وسلم التنقيط الدقيق (${maxScore} ن) استناداً إلى المنهاج المعتمد.`,
+      provider: 'pedagogical_synthesizer',
+      model: 'math_curriculum_v2',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 2: Physics & Chemistry (العلوم الفيزيائية والتكنولوجيا)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizePhysicsChemistryAssignment(p: any) {
+    const { rawTitle, rawDesc, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'الميكانيكا وقوانين نيوتن / التحولات الكيميائية';
+    const finalTitle = rawTitle || (
+      selectedStyle === 'apc_integration' ? `وضعية إدماجية: دراسة فيزيائية تطبيقية (${topic})` :
+      selectedStyle === 'quick_quiz' ? `اختبار قصير: التحقق من المفاهيم الفيزيائية (${topic})` :
+      selectedStyle === 'remediation' ? `دعم وعلاج: معالجة صعوبات التحويلات والقوانين في (${topic})` :
+      selectedStyle === 'research_project' ? `مشروع استكشافي: التطبيقات الطاقوية والتكنولوجية (${topic})` :
+      `واجب تطبيقي متدرج: ${topic}`
+    );
+
+    const q1Score = Math.max(1, Math.round(maxScore * 0.3));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.45));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
+
+    let instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- تدوين الحل بخط واضح ومنظم مع ذكر رقم كل تمرين وفرعه.
+- كتابة القوانين الحرفية أولاً قبل إجراء أي تطبيق عددي.
+- إلزامية كتابة وحدات القياس الدولية (SI) بجانب كل نتيجة عددية (يُخصم نصف نقطة على كل وحدة مفقودة).
+- إبراز شروط تطبيق القوانين وتحديد المرجع العطالي المناسب في كل مسألة ميكانيكية.
+${rawDesc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${rawDesc}` : ''}`;
+
+    let questionsText = '';
+    let rubricText = '';
+    let criteriaText = '';
+    let hintsText = '';
+
+    if (selectedStyle === 'apc_integration') {
+      questionsText = `#### 🎯 الكفاءة المستهدفة: توظيف قوانين الحركة والتحولات الكيميائية لحل مشكلة سلامة تقنية
+
+#### 📖 السياق الواقعي (Le Contexte):
+أثناء الفحص الدوري لسيارة سياحية، لاحظ مهندس الصيانة تآكل وسائد الفرامل ووجود ترسبات في دارة سائل التبريد. لإعداد تقرير تقني دقيق حول مسافة التوقف المطلوبة في الحالات الطارئة ومستوى حموضة سائل التبريد، طُلب منك كخبير فيزيائي دراسة الحركية وإجراء معايرة مخبرية.
+
+#### 📊 السندات المعتمدة:
+- **السند (1):** كتلة السيارة بركابها $M = 1200\\text{ kg}$، وتتحرك بسرعة ابتدائية $v_0 = 90\\text{ km/h} = 25\\text{ m/s}$ على طريق أفقي مستقيم.
+- **السند (2):** قوة الاحتكاك المكافحة الناتجة عن الكبح نعتبرها ثابتة وتساوي $f = 6000\\text{ N}$، وقوة الجاذبية $g = 9.8\\text{ m/s}^2$.
+- **السند (3):** منحنى تغيرات السرعة بدلالة الزمن $v(t)$، ومعادلة تفاعل المعايرة لسائل التبريد مع هيدروكسيد الصوديوم.
+
+#### ✍️ التعليمات الإجرائية (Les Consignes):
+1. **التعليمة الأولى (${q1Score} ن):** حدّد الجملة المدروسة والمرجع العطالي الملائم، ومثّل القوى الخارجية المؤثرة على السيارة أثناء الكبح على مخطط واضح.
+2. **التعليمة الثانية (${q2Score} ن):** بتطبيق القانون الثاني لنيوتن، أوجد العبارة الحرفية للتسارع $a$، ثم احسب قيمته العددية مبيناً طبيعة الحركة. استنتج زمن التوقف $t_s$ ومسافة التوقف $d_s$.
+3. **التعليمة الثالثة (${q3Score} ن):** قارن مسافة التوقف المحسوبة مع المسافة الأمنية الموصى بها في قانون المرور ($50\\text{ m}$)، وقدّم نصيحتين بيداغوجيتين للسائقين مدعمتين بالتفسير الفيزيائي.`;
+
+      rubricText = `#### ⚖️ سلّم التنقيط المفصل (${maxScore} ن):
+- التعليمة 1: تحديد الجملة والمرجع بدقة ($1.5$ ن) + تمثيل القوى (الثقل، رد الفعل، قوة الاحتكاك) بأسهم صحيحة ($2.5$ ن).
+- التعليمة 2: نص القانون الثاني لنيوتن $\\sum \\vec{F} = M \\vec{a}$ والإسقاط على محور الحركة ($2.5$ ن) + حساب التسارع $a = -f/M = -5\\text{ m/s}^2$ وطبيعة الحركة ($2.0$ ن) + حساب زمن التوقف $t_s = 5\\text{ s}$ ومسافة التوقف $d_s = 62.5\\text{ m}$ مع الوحدات ($2.5$ ن).
+- التعليمة 3: المقارنة الموضوعية ($62.5 > 50\\text{ m}$) وتشخيص الخطر ($2.5$ ن) + تقديم نصائح مبررة فيزيائياً (تخفيض السرعة ومراعاة حالة الطريق) ($2.5$ ن).`;
+
+      criteriaText = `| معيار التقويم APC | المؤشرات | العلامة |
+| :--- | :--- | :---: |
+| **م1: الوجاهة وملاءمة المنتوج** | استثمار معطيات المسألة واحترام مراحل حل المشكلة | **25%** |
+| **م2: الاستعمال السليم لأدوات المادة** | التطبيق الصحيح لقوانين نيوتن، العلاقات الحركية، والوحدات | **45%** |
+| **م3: الانسجام والتناسق** | التسلسل المنطقي من المخطط إلى المعادلة ثم التطبيق العددي | **20%** |
+| **م4: الإتقان والدقة** | تنظيم ورقة الإجابة ووضوح الرسم البياني | **10%** |`;
+
+      hintsText = `💡 **تنبيه:** تذكر دائماً تحويل السرعة من $\\text{km/h}$ إلى $\\text{m/s}$ بالقسمة على $3.6$ قبل التعويض في معادلات الحركة.`;
+    } else if (selectedStyle === 'quick_quiz') {
+      questionsText = `#### ⏱️ اختبار قصير وسريع (20 دقيقة) | الدرجة: ${maxScore} ن
+
+#### الجزء الأول: الاختيار من متعدد مع التبرير (${q1Score} ن)
+1. وحدة قياس ثابت الزمن $\\tau$ لدارة $RC$ في النظام الدولي للوحدات هي:
+   - **(أ)** الفولت (V)
+   - **(ب)** الثانية (s)
+   - **(ج)** الأوم ($\\Omega$)
+   *(علل إجابتك بالتحليل البعدي في سطرين)*.
+
+2. عند اللحظة $t = 5\\tau$ في عملية شحن المكثفة، تبلغ شحنتها $q(t)$ نسبة:
+   - **(أ)** 63% من شحنتها الأعظمية
+   - **(ب)** 99% من شحنتها الأعظمية
+   - **(ج)** 50% من شحنتها الأعظمية
+
+#### الجزء الثاني: صح أو خطأ مع تصحيح الخطأ (${q2Score} ن)
+1. "القانون الأول لنيوتن يطبق في أي مرجع دون اشتراط كونه عطالياً." **(صحيح / خطأ مع التعليل)**
+2. "السرعة الحجمية للتفاعل الكيميائي تتناقص بمرور الزمن نتيجة تناقص تراكيز المتفاعلات." **(صحيح / خطأ مع التعليل)**
+
+#### الجزء الثالث: مسألة مصغرة وسريعة (${q3Score} ن)
+- ينطلق جسم كتلته $m = 200\\text{ g}$ من السكون تحت تأثير قوة جر أفقية ثابتة $F = 1.2\\text{ N}$. باهمال الاحتكاكات، احسب تسارع الجسم وسرعته بعد قطع مسافة $4\\text{ m}$.`;
+
+      rubricText = `#### ⚖️ سلّم التنقيط السريع (${maxScore} ن):
+- التحليل البعدي لثابت الزمن: $[\\tau] = [R] \\times [C] = [T]$ (الثانية) ($2.5$ ن).
+- شحن المكثفة عند $5\\tau$: اختيار 99% ($1.5$ ن).
+- الجزء الثاني: العبارة 1 خطأ وبيان شرط المرجع العطالي ($2.0$ ن) + العبارة 2 صحيح مع التفسير المجهري ($2.0$ ن).
+- المسألة السريعة: تحويل الكتلة إلى $0.2\\text{ kg}$ وحساب $a = F/m = 6\\text{ m/s}^2$ ($2.5$ ن) + حساب السرعة $v = \\sqrt{2ad} = 6.93\\text{ m/s}$ ($2.5$ ن).`;
+
+      criteriaText = `الفحص التكويني: التركيز على الاستحضار الفوري للمفاهيم الفيزيائية والتحليل البعدي السليم.`;
+      hintsText = `💡 **نصيحة:** التحليل البعدي هو الأداة الأكثر موثوقية للتأكد من صحة القوانين الفيزيائية واشتقاق الوحدات.`;
+    } else {
+      // Standard Practice / Drill
+      questionsText = `#### ❓ التمرين الأول (${q1Score} درجات): استرجاع القوانين والمفاهيم
+1. اذكر نص القانون الثاني لنيوتن وبيّن الفرق الجوهري بين الكتلة والوزن.
+2. ما هو المرجع الهيليومركزي (مرجع كوبرنيك) وما هو مجال تطبيقه؟
+3. عرّف الحركة الدائرية المنتظمة واذكر عبارتي التسارع المماسي والتسارع الناظمي في معلم فريني.
+
+#### ❓ التمرين الثاني (${q2Score} درجات): دراسة حركة قمر اصطناعي حول الأرض
+يدور قمر اصطناعي كتلته $m_s = 850\\text{ kg}$ حول الأرض في مسار دائري نصف قطره $r = R_T + h$ على ارتفاع $h = 600\\text{ km}$ من سطح الأرض.
+- معطيات: نصف قطر الأرض $R_T = 6400\\text{ km}$، كتلة الأرض $M_T = 5.97 \\times 10^{24}\\text{ kg}$، ثابت الجذب العام $G = 6.67 \\times 10^{-11}\\text{ SI}$.
+1. مثّل الأرض والقمر الاصطناعي وشعاع القوة التي تطبقها الأرض على القمر $\\vec{F}_{T/s}$.
+2. بتطبيق القانون الثاني لنيوتن في المرجع الجيو مركزي، أثبت أن حركة القمر الاصطناعي دائرية منتظمة، واستخرج عبارة سرعته المدارية $v$.
+3. احسب القيمة العددية للسرعة $v$ بوحدة $\\text{m/s}$ ثم بوحدة $\\text{km/h}$.
+4. أوجد عبارة الدور المداري $T$ للقمر واحسب قيمته بالساعات والدقائق.
+
+#### ❓ التمرين الثالث (${q3Score} درجات): قانون كبلر الثالث والاستنتاج
+1. بيّن أن النسبة $\\frac{T^2}{r^3}$ ثابتة لا تتعلق بالقمر الاصطناعي، واستنتج نص القانون الثالث لكبلر.
+2. هل يمكن اعتبار هذا القمر قمراً مستقراً بالنسبة للأرض (Géostationnaire)؟ برّر إجابتك بحساب الارتفاع والشروط الواجب توفرها.`;
+
+      rubricText = `#### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
+- **التمرين 1 (${q1Score} ن):** نص قانون نيوتن ($1.5$ ن) + المرجع الهيليومركزي ($1.5$ ن) + مركبات التسارع في معلم فريني $a_t = 0, a_n = v^2/r$ ($2.0$ ن).
+- **التمرين 2 (${q2Score} ن):** التمثيل الهندسي للقوة الموجهة نحو مركز الأرض ($1.5$ ن) + تطبيق القانون الثاني لنيوتن وإثبات الحركة المنتظمة ($2.5$ ن) + حساب السرعة $v = \\sqrt{G M_T / r} \\approx 7560\\text{ m/s}$ ($2.0$ ن) + حساب الدور $T = 2\\pi r / v \\approx 5815\\text{ s} \\approx 1.61\\text{ h}$ ($2.0$ ن).
+- **التمرين 3 (${q3Score} ن):** إثبات القانون الثالث لكبلر $\\frac{T^2}{r^3} = \\frac{4\\pi^2}{G M_T}$ ($2.5$ ن) + مناقشة شروط القمر المستقر جغرافياً وعدم تحققها هنا لأن دوره لا يساوي 24 ساعة ($2.5$ ن).`;
+
+      criteriaText = `| المعيار | المؤشرات | الوزن |
+| :--- | :--- | :---: |
+| **الاستدلال الفيزيائي السليم** | اختيار المرجع، كتابة القوانين، والإسقاط الصحيح | **40%** |
+| **الدقة في الحساب والوحدات** | التحويل للكيلوغرام والمتر والثانية وكتابة الوحدات | **35%** |
+| **التحليل والاستنتاج** | المقارنة مع المعطيات الواقعية وقوانين كبلر | **25%** |`;
+
+      hintsText = `💡 **تنبيه هام:** لا تنس جمع نصف قطر الأرض $R_T$ مع الارتفاع $h$ وتحويل الكل إلى المتر (الضرب في $10^3$) قبل التعويض في عبارة السرعة والدور.`;
+    }
+
+    const fullDesc = [
+      instructions,
+      `---\n\n${questionsText}`,
+      `---\n\n${rubricText}`,
+      criteriaText ? `---\n\n### 📊 معايير وشبكة التقييم:\n${criteriaText}` : '',
+      hintsText ? `---\n\n${hintsText}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: 'العلوم الفيزيائية والتكنولوجيا',
+      suggestedType: targetType,
+      suggestedMaxScore: maxScore,
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `تم إعداد هذا الواجب الفيزيائي التخصصي بنمط «${selectedStyle}» ومستوى «${selectedDifficulty}»، شاملاً السندات وقوانين الحركة والمعايرة وسلم التنقيط المجزأ بدقة (${maxScore} ن).`,
+      provider: 'pedagogical_synthesizer',
+      model: 'physics_curriculum_v2',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 3: Life Sciences (علوم الطبيعة والحياة)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizeLifeSciencesAssignment(p: any) {
+    const { rawTitle, rawDesc, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'آليات تركيب البروتين / الاستجابة المناعية';
+    const finalTitle = rawTitle || `واجب تطبيقي في علوم الطبيعة والحياة: ${topic}`;
+
+    const q1Score = Math.max(1, Math.round(maxScore * 0.35));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.45));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
+
+    const instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- استثمار الوثائق العلمية استثماراً منهجياً: (تقديم الوثيقة، استخراج المعلومات ذات الدلالة، التفسير، والاستنتاج).
+- استخدام المصطلحات العلمية الدقيقة (مثل: الاستنساخ، الترجمة، الشفرة الوراثية، مجمع التوافق النسيجي HLA، الخلايا اللمفاوية).
+- الحرص على إنجاز الرسومات التخطيطية الوظيفية بقلم الرصاص مع وضع العنوان والبيانات الكاملة وإحاطتها بإطار.
+${rawDesc ? `\n### 📝 مسودة وملاحظات الأستاذ:\n${rawDesc}` : ''}`;
+
+    const questionsText = `#### ❓ التمرين الأول (${q1Score} درجات): استرجاع منظم للمعارف
+1. حدّد مقر وآليات مرحلتي التعبير المورثي (الاستنساخ والترجمة) في الخلية حقيقية النواة، مبرزاً الشروط الجزيئية الضرورية لكل مرحلة.
+2. أنجز رسماً تخطيطياً وظيفياً متقناً يوضح بنية وتعدد مواقع المعقد الريبوزومي الوظيفي أثناء مرحلة الاستطالة مع كامل البيانات.
+
+#### ❓ التمرين الثاني (${q2Score} درجات): الاستدلال العلمي وحل المشكلات
+تمثل الوثيقة المرفقة نتائج تجريبية لدراسة تأثير مضاد حيوي (ألفا أمانيتين) على نشاط إنزيم ARN بوليميراز في خلايا ورمية.
+1. حلّل معطيات المنحنى البياني الممثل لتغيرات النسبة المئوية لتركيب البروتين بدلالة تركيز المضاد الحيوي، واستنتج طريقة تأثيره.
+2. اشرح كيف يمكن استغلال هذه الخاصية في تطوير علاجات مستهدفة للأورام السرطانية دون الإضرار بالخلايا السليمة بشكل حاد.
+
+#### ❓ التمرين الثالث (${q3Score} درجات): التركيب والخلاصة التركيبية
+- انطلاقاً من المكتسبات ومعطيات التكليف، لخّص في فقرة علمية متناسقة من 8 أسطر كيف تترجم المعلومة الوراثية المحمولة على ADN إلى نمط ظاهري مرئي على المستوى الجزيئي والخلوي والعياني.`;
+
+    const rubricText = `#### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
+- **التمرين 1 (${q1Score} ن):** تحديد المقر والشروط الجزيئية ($2.5$ ن) + الرسم التخطيطي الوظيفي للريبوزوم مع العنوان والبيانات ($3.0$ ن).
+- **التمرين 2 (${q2Score} ن):** التحليل المنهجي للمنحنى (التقديم + التفكيك + الاستنتاج) ($3.5$ ن) + الشرح العلمي للتطبيق العلاجي المقترح ($3.5$ ن).
+- **التمرين 3 (${q3Score} ن):** سلامة المفاهيم العلمية للفقرة التركيبية ($2.0$ ن) + تسلسل المستويات (جزيئي -> خلوي -> عياني) ($2.0$ ن) + جودة اللغة العلمية والربط ($1.5$ ن).`;
+
+    const criteriaText = `شبكة تقييم الاستدلال العلمي: التحكم في المنهجية (التحليل، التفسير، الاستنتاج، والتركيب)، وتوظيف المصطلحات البيولوجية السليمة.`;
+    const hintsText = `💡 **توجيه منهجي:** في التحليل، لا تكتف بقراءة الأرقام بل قسّم المنحنى إلى فترات واضحة واستخرج العلاقة السببية قبل كتابة الاستنتاج.`;
+
+    const fullDesc = [instructions, `---\n\n${questionsText}`, `---\n\n${rubricText}`, `---\n\n### 📊 شبكة التقييم:\n${criteriaText}`, `---\n\n${hintsText}`].join('\n\n');
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: 'علوم الطبيعة والحياة',
+      suggestedType: targetType,
+      suggestedMaxScore: maxScore,
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `تمت صياغة واجب علوم الطبيعة والحياة وفق أحدث الممارسات المنهجية الرسمية (الاسترجاع المنظم، الاستدلال العلمي، والتركيب) بسلم تنقيط مفصل ومطابق لـ ${maxScore} درجة.`,
+      provider: 'pedagogical_synthesizer',
+      model: 'biology_curriculum_v2',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 4: Arabic Language & Literature (اللغة العربية وآدابها)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizeArabicAssignment(p: any) {
+    const { rawTitle, rawDesc, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'دراسة سند أدبي وقواعد اللغة العربية';
+    const finalTitle = rawTitle || `واجب في اللغة العربية وآدابها: ${topic}`;
+
+    const q1Score = Math.max(1, Math.round(maxScore * 0.4));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.35));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
+
+    const instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- قراءة السند الأدبي بتأنٍ وتذوق فني قبل الشروع في الإجابة عن الأسئلة.
+- الإجابة في جمل تامة ومفيدة مع الالتزام بقواعد اللغة والإملاء وعلامات الترقيم.
+- التعليل الدقيق عند استخراج الصور البيانية والمحسنات وتوضيح سر بلاغتها وأثرها في المعنى.
+${rawDesc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${rawDesc}` : ''}`;
+
+    const questionsText = `#### أولاً: البناء الفكري (${q1Score} درجات)
+1. ما القضية المركزية التي يعالجها النص؟ وما الهدف الذي يسعى الكاتب أو الشاعر إلى تحقيقه لدى القارئ؟
+2. حدّد الفكرة العامة للنص، ثم قسّمه إلى وحداته الفكرية الأساسية مع وضع عنوان مناسب لكل وحدة.
+3. ما النزعة الغالبة على الكاتب؟ استدل عليها بعبارتين دالتين من صلب السند.
+4. لخّص مضمون النص بأسلوبك الخاص في حدود أربعة أسطر مراعياً تقنيات التلخيص السليم.
+
+#### ثانياً: البناء اللغوي (${q2Score} درجات)
+1. أعرب ما تحته خط في النص إعراب مفردات، وبيّن المحل الإعرابي للجمل الواقعة بين قوسين.
+2. استخرج من الفقرة الثانية محسناً بديعياً مبيناً نوعه وأثره في المعنى، وصورة بيانية واشرحها مبيناً سر بلاغتها.
+3. ما النمط النصي الغالب على السند؟ اذكر مؤشرين اثنين له مع التمثيل من النص.
+4. دلّ على مظاهر الاتساق والانسجام البارزة في النص (أدوات الربط، الضمائر وعائدها).
+
+#### ثالثاً: الوضعية الإدماجية / التقويم النقدي (${q3Score} درجات)
+- اكتب فقرة نقدية حجاجية في حدود عشرة أسطر تناقش فيها مسؤولية الأديب والمثقف في عصر التحديات التكنولوجية نحو قضايا أمته، موظفاً جملة شرطية واستعارة مكنية مع وضع سطر تحت كل منهما.`;
+
+    const rubricText = `#### ⚖️ سلّم التنقيط المفصل (${maxScore} درجة):
+- **البناء الفكري (${q1Score} ن):** القضية المركزية والهدف ($2.0$ ن) + الفكرة العامة والتقسيم الفكري ($2.0$ ن) + تحديد النزعة والتمثيل ($1.5$ ن) + التلخيص (حجم النص وسلامة الأسلوب) ($2.5$ ن).
+- **البناء اللغوي (${q2Score} ن):** الإعراب المفردي والجمل ($2.5$ ن) + الصورة البيانية والمحسن البديعي ($2.0$ ن) + النمط ومؤشراته ($1.5$ ن) + وسائل الاتساق والانسجام ($1.0$ ن).
+- **الوضعية الإدماجية (${q3Score} ن):** الوجاهة والانسجام وملاءمة الأفكار ($2.0$ ن) + سلامة اللغة والخلو من الأخطاء ($1.5$ ن) + التوظيف السليم للمطلوب والإتقان ($1.5$ ن).`;
+
+    const criteriaText = `معايير التقويم: ملاءمة المنتوج، الاستعمال السليم لآليات اللغة العربية، انسجام الأفكار، وجودة العرض والإبداع.`;
+    const hintsText = `💡 **تنبيه:** في التلخيص، تجنب النسخ الحرفي لجمل النص، وتجنب استعمال عبارات مثل "يقول الكاتب"؛ بل صغ الأفكار بأسلوبك المركّز.`;
+
+    const fullDesc = [instructions, `---\n\n${questionsText}`, `---\n\n${rubricText}`, `---\n\n### 📊 معايير التقويم:\n${criteriaText}`, `---\n\n${hintsText}`].join('\n\n');
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: 'اللغة العربية وآدابها',
+      suggestedType: targetType,
+      suggestedMaxScore: maxScore,
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `صياغة أدبية وتربوية متكاملة للغة العربية تشمل محاور البناء الفكري، البناء اللغوي، والوضعية الإنتاجية النقدية مع شبكة تقييم دقيقة.`,
+      provider: 'pedagogical_synthesizer',
+      model: 'arabic_curriculum_v2',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 5: Islamic & Social Studies (التربية الإسلامية والتاريخ والجغرافيا)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizeSocialIslamicAssignment(p: any) {
+    const { rawTitle, rawDesc, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'القيم والمقاصد الشرعية / التطورات التاريخية والجغرافية';
+    const finalTitle = rawTitle || `واجب تطبيقي في ${p.subjectName}: ${topic}`;
+
+    const q1Score = Math.max(1, Math.round(maxScore * 0.35));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.35));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
+
+    const instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- استحضار الأدلة الشرعية المعتمدة أو الوثائق التاريخية والجغرافية بدقة.
+- الاستدلال السليم وتحديد المفاهيم والمصطلحات بدقة علمية ومنهجية.
+${rawDesc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${rawDesc}` : ''}`;
+
+    const questionsText = `#### الجزء الأول: استرجاع وتحديد المفاهيم (${q1Score} درجات)
+1. عرّف المفاهيم والمصطلحات الأساسية المرتبطة بموضوع «${topic}».
+2. استخرج حكمين وفائدتين رئيسيتين انطلاقاً من السند أو الوثيقة المقررة مع التعليل.
+
+#### الجزء الثاني: التحليل والمقارنة المنهجية (${q2Score} درجات)
+1. حلّل أسباب وتداعيات الظاهرة المدروسة مبرزاً الأبعاد الفكرية والمجتمعية المرتبطة بها.
+2. أجرِ مقارنة منظمة في جدول يبرز أوجه الشبه والاختلاف بين العناصر المدروسة.
+
+#### الجزء الثالث: الوضعية الإدماجية والحلول المقترحة (${q3Score} درجات)
+- انطلاقاً من معطيات الدرس والواقع المعاش، قدّم رؤية تحليلية نقدية من 10 أسطر تقترح فيها حلولاً عملية لمعالجة التحديات المطروحة في هذا المجال.`;
+
+    const rubricText = `#### ⚖️ سلّم التنقيط (${maxScore} ن):
+- الجزء الأول: دقة المفاهيم ($3.0$ ن) + استخراج الأحكام والفوائد والتعليل ($3.0$ ن).
+- الجزء الثاني: التحليل المنهجي ($3.5$ ن) + جدول المقارنة ($2.5$ ن).
+- الجزء الثالث: الوجاهة والحلول المقترحة ($4.0$ ن) + سلامة العرض واللغة ($2.0$ ن).`;
+
+    const criteriaText = `معايير التقويم: الفهم السليم للمفاهيم، دقة الاستدلال، والقدرة على الربط بين النظري والتطبيقي.`;
+    const hintsText = `💡 **تنبيه:** فرّق بدقة بين "الحكم الشرعي" (واجب، مستحب، محرم...) و"الفائدة" (حكمة، قيمة أخلاقية).`;
+
+    const fullDesc = [instructions, `---\n\n${questionsText}`, `---\n\n${rubricText}`, `---\n\n### 📊 معايير التقويم:\n${criteriaText}`, `---\n\n${hintsText}`].join('\n\n');
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: p.subjectName,
+      suggestedType: targetType,
+      suggestedMaxScore: maxScore,
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `تم إعداد الواجب وفق الأطر المرجعية المعتمدة لمادة ${p.subjectName} مع التدرج في مستويات التحليل والتقويم.`,
+      provider: 'pedagogical_synthesizer',
+      model: 'social_curriculum_v2',
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Subject 6: General / Other Curricula (المقرر العام)
+  // ══════════════════════════════════════════════════════════════════════════════
+  private synthesizeGeneralAssignment(p: any) {
+    const { rawTitle, rawDesc, subjectName, lessonTitle, unitTitle, selectedStyle, selectedDifficulty, maxScore, targetType } = p;
+    const topic = lessonTitle || rawTitle || 'موضوع التكليف والواجب الدراسي';
+    const finalTitle = rawTitle || `واجب تطبيقي في ${subjectName}: ${topic}`;
+
+    const q1Score = Math.max(1, Math.round(maxScore * 0.3));
+    const q2Score = Math.max(1, Math.round(maxScore * 0.45));
+    const q3Score = Math.max(1, maxScore - q1Score - q2Score);
+
+    const instructions = `### 📌 تعليمات وإرشادات الإنجاز:
+- يُطلب من جميع الطلبة الإجابة بأسلوب منهجي منظم مع مراعاة دقة المصطلحات العلمية.
+- تبرير كل نتيجة بخطوات تحليلية واضحة ومنطقية.
+${rawDesc ? `\n### 📝 ملاحظات ومسودة الأستاذ المعتمدة:\n${rawDesc}` : ''}`;
+
+    const questionsText = `#### ❓ السؤال الأول (${q1Score} درجات): استرجاع وتنظيم المفاهيم الأساسية
+- اشرح المفاهيم الجوهرية المرتبطة بموضوع **«${topic}»** مع تقديم مثالين تطبيقيين يوضحان أهميتها في هذا المبحث.
+
+#### ❓ السؤال الثاني (${q2Score} درجات): تطبيق إجرائي وحل مسألة
+- طبّق القواعد والمنهجية المدروسة لمعالجة الإشكالية التطبيقية التالية:
+  1. تحديد المعطيات الأساسية والمفاهيم المفتاحية.
+  2. استعراض خطوات المعالجة والتحليل خطوة بخطوة مع التعليل المنطقي.
+  3. استخراج النتائج الدقيقة ومناقشة مدلولها العلمي.
+
+#### ❓ السؤال الثالث (${q3Score} درجات): استنتاج ووضعية إدماجية
+- قدّم خلاصة تحليلية في 5 أسطر تُبرز كيف تساهم هذه المعارف في حل مشكلات واقعية ملموسة مرتبطة بمادة ${subjectName}.`;
+
+    const rubricText = `#### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
+- **السؤال الأول (${q1Score} ن):** دقة التعريف واستحضار المصطلحات ($1.5$ ن) + سلامة الأمثلة التوضيحية ($1.5$ ن).
+- **السؤال الثاني (${q2Score} ن):** تحديد المعطيات والقواعد ($2.0$ ن) + سلامة خطوات الحل والتعليل ($2.5$ ن) + دقة النتيجة ومناقشتها ($1.5$ ن).
+- **السؤال الثالث (${q3Score} ن):** عمق التحليل والربط بالواقع ($2.0$ ن) + جودة الصياغة والانسجام ($1.5$ ن).
+- ملاحظة: يُخصم نصف نقطة عند عدم العناية بتنظيم الخط ونظافة الورقة.`;
+
+    const criteriaText = `| المعيار | المؤشرات | العلامة |
+| :--- | :--- | :---: |
+| **الوجاهة** | الإجابة في صلب الموضوع ومطابقة التعليمات | **30%** |
+| **استعمال أدوات المادة** | التوظيف السليم للمفاهيم والقواعد المنهجية | **45%** |
+| **الانسجام والإتقان** | التسلسل المنطقي وجودة العرض والتنظيم | **25%** |`;
+
+    const hintsText = `💡 **إرشادات للطلبة:** اقرأ نص كل سؤال مرتين لضمان الإحاطة بجميع المطالب والجزئيات المطلوبة قبل البدء في التحرير.`;
+
+    const fullDesc = [instructions, `---\n\n${questionsText}`, `---\n\n${rubricText}`, `---\n\n### 📊 شبكة التقييم:\n${criteriaText}`, `---\n\n${hintsText}`].join('\n\n');
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: subjectName,
+      suggestedType: targetType,
+      suggestedMaxScore: maxScore,
+      style: selectedStyle,
+      difficulty: selectedDifficulty,
+      lessonTitle: topic,
+      unitTitle: unitTitle || 'الوحدة المقررة',
+      instructions,
+      questionsText,
+      rubricText,
+      criteriaText,
+      hintsText,
+      suggestedDescription: fullDesc,
+      explanation: `قام المساعد التربوي الذكي بصياغة واجب دراسي متكامل ومتدرج مع تعليمات وسلم تنقيط تفصيلي (${maxScore} ن) استناداً إلى فكرتك ومنهاج المادة.`,
+      provider: 'pedagogical_synthesizer',
+      model: 'general_curriculum_v2',
     };
   }
 
