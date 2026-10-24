@@ -29,8 +29,9 @@ export default function AssessmentsPage() {
   const buildAssessmentMarkdown = (a: any) => {
     if (!a) return '';
     let md = '';
-    if (a.description) {
-      md += `${a.description}\n\n`;
+    const desc = a.description || a.content || '';
+    if (desc) {
+      md += `${desc}\n\n`;
     }
     const qList = a.questions || [];
     if (Array.isArray(qList) && qList.length > 0) {
@@ -52,7 +53,7 @@ export default function AssessmentsPage() {
         md += '\n';
       });
     }
-    return md || 'تفاصيل الواجب والأسئلة المقررة.';
+    return md.trim() || a.title || 'تفاصيل الواجب والأسئلة المقررة.';
   };
 
   const { data: dbAssessments = [], isLoading } = useQuery({
@@ -65,12 +66,14 @@ export default function AssessmentsPage() {
 
   // Merge DB assessments with UI formatting
   const assessments = dbAssessments.map((dbAssessment: any) => ({
+    ...dbAssessment,
     id: dbAssessment.id,
     title: dbAssessment.title,
+    description: dbAssessment.description || '',
     cohort: dbAssessment.cohort?.name || (isTeacher ? 'فوج عام' : 'مبحث عام'),
     courseTitle: dbAssessment.cohort?.course?.title || dbAssessment.cohort?.name || 'المنهاج الفلسطيني',
     type: dbAssessment.type || 'homework',
-    questions: dbAssessment.questions,
+    questions: dbAssessment.questions || [],
     dueDate: dbAssessment.dueDate ? new Date(dbAssessment.dueDate).toLocaleDateString('ar-EG') : 'غير محدد',
     maxScore: dbAssessment.maxScore || 20,
     studentStatus: 'pending',

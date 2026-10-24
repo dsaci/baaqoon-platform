@@ -356,7 +356,11 @@ export class AssessmentsController {
       orderBy: { createdAt: 'desc' },
       include: {
         cohort: true,
-        questions: true,
+        questions: {
+          include: {
+            questionTemplate: true,
+          }
+        },
         submissions: {
           include: { student: true }
         }

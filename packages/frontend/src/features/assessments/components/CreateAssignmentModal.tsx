@@ -239,6 +239,33 @@ export default function CreateAssignmentModal({
     setTimeout(() => setAiNotification(''), 6000);
   };
 
+  // 4. One-Click: Apply and Publish Immediately!
+  const handleApplyAndPublishNow = () => {
+    if (!aiSuggestion) return;
+    const finalTitle = (aiSuggestion.suggestedTitle || formData.title || 'واجب مدرسي جديد').trim();
+    const finalDesc = (editableDescription || aiSuggestion.suggestedDescription || formData.description || '').trim();
+    const finalSubject = (aiSuggestion.suggestedSubject || formData.subject || '').trim();
+    const finalScore = Number(aiSuggestion.suggestedMaxScore || formData.maxScore) || 20;
+    const finalType = aiSuggestion.suggestedType || formData.type || 'assignment';
+    const targetCohortId = formData.cohortId || (myCohorts[0]?.id || defaultCohortId);
+
+    if (!targetCohortId) {
+      setErrorMessage('يرجى تحديد الفوج الدراسي المستهدف في النموذج أولاً.');
+      return;
+    }
+
+    createMutation.mutate({
+      title: finalTitle,
+      cohortId: targetCohortId,
+      subject: finalSubject,
+      type: finalType,
+      dueDate: formData.dueDate,
+      maxScore: finalScore,
+      description: finalDesc,
+      curriculumLessonId: selectedLessonId || undefined,
+    });
+  };
+
   const handleResetAndClose = () => {
     setFormData({
       title: '',
@@ -712,10 +739,31 @@ export default function CreateAssignmentModal({
                   <button
                     type="button"
                     onClick={handleApplyAll}
-                    className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/25 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    className="px-4 py-2.5 rounded-xl text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 border border-slate-300 dark:border-slate-700"
+                    title="تعبئة بيانات المقترح في حقول النموذج أدناه للمراجعة والتعديل اليدوي"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    اعتماد وتعبئة الكل في النموذج (إذن بالتطبيق) ✓
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    تعبئة النموذج للتعديل ✍️
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleApplyAndPublishNow}
+                    disabled={createMutation.isPending}
+                    className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 transition-all shadow-md shadow-emerald-600/25 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-60"
+                    title="اعتماد كامل المقترح وحفظ ونشر الواجب مباشرة للطلبة في قائمة التقييمات"
+                  >
+                    {createMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        جاري الحفظ والنشر...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        اعتماد ونشر الواجب فوراً 🚀
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -96,6 +96,9 @@ export default function SmartGenerationModal({ isOpen, onClose }: SmartGeneratio
   const [aiStatus, setAiStatus] = useState<{ configured: boolean; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [resultViewMode, setResultViewMode] = useState<'visual' | 'raw'>('visual');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [publishedAssessmentId, setPublishedAssessmentId] = useState<string | null>(null);
 
   // Load curriculum tree and AI status on open
   useEffect(() => {
@@ -104,6 +107,9 @@ export default function SmartGenerationModal({ isOpen, onClose }: SmartGeneratio
     setOutputType(null);
     setResult(null);
     setError('');
+    setIsPublished(false);
+    setPublishedAssessmentId(null);
+    setIsPublishing(false);
     
     setTreeLoading(true);
     Promise.all([
@@ -160,6 +166,34 @@ export default function SmartGenerationModal({ isOpen, onClose }: SmartGeneratio
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       });
+    }
+  };
+
+  const handlePublishToAssessments = async () => {
+    if (!result) return;
+    setIsPublishing(true);
+    try {
+      const isExam = ['exam_with_rubric', 'integration_situation'].includes(result.outputType);
+      const res = await api.post('/assessments', {
+        title: result.title,
+        cohortId: selectedCohort?.cohortId,
+        subject: result.curriculumSource?.subjectName,
+        type: isExam ? 'exam' : 'assignment',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        maxScore: 20,
+        description: result.content,
+        curriculumLessonId: selectedLessonId || undefined,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      setIsPublished(true);
+      if (res.data?.id) {
+        setPublishedAssessmentId(res.data.id);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'حدث خطأ أثناء حفظ الواجب في التقييمات');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -464,6 +498,53 @@ export default function SmartGenerationModal({ isOpen, onClose }: SmartGeneratio
                   <span>📖 {result.curriculumSource.gradeLevel}</span>
                   <span className="truncate">🔖 {result.curriculumSource.unitTitle}</span>
                   <span className="truncate">📝 {result.curriculumSource.lessonTitle}</span>
+                </div>
+              </div>
+
+              {/* Instant Publishing to Assessments List */}
+              <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border-2 border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 text-right">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm text-slate-800 dark:text-white">
+                      {isPublished ? '✓ تم نشر التكليف بنجاح في قائمة التقييمات!' : 'هل ترغب في حفظ ونشر هذا المحتوى كواجب رسمي في التقييمات؟'}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      {isPublished 
+                        ? 'أصبح التكليف متاحاً الآن في صفحة التقييمات ولجميع طلبة الفوج لحله وتسليمه.' 
+                        : `الفوج المستهدف: ${selectedCohort?.cohortName || 'الفوج المعتمد'} — سيظهر مباشرة في سجل التقييمات.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  {isPublished ? (
+                    <span className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center gap-1.5 shadow-sm">
+                      <CheckCircle2 className="w-4 h-4" />
+                      تم الإدراج في التقييمات
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handlePublishToAssessments}
+                      disabled={isPublishing}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+                    >
+                      {isPublishing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>جاري النشر في التقييمات...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>نشر وحفظ كواجب رسمي في التقييمات 🚀</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
