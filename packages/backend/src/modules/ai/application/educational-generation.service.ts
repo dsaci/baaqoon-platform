@@ -95,6 +95,140 @@ export class EducationalGenerationService {
     }
   }
 
+  /**
+   * Assists a teacher with assignment creation (suggest, auto-complete, or refine).
+   */
+  async assistAssignment(dto: {
+    title?: string;
+    subject?: string;
+    existingDescription?: string;
+    type?: string;
+    maxScore?: number;
+    cohortId?: string;
+  }): Promise<{
+    suggestedTitle: string;
+    suggestedSubject: string;
+    suggestedType: string;
+    suggestedMaxScore: number;
+    suggestedDescription: string;
+    explanation: string;
+    provider: string;
+    model: string;
+  }> {
+    const rawTitle = (dto.title || '').trim();
+    const rawSubject = (dto.subject || '').trim();
+    const rawDesc = (dto.existingDescription || '').trim();
+    const targetType = dto.type || 'assignment';
+    const maxScore = Number(dto.maxScore) || 20;
+
+    // If AI provider is configured, call AI
+    if (this.aiProvider.isConfigured()) {
+      try {
+        const systemPrompt = `أنت مساعد تربوي ذكي ورفيق للأستاذ في منصة باقون التعليمية.
+مهمتك مساعدة الأستاذ في بناء وصياغة وتكميل واجب منزلي أو تكليف بيداغوجي بطريقة احترافية متكاملة تجمع بين رغبة الأستاذ والمعايير التربوية.
+المطلوب صياغة واجب منسق باللغة العربية يشمل:
+1. عنوان دقيق ومناسب.
+2. تحديد المبحث بدقة.
+3. تفاصيل الواجب تشمل: تعليمات واضحة للطلبة، 3 إلى 4 أسئلة تطبيقية متدرجة، وسلم توزيع الدرجات المقترح من إجمالي ${maxScore} درجة.
+أعد النتيجة حصراً بتنسيق JSON بالشكل التالي:
+{
+  "suggestedTitle": "عنوان الواجب المقترح",
+  "suggestedSubject": "المبحث / موضوع الدرس",
+  "suggestedType": "${targetType}",
+  "suggestedMaxScore": ${maxScore},
+  "suggestedDescription": "نص الواجب الكامل المنسق والأسئلة وسلم التنقيط",
+  "explanation": "شرح موجز للأستاذ حول بنية الواجب وكيف تم تكميله"
+}`;
+
+        const userPrompt = `معطيات الأستاذ الحالية:
+- العنوان المدخل: ${rawTitle || 'غير محدد بعد'}
+- المبحث المدخل: ${rawSubject || 'غير محدد بعد'}
+- نوع التكليف: ${targetType}
+- مسودة الأستاذ / الملاحظات الحالية: ${rawDesc || 'لا توجد تفاصيل بعد، اقترح واجباً متكاملاً ومناسباً للمنهاج'}
+
+قم بإكمال وصياغة الواجب بالكامل بأسلوب تربوي متميز وسلس.`;
+
+        const res = await this.aiProvider.generateCompletion([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ]);
+
+        const jsonMatch = res.content.match(/```json\s*([\s\S]*?)```/i) || res.content.match(/\{[\s\S]*"suggestedTitle"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+          return {
+            suggestedTitle: parsed.suggestedTitle || rawTitle || 'واجب تطبيقي منزلي',
+            suggestedSubject: parsed.suggestedSubject || rawSubject || 'المقرر العام',
+            suggestedType: parsed.suggestedType || targetType,
+            suggestedMaxScore: parsed.suggestedMaxScore || maxScore,
+            suggestedDescription: parsed.suggestedDescription || res.content,
+            explanation: parsed.explanation || 'تم إكمال وصياغة الواجب بالذكاء الاصطناعي استناداً لفكرتك.',
+            provider: res.provider,
+            model: res.model,
+          };
+        }
+      } catch (err: any) {
+        this.logger.warn(`AI assistAssignment error: ${err.message} — falling back to synthesis engine`);
+      }
+    }
+
+    // High quality pedagogical fallback:
+    return this.synthesizeAssignmentAssistance(rawTitle, rawSubject, rawDesc, targetType, maxScore);
+  }
+
+  private synthesizeAssignmentAssistance(
+    title: string,
+    subject: string,
+    desc: string,
+    type: string,
+    maxScore: number,
+  ) {
+    const finalSubject = subject || (title.includes('فيزياء') ? 'فيزياء' : title.includes('رياضيات') ? 'رياضيات' : title.includes('عربية') || title.includes('لغة') ? 'لغة عربية' : 'المقرر العام');
+    const finalTitle = title || `واجب تطبيقي في ${finalSubject}`;
+
+    const q1Score = Math.round(maxScore * 0.3);
+    const q2Score = Math.round(maxScore * 0.4);
+    const q3Score = maxScore - q1Score - q2Score;
+
+    let richDescription = `### 📌 تعليمات وإرشادات الإنجاز:
+- يُطلب من جميع الطلبة قراءة الأسئلة بعناية وتدوين الحل بخط واضح ومنظم.
+- يُرجى مراعاة استخدام المصطلحات العلمية السليمة وتبرير الخطوات.
+${desc ? `\n### 📝 ملاحظات ومسودة الأستاذ:\n${desc}\n` : ''}
+---
+
+### ❓ أسئلة التكليف:
+
+#### السؤال الأول (${q1Score} درجات): استرجاع وتنظيم المفاهيم
+- اشرح المفاهيم الجوهرية المرتبطة بموضوع **«${finalTitle}»** مع ذكر مثالين توضيحيين.
+
+#### السؤال الثاني (${q2Score} درجات): تطبيق مباشر وحل مسألة
+- طبّق القواعد المدروسة لمعالجة المسألة التطبيقية التالية وبيّن خطوات الحل بدقة:
+  1. تحديد المعطيات واستدعاء القاعدة المناسبة.
+  2. إجراء الحسابات أو البرهان العلمي مع التبرير المنطقي.
+
+#### السؤال الثالث (${q3Score} درجات): استنتاج وموقف تحليلي
+- قدّم خلاصة تحليلية في 3 أسطر تُبرز كيف تساهم هذه المفاهيم في حل المشكلات المرتبطة بالواقع العملي لمادة ${finalSubject}.
+
+---
+
+### ⚖️ سلّم توزيع الدرجات (${maxScore} درجة):
+- **السؤال 1:** ${q1Score} ن (دقة التعريف والوضوح).
+- **السؤال 2:** ${q2Score} ن (صحة الخطوات والنتائج).
+- **السؤال 3:** ${q3Score} ن (سلامة التعليل والاستنتاج).
+- يُخصم نصف نقطة في حال عدم وضوح الخط أو عدم تنظيم ورقة الإجابة.`;
+
+    return {
+      suggestedTitle: finalTitle,
+      suggestedSubject: finalSubject,
+      suggestedType: type,
+      suggestedMaxScore: maxScore,
+      suggestedDescription: richDescription,
+      explanation: 'قام المساعد الذكي بصياغة واجب متكامل ومتدرج مع تعليمات وسلم تنقيط استناداً إلى فكرتك.',
+      provider: 'pedagogical_copilot',
+      model: 'copilot_synthesizer_v1',
+    };
+  }
+
   // ─── System Prompt (Enriched for Maximum Pedagogical Depth) ─────────────────
 
   private buildSystemPrompt(): string {

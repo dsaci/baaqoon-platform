@@ -59,6 +59,22 @@ export class AiGenerationController {
   }
 
   /**
+   * POST /ai/assist-assignment
+   * Proposes, completes, or refines assignment content for a teacher in real time.
+   */
+  @Post('assist-assignment')
+  @HttpCode(HttpStatus.OK)
+  async assistAssignment(@Req() req: any, @Body() body: any) {
+    const role = req.user?.primaryRole;
+    const allowed = ['teacher', 'subject_supervisor', 'supervisor', 'admin', 'super_admin'];
+    if (!role || !allowed.includes(role)) {
+      throw new ForbiddenException('فقط الأساتذة والمشرفون يمكنهم استخدام المساعد الذكي');
+    }
+
+    return this.generationService.assistAssignment(body);
+  }
+
+  /**
    * GET /ai/status
    * Returns whether AI is configured and ready.
    */

@@ -12,7 +12,11 @@ import {
   Users, 
   Award,
   AlertCircle,
-  Clock
+  Clock,
+  Sparkles,
+  Wand2,
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
 
 interface CreateAssignmentModalProps {
@@ -45,6 +49,10 @@ export default function CreateAssignmentModal({
 
   const [errorMessage, setErrorMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isAiAssisting, setIsAiAssisting] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<any>(null);
+  const [showAiCard, setShowAiCard] = useState(false);
+  const [aiNotification, setAiNotification] = useState('');
 
   // Fetch teacher's cohorts
   const { data: myCohorts = [], isLoading: isLoadingCohorts } = useQuery({
@@ -100,6 +108,42 @@ export default function CreateAssignmentModal({
     }
   });
 
+  const handleAiAssist = async () => {
+    setIsAiAssisting(true);
+    setErrorMessage('');
+    try {
+      const res = await api.post('/ai/assist-assignment', {
+        title: formData.title,
+        subject: formData.subject,
+        existingDescription: formData.description,
+        type: formData.type,
+        maxScore: Number(formData.maxScore) || 20,
+        cohortId: formData.cohortId
+      });
+      setAiSuggestion(res.data);
+      setShowAiCard(true);
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'تعذر تشغيل المساعد الذكي حالياً.');
+    } finally {
+      setIsAiAssisting(false);
+    }
+  };
+
+  const handleApplyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    setFormData(prev => ({
+      ...prev,
+      title: aiSuggestion.suggestedTitle || prev.title,
+      subject: aiSuggestion.suggestedSubject || prev.subject,
+      type: aiSuggestion.suggestedType || prev.type,
+      maxScore: String(aiSuggestion.suggestedMaxScore || prev.maxScore),
+      description: aiSuggestion.suggestedDescription || prev.description,
+    }));
+    setShowAiCard(false);
+    setAiNotification('✓ تم اعتماد مقترح المساعد الذكي وتعبئة النموذج بنجاح! يمكنك الآن مراجعة أو تعديل أي تفاصيل بحرية.');
+    setTimeout(() => setAiNotification(''), 6000);
+  };
+
   const handleResetAndClose = () => {
     setFormData({
       title: '',
@@ -111,6 +155,9 @@ export default function CreateAssignmentModal({
       description: ''
     });
     setErrorMessage('');
+    setShowAiCard(false);
+    setAiSuggestion(null);
+    setAiNotification('');
     onClose();
   };
 
@@ -199,6 +246,118 @@ export default function CreateAssignmentModal({
             <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-700 dark:text-emerald-300 text-sm font-bold flex items-center gap-2 animate-fade-in">
               <Check className="w-5 h-5 shrink-0" />
               <span>تم حفظ ونشر الواجب بنجاح وإسناده لطلبة الفوج ✓</span>
+            </div>
+          )}
+
+          {/* AI Notification Banner */}
+          {aiNotification && (
+            <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in shadow-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{aiNotification}</span>
+            </div>
+          )}
+
+          {/* ══════════ Smart AI Assignment Co-pilot Banner ══════════ */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-violet-600/10 via-fuchsia-600/10 to-indigo-600/10 border border-violet-200/80 dark:border-violet-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center text-white shadow-md shadow-violet-500/20 shrink-0">
+                <Sparkles className="w-4 h-4 animate-pulse" />
+              </div>
+              <div>
+                <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>المساعد الذكي لبناء الواجب</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-bold border border-violet-200 dark:border-violet-800">
+                    مزيج يدوي + ذكي
+                  </span>
+                </span>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                  اكتب فكرتك أو عنواناً بسيطاً، واترك المساعد يكمل الصياغة ويقترح الأسئلة وسلّم التنقيط
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAiAssist}
+              disabled={isAiAssisting}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transition-all shadow-md shadow-violet-500/20 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-60 active:scale-95"
+            >
+              {isAiAssisting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>جاري التحليل والصياغة...</span>
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>توليد وإكمال بذكاء</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* ══════════ AI Suggestion Preview & Approval Card (باستئذان الأستاذ) ══════════ */}
+          {showAiCard && aiSuggestion && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/90 dark:bg-slate-800/90 border-2 border-indigo-300 dark:border-indigo-700/80 shadow-lg space-y-3.5 animate-slide-up">
+              <div className="flex items-center justify-between border-b border-indigo-200/60 dark:border-indigo-800 pb-2.5">
+                <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  مقترح المساعد الذكي جاهز لمراجعتك وإذنك
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAiCard(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+                >
+                  إخفاء المقترح ✕
+                </button>
+              </div>
+
+              {aiSuggestion.explanation && (
+                <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900">
+                  💡 {aiSuggestion.explanation}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-white/80 dark:bg-slate-900/70 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-400 font-bold block mb-0.5">العنوان المقترح:</span>
+                  <span className="font-black text-slate-800 dark:text-slate-200">{aiSuggestion.suggestedTitle}</span>
+                </div>
+                <div className="bg-white/80 dark:bg-slate-900/70 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-400 font-bold block mb-0.5">المبحث المقترح:</span>
+                  <span className="font-black text-slate-800 dark:text-slate-200">{aiSuggestion.suggestedSubject}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs font-black text-slate-600 dark:text-slate-300">معاينة تفاصيل الواجب والأسئلة وسلّم التنقيط:</span>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed font-mono">
+                  {aiSuggestion.suggestedDescription}
+                </div>
+              </div>
+
+              {/* Approval / Permission Buttons */}
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={handleAiAssist}
+                  disabled={isAiAssisting}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  اقتراح صياغة أخرى
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyAiSuggestion}
+                  className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  اعتماد وتعبئة في النموذج (إذن بالتطبيق) ✓
+                </button>
+              </div>
             </div>
           )}
 
@@ -318,9 +477,21 @@ export default function CreateAssignmentModal({
 
           {/* Description & Detailed Instructions */}
           <div>
-            <label className="block text-sm font-black text-slate-800 dark:text-slate-200 mb-1.5">
-              تفاصيل الواجب والأسئلة والتعليمات
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-black text-slate-800 dark:text-slate-200">
+                تفاصيل الواجب والأسئلة والتعليمات
+              </label>
+              <button
+                type="button"
+                onClick={handleAiAssist}
+                disabled={isAiAssisting}
+                className="text-xs font-black text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 cursor-pointer transition-colors"
+                title="توليد أو إكمال الأسئلة بذكاء"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                <span>إكمال وصياغة بذكاء ✨</span>
+              </button>
+            </div>
             <textarea 
               rows={4}
               value={formData.description}
