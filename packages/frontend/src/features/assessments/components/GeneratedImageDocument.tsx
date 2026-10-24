@@ -393,11 +393,11 @@ export default function GeneratedImageDocument({
           {/* 1. OFFICIAL INSTITUTIONAL HEADER                                     */}
           {/* ══════════════════════════════════════════════════════════════════════ */}
           <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4 text-xs">
-            {/* Right: National & Ministry Info */}
+            {/* Right: Platform & Document Info */}
             <div className="text-right space-y-0.5 max-w-[200px]">
-              <p className="font-black text-slate-900 text-xs">الجمهورية الجزائرية الديمقراطية الشعبية</p>
-              <p className="font-bold text-slate-600 text-[11px]">وزارة التربية الوطنية</p>
-              <p className="font-bold text-slate-500 text-[10px]">المناهج الرسمية — مقاربة الكفاءات APC</p>
+              <p className="font-black text-slate-900 text-xs">منصة باقون التعليمية</p>
+              <p className="font-bold text-slate-600 text-[11px]">وثيقة دراسية وتقويمية معتمدة</p>
+              <p className="font-medium text-slate-500 text-[10px]">المنظومة البيداغوجية المتكاملة</p>
             </div>
 
             {/* Center: Baaqoon Official Crest & Brand */}

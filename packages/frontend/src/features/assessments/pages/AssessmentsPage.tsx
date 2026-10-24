@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
-import CreateAssessmentModal from '../components/CreateAssessmentModal';
+import RapidGeneratorModal from '../components/RapidGeneratorModal';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
 import SmartGenerationModal from '../components/SmartGenerationModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -125,9 +125,9 @@ export default function AssessmentsPage() {
                 </button>
 
                 <button 
-                  onClick={() => { setGeneratorMode('smart'); setIsGeneratorOpen(true); }}
+                  onClick={() => setIsGeneratorOpen(true)}
                   className="px-3.5 py-3 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-2"
-                  title="توليد سريع للاختبارات"
+                  title="توليد اختبار تقويمي فوري للفوج بضغطة زر واحدة"
                 >
                   <Bot className="w-4 h-4 text-slate-500" />
                   <span>توليد سريع</span>
@@ -361,11 +361,10 @@ export default function AssessmentsPage() {
         onClose={() => setIsSmartAiOpen(false)}
       />
 
-      {/* Smart Generator Modal */}
-      <CreateAssessmentModal 
+      {/* Rapid Generator Modal */}
+      <RapidGeneratorModal 
         isOpen={isGeneratorOpen} 
         onClose={() => setIsGeneratorOpen(false)}
-        defaultMode={generatorMode}
       />
 
       {/* Manual Assignment Creation Modal */}

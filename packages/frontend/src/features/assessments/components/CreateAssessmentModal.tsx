@@ -139,7 +139,7 @@ export default function CreateAssessmentModal({
             </div>
             <div>
               <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                {mode === 'smart' ? 'توليد ذكي (بناء من المنهج الفلسطيني)' : 'إنشاء واجب جديد (إدخال يدوي)'}
+                {mode === 'smart' ? 'توليد سريع من المنهاج المعتمد' : 'إنشاء واجب جديد (إدخال يدوي)'}
               </h2>
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 {mode === 'smart' ? 'توليد الأسئلة مؤتمتاً بناءً على بنك أسئلة وهيكل الدرس المدخل' : 'إنشاء واجب فارغ وإضافة التفاصيل يدوياً'}
