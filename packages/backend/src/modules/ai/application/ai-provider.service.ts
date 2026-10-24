@@ -24,15 +24,32 @@ export class AiProviderService {
   }
 
   private get baseUrl(): string {
-    return this.config.get<string>('AI_BASE_URL', 'https://api.groq.com/openai/v1');
+    const custom = this.config.get<string>('AI_BASE_URL');
+    if (custom) return custom;
+    if (this.config.get<string>('OPENAI_API_KEY')) return 'https://api.openai.com/v1';
+    if (this.config.get<string>('DEEPSEEK_API_KEY')) return 'https://api.deepseek.com/v1';
+    if (this.config.get<string>('TOGETHER_API_KEY')) return 'https://api.together.xyz/v1';
+    return 'https://api.groq.com/openai/v1';
   }
 
   private get apiKey(): string {
-    return this.config.get<string>('AI_API_KEY', '');
+    return (
+      this.config.get<string>('AI_API_KEY') ||
+      this.config.get<string>('GROQ_API_KEY') ||
+      this.config.get<string>('OPENAI_API_KEY') ||
+      this.config.get<string>('DEEPSEEK_API_KEY') ||
+      this.config.get<string>('TOGETHER_API_KEY') ||
+      ''
+    );
   }
 
   private get modelName(): string {
-    return this.config.get<string>('AI_MODEL_NAME', 'llama-3.3-70b-versatile');
+    const custom = this.config.get<string>('AI_MODEL_NAME');
+    if (custom) return custom;
+    if (this.config.get<string>('OPENAI_API_KEY')) return 'gpt-4o-mini';
+    if (this.config.get<string>('DEEPSEEK_API_KEY')) return 'deepseek-chat';
+    if (this.config.get<string>('TOGETHER_API_KEY')) return 'Qwen/Qwen2.5-72B-Instruct-Turbo';
+    return 'llama-3.3-70b-versatile';
   }
 
   private get maxTokens(): number {
