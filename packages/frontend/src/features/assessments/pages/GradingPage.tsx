@@ -98,7 +98,7 @@ export default function GradingPage() {
   });
 
   const [localSubmissions, setLocalSubmissions] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "graded">(
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "graded" | "not_submitted">(
     "all",
   );
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<
@@ -120,14 +120,35 @@ export default function GradingPage() {
 
   const maxScore = assessment ? parseFloat(assessment.maxScore) : 20;
 
+  const notSubmittedCount = localSubmissions.filter(
+    (s) => s.status === "not_submitted" || s.isPendingStudentSubmission
+  ).length;
+
+  const pendingCount = localSubmissions.filter(
+    (s) =>
+      (s.status === "pending" ||
+       s.status === "draft" ||
+       s.status === "submitted") &&
+      !s.isPendingStudentSubmission &&
+      s.status !== "not_submitted"
+  ).length;
+
+  const gradedCount = localSubmissions.filter(
+    (s) => s.status === "graded",
+  ).length;
+
   const filteredSubmissions = localSubmissions.filter((s) => {
     if (activeTab === "pending")
       return (
-        s.status === "pending" ||
-        s.status === "draft" ||
-        s.status === "submitted"
+        (s.status === "pending" ||
+         s.status === "draft" ||
+         s.status === "submitted") &&
+        !s.isPendingStudentSubmission &&
+        s.status !== "not_submitted"
       );
     if (activeTab === "graded") return s.status === "graded";
+    if (activeTab === "not_submitted")
+      return s.status === "not_submitted" || s.isPendingStudentSubmission;
     return true;
   });
 
@@ -182,13 +203,14 @@ export default function GradingPage() {
     try {
       await api.patch(`/assessments/submissions/${selectedSubmissionId}/grade`, {
         score: currentScore,
-        feedback: currentFeedback
+        feedback: currentFeedback,
+        assessmentId: assessmentId,
       });
 
       setLocalSubmissions((prev) =>
         prev.map((s) =>
           s.id === selectedSubmissionId
-            ? { ...s, status: "graded", score: currentScore, feedback: currentFeedback }
+            ? { ...s, status: "graded", score: currentScore, feedback: currentFeedback, isPendingStudentSubmission: false }
             : s,
         ),
       );
@@ -199,16 +221,6 @@ export default function GradingPage() {
       alert("حدث خطأ أثناء حفظ الدرجة");
     }
   };
-
-  const pendingCount = localSubmissions.filter(
-    (s) =>
-      s.status === "pending" ||
-      s.status === "draft" ||
-      s.status === "submitted",
-  ).length;
-  const gradedCount = localSubmissions.filter(
-    (s) => s.status === "graded",
-  ).length;
 
   return (
     <div
@@ -265,37 +277,50 @@ export default function GradingPage() {
           <div className="glass-panel rounded-2xl p-4 shadow-sm border border-baaqoon-100 dark:border-baaqoon-800 h-[calc(100vh-140px)] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                سجل التسليمات
-                <span className="bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-600 dark:text-baaqoon-400 px-2 py-0.5 rounded-full text-xs font-medium">
-                  {localSubmissions.length} تسليمة
+                سجل طلبة الفوج
+                <span className="bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-600 dark:text-baaqoon-400 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                  {localSubmissions.length} طالب
                 </span>
               </h2>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex p-1 bg-baaqoon-50 dark:bg-baaqoon-950 rounded-lg mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 p-1 bg-baaqoon-50 dark:bg-baaqoon-950 rounded-xl mb-4 gap-1 text-xs">
               <button
+                type="button"
                 onClick={() => setActiveTab("all")}
-                className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${activeTab === "all" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-700 dark:text-baaqoon-300"}`}
+                className={`py-1.5 px-2 rounded-lg font-bold transition-colors ${activeTab === "all" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 hover:text-baaqoon-700"}`}
               >
-                الكل
+                الكل ({localSubmissions.length})
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("pending")}
-                className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors flex items-center justify-center gap-1 ${activeTab === "pending" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-700 dark:text-baaqoon-300"}`}
+                className={`py-1.5 px-2 rounded-lg font-bold transition-colors flex items-center justify-center gap-1 ${activeTab === "pending" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 hover:text-baaqoon-700"}`}
               >
-                بانتظار التصحيح
-                <span className="bg-red-100 text-baaqoon-red w-5 h-5 rounded-full text-xs flex items-center justify-center">
+                للتصحيح
+                <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black">
                   {pendingCount}
                 </span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("graded")}
-                className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors flex items-center justify-center gap-1 ${activeTab === "graded" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 dark:text-baaqoon-400 hover:text-baaqoon-700 dark:text-baaqoon-300"}`}
+                className={`py-1.5 px-2 rounded-lg font-bold transition-colors flex items-center justify-center gap-1 ${activeTab === "graded" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 hover:text-baaqoon-700"}`}
               >
                 تم التصحيح
-                <span className="bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-accentDark w-5 h-5 rounded-full text-xs flex items-center justify-center">
+                <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black">
                   {gradedCount}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("not_submitted")}
+                className={`py-1.5 px-2 rounded-lg font-bold transition-colors flex items-center justify-center gap-1 ${activeTab === "not_submitted" ? "bg-white dark:bg-baaqoon-900 shadow-sm text-baaqoon-900 dark:text-white" : "text-baaqoon-500 hover:text-baaqoon-700"}`}
+              >
+                لم يسلّموا
+                <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black">
+                  {notSubmittedCount}
                 </span>
               </button>
             </div>
@@ -322,20 +347,25 @@ export default function GradingPage() {
                       </h4>
                       <div className="flex items-center gap-1 text-xs text-baaqoon-500 dark:text-baaqoon-400 mt-1">
                         <Clock className="w-3 h-3" />
-                        <span>{formatDate(submission.submittedAt)}</span>
+                        <span>{submission.submittedAt ? formatDate(submission.submittedAt) : 'لم يُسلّم بعد'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="mt-3 flex justify-end">
-                    {submission.status === "pending" ? (
-                      <span className="inline-flex items-center gap-1 bg-red-50 text-baaqoon-red text-xs px-2 py-1 rounded-md font-medium">
-                        <AlertCircle className="w-3 h-3" />
-                        بانتظار التصحيح
+                    {submission.status === "graded" ? (
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs px-2.5 py-1 rounded-md font-bold">
+                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                        تم التصحيح: {submission.score}/{maxScore}
+                      </span>
+                    ) : submission.status === "submitted" || submission.status === "pending" ? (
+                      <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs px-2.5 py-1 rounded-md font-bold">
+                        <Clock className="w-3 h-3 text-blue-600" />
+                        تم التسليم (بانتظار تصحيحك)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 bg-baaqoon-100 dark:bg-baaqoon-900/50 text-baaqoon-accent text-xs px-2 py-1 rounded-md font-medium">
-                        <CheckCircle className="w-3 h-3" />
-                        تم التصحيح: {submission.score}/{maxScore}
+                      <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs px-2.5 py-1 rounded-md font-bold">
+                        <AlertCircle className="w-3 h-3 text-amber-600" />
+                        بانتظار تسليم الطالب ⏳
                       </span>
                     )}
                   </div>
@@ -343,7 +373,7 @@ export default function GradingPage() {
               ))}
               {filteredSubmissions.length === 0 && (
                 <div className="text-center py-10 text-baaqoon-500 dark:text-baaqoon-400">
-                  لا توجد تسليمات تطابق هذا الفلتر
+                  لا يوجد طلبة يطابقون هذا الفلتر
                 </div>
               )}
             </div>
@@ -377,6 +407,21 @@ export default function GradingPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Unsubmitted Notification Banner */}
+                {(selectedSubmission?.status === 'not_submitted' || selectedSubmission?.isPendingStudentSubmission) && (
+                  <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-start gap-3 shadow-xs">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <span className="font-black text-amber-950 dark:text-amber-200">
+                        هذا الطالب مسجل في الفوج ولم يرفع حله إلكترونياً بعد ⏳
+                      </span>
+                      <p className="text-xs text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                        بإمكان الطالب الدخول إلى حسابه وحل الواجب إلكترونياً. كما يمكنك رصد درجة وملاحظات مباشرة له في الأسفل (إذا كان قد سلّمك الحل ورقياً أو شفوياً في الصف).
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-baaqoon-50 dark:bg-baaqoon-950 rounded-xl p-6 border border-baaqoon-200 dark:border-baaqoon-700">
                   {assessment?.questions && assessment.questions.length > 0 ? (

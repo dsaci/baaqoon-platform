@@ -201,7 +201,7 @@ export class AssessmentsController {
   async gradeSubmission(
     @Req() req: any,
     @Param('submissionId') submissionId: string,
-    @Body() body: { score: number; feedback: string }
+    @Body() body: { score: number; feedback: string; assessmentId?: string }
   ) {
     const callerRole = req.user?.primaryRole;
     if (!['teacher', 'admin', 'super_admin', 'subject_supervisor'].includes(callerRole)) {
@@ -209,6 +209,48 @@ export class AssessmentsController {
     }
     const userId = req.user?.id || req.user?.userId;
     if (!userId) throw new UnauthorizedException('يجب تسجيل الدخول');
+
+    // If grading a student placeholder who hasn't submitted through the app yet:
+    if (submissionId.startsWith('pending-') || !isUuid(submissionId)) {
+      const studentId = submissionId.replace('pending-', '');
+      const assessmentId = body.assessmentId;
+      if (!assessmentId) {
+        throw new BadRequestException('معرف التقييم مطلوب لرصد الدرجة');
+      }
+
+      return this.prisma.assessmentSubmission.upsert({
+        where: {
+          assessmentId_studentId: {
+            assessmentId,
+            studentId,
+          },
+        },
+        create: {
+          assessmentId,
+          studentId,
+          score: body.score,
+          feedback: JSON.stringify({
+            solutionText: 'تم رصد الدرجة يدوياً من قبل الأستاذ.',
+            teacherComment: body.feedback || '',
+          }),
+          status: 'graded',
+          submittedAt: new Date(),
+          gradedById: userId,
+          gradedAt: new Date(),
+        },
+        update: {
+          score: body.score,
+          feedback: JSON.stringify({
+            solutionText: 'تم رصد الدرجة يدوياً من قبل الأستاذ.',
+            teacherComment: body.feedback || '',
+          }),
+          status: 'graded',
+          gradedById: userId,
+          gradedAt: new Date(),
+        },
+        include: { student: true },
+      });
+    }
 
     const existing = await this.prisma.assessmentSubmission.findUnique({
       where: { id: submissionId }
@@ -233,7 +275,8 @@ export class AssessmentsController {
         status: 'graded',
         gradedById: userId,
         gradedAt: new Date()
-      }
+      },
+      include: { student: true }
     });
   }
 
@@ -323,16 +366,74 @@ export class AssessmentsController {
 
   @Get(':id')
   async getAssessmentById(@Param('id') id: string) {
-    return this.prisma.assessment.findUnique({
+    const assessment = await this.prisma.assessment.findUnique({
       where: { id },
       include: {
-        cohort: true,
+        cohort: {
+          include: {
+            enrollments: true,
+          },
+        },
         questions: { include: { questionTemplate: true } },
         submissions: {
-          include: { student: true }
-        }
-      }
+          include: { student: true },
+        },
+      },
     });
+
+    if (!assessment) return null;
+
+    // 1. Get all student IDs enrolled in the cohort
+    const studentIds = (assessment.cohort?.enrollments || []).map((e) => e.studentId);
+    let enrolledStudents: any[] = [];
+    if (studentIds.length > 0) {
+      enrolledStudents = await this.prisma.user.findMany({
+        where: { id: { in: studentIds } },
+        select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
+      });
+    }
+
+    const studentMap = new Map(enrolledStudents.map((s) => [s.id, s]));
+
+    // 2. Map existing submissions by studentId
+    const existingSubmissionMap = new Map(
+      (assessment.submissions || []).map((s) => [s.studentId, s])
+    );
+
+    // 3. Build comprehensive roster:
+    // If an enrolled student already has a submission, include it.
+    // If not, include a pending placeholder for them so the teacher sees the full class roster.
+    const fullSubmissions: any[] = enrolledStudents.map((st) => {
+      const existing = existingSubmissionMap.get(st.id);
+      if (existing) {
+        return existing;
+      }
+      return {
+        id: `pending-${st.id}`,
+        assessmentId: assessment.id,
+        studentId: st.id,
+        status: 'not_submitted',
+        score: null,
+        feedback: null,
+        submittedAt: null,
+        gradedAt: null,
+        student: st,
+        isPendingStudentSubmission: true,
+      };
+    });
+
+    // Also include any submissions from students who submitted but aren't currently in enrollments list
+    for (const sub of assessment.submissions || []) {
+      if (!studentMap.has(sub.studentId)) {
+        fullSubmissions.push(sub);
+      }
+    }
+
+    return {
+      ...assessment,
+      submissions: fullSubmissions.length > 0 ? fullSubmissions : assessment.submissions,
+      cohortStudentsCount: enrolledStudents.length,
+    };
   }
 
   @Delete()
