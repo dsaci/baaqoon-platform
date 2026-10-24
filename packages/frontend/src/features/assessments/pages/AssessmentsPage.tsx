@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { FileText, CheckCircle, Clock, AlertCircle, Bot, Loader2, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import RapidGeneratorModal from '../components/RapidGeneratorModal';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
 import SmartGenerationModal from '../components/SmartGenerationModal';
+import GeneratedImageDocument from '../components/GeneratedImageDocument';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 
@@ -22,7 +23,37 @@ export default function AssessmentsPage() {
   const [isSmartAiOpen, setIsSmartAiOpen] = useState(false);
   const [generatorMode, setGeneratorMode] = useState<'smart' | 'manual'>('smart');
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [previewAssessment, setPreviewAssessment] = useState<any | null>(null);
   const queryClient = useQueryClient();
+
+  const buildAssessmentMarkdown = (a: any) => {
+    if (!a) return '';
+    let md = '';
+    if (a.description) {
+      md += `${a.description}\n\n`;
+    }
+    const qList = a.questions || [];
+    if (Array.isArray(qList) && qList.length > 0) {
+      md += `### الأسئلة المقررة للواجب والتقييم:\n\n`;
+      qList.forEach((q: any, i: number) => {
+        const qText = q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال تقويمي';
+        const points = q.scoreWeight || q.points || 1;
+        md += `**السؤال ${i + 1} (${points} ن):** ${qText}\n`;
+        const opts = q.questionTemplate?.options || q.options;
+        if (Array.isArray(opts) && opts.length > 0) {
+          opts.forEach((opt: string, optIdx: number) => {
+            const letter = ['أ', 'ب', 'ج', 'د'][optIdx] || optIdx + 1;
+            md += `  - (${letter}) ${opt}\n`;
+          });
+        }
+        if (q.questionTemplate?.explanation || q.explanation) {
+          md += `\n> *توجيه:* ${q.questionTemplate?.explanation || q.explanation}\n`;
+        }
+        md += '\n';
+      });
+    }
+    return md || 'تفاصيل الواجب والأسئلة المقررة.';
+  };
 
   const { data: dbAssessments = [], isLoading } = useQuery({
     queryKey: ['assessments'],
@@ -222,40 +253,13 @@ export default function AssessmentsPage() {
 
                     <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex flex-col gap-2`}>
                       <button 
-                        onClick={() => {
-                          const printWindow = window.open('', '', 'width=800,height=600');
-                          printWindow?.document.write(`
-                            <html dir="${isRtl ? 'rtl' : 'ltr'}">
-                              <head>
-                                <title>${assessment.title}</title>
-                                <style>
-                                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
-                                  h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
-                                  .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
-                                  .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-                                  .score { font-weight: bold; color: #e11d48; float: ${isRtl ? 'left' : 'right'}; }
-                                </style>
-                              </head>
-                              <body>
-                                <h1>${assessment.title}</h1>
-                                <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
-                                <div class="questions">
-                                  ${assessment.questions && assessment.questions.length > 0 ? assessment.questions.map((q: any, i: number) => `
-                                    <div class="question">
-                                      <span class="score">${q.scoreWeight || 1} ${isRtl ? 'درجات' : 'pts'}</span>
-                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال بدون نص'}
-                                    </div>
-                                  `).join('') : `<div class="question"><p>${assessment.description || 'لا توجد أسئلة مضافة'}</p></div>`}
-                                </div>
-                                <script>window.print(); setTimeout(() => window.close(), 500);</script>
-                              </body>
-                            </html>
-                          `);
-                          printWindow?.document.close();
-                        }}
-                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block text-center border border-slate-200 dark:border-slate-700"
+                        type="button"
+                        onClick={() => setPreviewAssessment(assessment)}
+                        className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 font-black rounded-xl transition-all text-xs whitespace-nowrap flex items-center justify-center gap-1.5 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                        title="معاينة وتصدير الواجب كـ PDF أو صورة"
                       >
-                        {isRtl ? 'تصدير (PDF)' : 'Export (PDF)'}
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>{isRtl ? 'تصدير (PDF / صورة)' : 'Export (PDF / Image)'}</span>
                       </button>
                       <div className="flex items-center gap-1.5">
                         <Link
@@ -302,40 +306,13 @@ export default function AssessmentsPage() {
                     
                     <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} flex flex-col sm:flex-row gap-2`}>
                       <button 
-                        onClick={() => {
-                          const printWindow = window.open('', '', 'width=800,height=600');
-                          printWindow?.document.write(`
-                            <html dir="${isRtl ? 'rtl' : 'ltr'}">
-                              <head>
-                                <title>${assessment.title}</title>
-                                <style>
-                                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
-                                  h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
-                                  .meta { color: #666; margin-bottom: 30px; font-size: 14px; }
-                                  .question { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-                                  .score { font-weight: bold; color: #e11d48; float: ${isRtl ? 'left' : 'right'}; }
-                                </style>
-                              </head>
-                              <body>
-                                <h1>${assessment.title}</h1>
-                                <div class="meta">${isRtl ? 'المبحث' : 'Subject'}: ${assessment.courseTitle} | ${isRtl ? 'نوع الواجب' : 'Type'}: ${assessment.type === 'homework' ? (isRtl ? 'واجب منزلي' : 'Homework') : (isRtl ? 'اختبار قصير' : 'Quiz')}</div>
-                                <div class="questions">
-                                  ${assessment.questions && assessment.questions.length > 0 ? assessment.questions.map((q: any, i: number) => `
-                                    <div class="question">
-                                      <span class="score">${q.scoreWeight || 1} ${isRtl ? 'درجات' : 'pts'}</span>
-                                      <strong>Q${i + 1}:</strong> ${q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال بدون نص'}
-                                    </div>
-                                  `).join('') : `<div class="question"><p>${assessment.description || 'لا توجد أسئلة مضافة'}</p></div>`}
-                                </div>
-                                <script>window.print(); setTimeout(() => window.close(), 500);</script>
-                              </body>
-                            </html>
-                          `);
-                          printWindow?.document.close();
-                        }}
-                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold rounded-xl transition-colors text-sm whitespace-nowrap block text-center border border-slate-200 dark:border-slate-700"
+                        type="button"
+                        onClick={() => setPreviewAssessment(assessment)}
+                        className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 font-black rounded-xl transition-all text-xs whitespace-nowrap flex items-center justify-center gap-1.5 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                        title="تحميل الواجب والأسئلة كملف PDF أو صورة"
                       >
-                        {isRtl ? 'تصدير (PDF)' : 'Export (PDF)'}
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>{isRtl ? 'تحميل (PDF / صورة)' : 'Download (PDF / Image)'}</span>
                       </button>
                       {assessment.studentStatus === 'pending' ? (
                         <Link to={`/student/assessments/${assessment.id}/take`} className={`px-6 py-2.5 ${isRtl ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 text-white font-bold rounded-xl transition-all shadow-md text-sm whitespace-nowrap block text-center hover:-translate-y-0.5`}>
@@ -375,6 +352,50 @@ export default function AssessmentsPage() {
           queryClient.invalidateQueries({ queryKey: ['assessments'] });
         }}
       />
+
+      {/* Official Branded PDF & Image Preview Modal (Available for Teachers and Students) */}
+      {previewAssessment && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/65 backdrop-blur-md animate-fade-in overflow-y-auto"
+          onClick={() => setPreviewAssessment(null)}
+          dir="rtl"
+        >
+          <div 
+            className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-black text-sm text-slate-800 dark:text-white">
+                  وثيقة التكليف الرسمية — متاحة للتحميل والتصدير (PDF / PNG)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewAssessment(null)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <GeneratedImageDocument
+                title={previewAssessment.title || 'واجب دراسي'}
+                documentTypeLabel={previewAssessment.type === 'homework' ? 'واجب منزلي' : 'اختبار قصير'}
+                subjectName={previewAssessment.courseTitle}
+                gradeLevel={previewAssessment.cohort}
+                cohortName={previewAssessment.cohort}
+                dueDate={previewAssessment.dueDate}
+                maxScore={previewAssessment.maxScore}
+                content={buildAssessmentMarkdown(previewAssessment)}
+                fileName={previewAssessment.title}
+                showToolbar={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

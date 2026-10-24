@@ -11,9 +11,12 @@ import {
   Plus,
   Save,
   AlertCircle,
+  FileText,
+  X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../lib/axios";
+import GeneratedImageDocument from "../components/GeneratedImageDocument";
 
 // Mock Data
 const MOCK_SUBMISSIONS = [
@@ -108,6 +111,31 @@ export default function GradingPage() {
   const [currentScore, setCurrentScore] = useState<number | "">(0);
   const [currentFeedback, setCurrentFeedback] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  const buildAssessmentMarkdown = () => {
+    if (!assessment) return "";
+    let md = "";
+    if (assessment.description) {
+      md += `${assessment.description}\n\n`;
+    }
+    if (assessment.questions && assessment.questions.length > 0) {
+      md += `### أسئلة التقييم:\n\n`;
+      assessment.questions.forEach((q: any, i: number) => {
+        const text = q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || `سؤال ${i + 1}`;
+        md += `**السؤال ${i + 1}:** ${text}\n`;
+        const choices = q.questionTemplate?.choices || q.choices;
+        if (choices && Array.isArray(choices) && choices.length > 0) {
+          choices.forEach((c: any, cIdx: number) => {
+            const cText = typeof c === 'string' ? c : (c.text || c.choiceText || JSON.stringify(c));
+            md += `- [ ] (${cIdx + 1}) ${cText}\n`;
+          });
+        }
+        md += '\n';
+      });
+    }
+    return md || 'تفاصيل الواجب متاحة بالمنصة.';
+  };
 
   React.useEffect(() => {
     if (assessment?.submissions) {
@@ -246,27 +274,39 @@ export default function GradingPage() {
           </div>
         </div>
 
-        {/* Step Indicator */}
-        <div className="hidden md:flex items-center gap-2 text-sm font-medium">
-          <div className="flex items-center text-baaqoon-500 dark:text-baaqoon-400">
-            <span className="w-6 h-6 rounded-full bg-baaqoon-100 dark:bg-baaqoon-900/50 flex items-center justify-center mr-2 text-xs">
-              1
-            </span>
-            مسودة
-          </div>
-          <div className="w-8 h-px bg-baaqoon-200"></div>
-          <div className="flex items-center text-baaqoon-500 dark:text-baaqoon-400">
-            <span className="w-6 h-6 rounded-full bg-baaqoon-100 dark:bg-baaqoon-900/50 flex items-center justify-center mr-2 text-xs">
-              2
-            </span>
-            تم التسليم
-          </div>
-          <div className="w-8 h-px bg-baaqoon-200"></div>
-          <div className="flex items-center text-baaqoon-accent">
-            <span className="w-6 h-6 rounded-full bg-baaqoon-accent/20 flex items-center justify-center mr-2 text-xs">
-              3
-            </span>
-            التصحيح
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-colors flex items-center gap-1.5 shadow-sm"
+            title="تصدير وتحميل وثيقة الواجب كـ PDF أو صورة"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>تصدير (PDF) 📄</span>
+          </button>
+
+          {/* Step Indicator */}
+          <div className="hidden md:flex items-center gap-2 text-sm font-medium">
+            <div className="flex items-center text-baaqoon-500 dark:text-baaqoon-400">
+              <span className="w-6 h-6 rounded-full bg-baaqoon-100 dark:bg-baaqoon-900/50 flex items-center justify-center mr-2 text-xs">
+                1
+              </span>
+              مسودة
+            </div>
+            <div className="w-8 h-px bg-baaqoon-200"></div>
+            <div className="flex items-center text-baaqoon-500 dark:text-baaqoon-400">
+              <span className="w-6 h-6 rounded-full bg-baaqoon-100 dark:bg-baaqoon-900/50 flex items-center justify-center mr-2 text-xs">
+                2
+              </span>
+              تم التسليم
+            </div>
+            <div className="w-8 h-px bg-baaqoon-200"></div>
+            <div className="flex items-center text-baaqoon-accent">
+              <span className="w-6 h-6 rounded-full bg-baaqoon-accent/20 flex items-center justify-center mr-2 text-xs">
+                3
+              </span>
+              التصحيح
+            </div>
           </div>
         </div>
       </div>
@@ -579,6 +619,50 @@ export default function GradingPage() {
           )}
         </div>
       </div>
+
+      {/* Official Branded PDF & Image Export Modal for Teachers */}
+      {showExportModal && assessment && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/65 backdrop-blur-md animate-fade-in overflow-y-auto"
+          onClick={() => setShowExportModal(false)}
+          dir="rtl"
+        >
+          <div 
+            className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850 shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-black text-sm text-slate-800 dark:text-white">
+                  معاينة وتصدير وثيقة الواجب — PDF أو صورة بجودة عالية
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <GeneratedImageDocument
+                title={assessment.title || 'واجب مدرسي'}
+                documentTypeLabel={assessment.type === 'quiz' ? 'اختبار قصير' : 'واجب منزلي'}
+                subjectName={assessment.cohort?.name}
+                gradeLevel={assessment.cohort?.name}
+                cohortName={assessment.cohort?.name}
+                dueDate={assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString("ar-PS") : undefined}
+                maxScore={assessment.maxScore || 20}
+                content={buildAssessmentMarkdown()}
+                fileName={assessment.title || 'واجب_باقون_التعليمي'}
+                showToolbar={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

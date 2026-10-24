@@ -16,8 +16,11 @@ import {
   ExternalLink,
   RotateCcw,
   Sparkles,
-  Info
+  Info,
+  X,
+  Download
 } from "lucide-react";
+import GeneratedImageDocument from "../../assessments/components/GeneratedImageDocument";
 
 interface QuestionTemplate {
   id: string;
@@ -79,6 +82,46 @@ export default function TakeAssessmentPage() {
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(45 * 60);
+  const [showPdfExportModal, setShowPdfExportModal] = useState(false);
+
+  const buildStudentAssessmentMarkdown = () => {
+    if (!assessment) return '';
+    let md = '';
+    if (assessment.description) {
+      md += `${assessment.description}\n\n`;
+    }
+    const qList = assessment.questions || [];
+    if (Array.isArray(qList) && qList.length > 0) {
+      md += `### الأسئلة المقررة للواجب / الاختبار:\n\n`;
+      qList.forEach((q: any, i: number) => {
+        const qText = q.questionTemplate?.content || q.questionTemplate?.questionTextAr || q.content || 'سؤال';
+        const points = q.scoreWeight || q.points || 1;
+        md += `**السؤال ${i + 1} (${points} ن):** ${qText}\n`;
+        const tpl = q.questionTemplate;
+        let opts = tpl?.options || tpl?.optionsAr;
+        if (typeof opts === 'string') {
+          try { opts = JSON.parse(opts); } catch {}
+        }
+        if (Array.isArray(opts) && opts.length > 0) {
+          opts.forEach((opt: string, optIdx: number) => {
+            const letter = ['أ', 'ب', 'ج', 'د'][optIdx] || optIdx + 1;
+            md += `  - (${letter}) ${opt}\n`;
+          });
+        }
+        if (answers[q.id]) {
+          md += `\n> *إجابة الطالب:* **${answers[q.id]}**\n`;
+        }
+        md += '\n';
+      });
+    }
+    if (solutionText) {
+      md += `---\n\n### نص الحل المسلّم:\n${solutionText}\n\n`;
+    }
+    if (fileUrl) {
+      md += `*رابط الملف المرفق:* ${fileUrl}\n`;
+    }
+    return md || 'تفاصيل الواجب متاحة بالمنصة.';
+  };
 
   // Load Assessment data
   useEffect(() => {
@@ -332,6 +375,14 @@ export default function TakeAssessmentPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowPdfExportModal(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 font-bold text-sm hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors shadow-sm"
+            >
+              <FileText className="w-4 h-4" />
+              <span>تصدير كـ (PDF) 📄</span>
+            </button>
             {!isGraded && (
               <button
                 onClick={() => setIsEditingExisting(true)}
@@ -396,6 +447,15 @@ export default function TakeAssessmentPage() {
                 {formatTime(timeLeft)}
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => setShowPdfExportModal(true)}
+              className="px-3 py-1.5 rounded-xl text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-colors flex items-center gap-1.5 shadow-sm"
+              title="تصدير وتحميل الواجب كملف PDF"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>تصدير (PDF) 📄</span>
+            </button>
             <button
               onClick={() => navigate(-1)}
               className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
@@ -721,6 +781,50 @@ export default function TakeAssessmentPage() {
           </div>
         )}
       </div>
+
+      {/* Official Branded PDF & Image Export Modal for Students */}
+      {showPdfExportModal && assessment && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/65 backdrop-blur-md animate-fade-in overflow-y-auto"
+          onClick={() => setShowPdfExportModal(false)}
+          dir="rtl"
+        >
+          <div 
+            className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-850 shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-black text-sm text-slate-800 dark:text-white">
+                  وثيقة الواجب المعتمدة — تصدير وتحميل كـ PDF أو صورة
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPdfExportModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <GeneratedImageDocument
+                title={assessment.title || 'واجب مدرسي'}
+                documentTypeLabel={isQuiz ? 'اختبار قصير' : 'واجب منزلي'}
+                subjectName={assessment.cohort?.name}
+                gradeLevel={assessment.cohort?.name}
+                cohortName={assessment.cohort?.name}
+                dueDate={assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString("ar-PS") : undefined}
+                maxScore={assessment.maxScore || 20}
+                content={buildStudentAssessmentMarkdown()}
+                fileName={assessment.title || 'واجب_باقون_التعليمي'}
+                showToolbar={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

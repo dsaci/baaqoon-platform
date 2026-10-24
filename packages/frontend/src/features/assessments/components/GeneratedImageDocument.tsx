@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 import { 
   Download, 
   Copy, 
@@ -249,6 +250,7 @@ export default function GeneratedImageDocument({
 }: GeneratedDocumentProps) {
   const documentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageCopied, setImageCopied] = useState(false);
 
@@ -279,6 +281,69 @@ export default function GeneratedImageDocument({
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Download high-resolution PDF
+  const handleDownloadPdf = async () => {
+    if (!documentRef.current) return;
+    setIsExportingPdf(true);
+
+    try {
+      const dataUrl = await toPng(documentRef.current, {
+        quality: 0.98,
+        pixelRatio: 2, // 2x gives crisp printing resolution
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+      });
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 8;
+      const printableWidth = pageWidth - margin * 2; // 194mm
+
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const printableHeight = (imgProps.height * printableWidth) / imgProps.width;
+
+      if (printableHeight <= pageHeight - margin * 2) {
+        pdf.addImage(dataUrl, 'PNG', margin, margin, printableWidth, printableHeight, undefined, 'FAST');
+      } else {
+        let heightLeft = printableHeight;
+        let position = margin;
+        let page = 1;
+
+        while (heightLeft > 0) {
+          if (page > 1) {
+            pdf.addPage();
+          }
+          pdf.addImage(dataUrl, 'PNG', margin, position, printableWidth, printableHeight, undefined, 'FAST');
+          heightLeft -= (pageHeight - margin * 2);
+          position -= (pageHeight - margin * 2);
+          page++;
+        }
+      }
+
+      const safeName = (fileName || title || 'وثيقة_باقون_التعليمية')
+        .replace(/[/\\?%*:|"<>]/g, '-')
+        .replace(/\s+/g, '_');
+
+      pdf.save(`${safeName}.pdf`);
+    } catch (err) {
+      console.error('Failed to export document PDF', err);
+      alert('حدث خطأ أثناء تصدير ملف PDF، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  // Print Document directly
+  const handlePrint = () => {
+    window.print();
   };
 
   // Copy Image to Clipboard (supported on modern browsers)
@@ -335,17 +400,18 @@ export default function GeneratedImageDocument({
             <button
               type="button"
               onClick={handleCopyText}
-              className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-200 dark:border-slate-600 transition-colors shadow-sm"
+              className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1 border border-slate-200 dark:border-slate-600 transition-colors shadow-sm"
+              title="نسخ نص التكليف"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'تم نسخ النص!' : 'نسخ النص'}</span>
+              <span>{copied ? 'تم النسخ!' : 'نسخ النص'}</span>
             </button>
 
             <button
               type="button"
               onClick={handleCopyImage}
-              disabled={isExporting}
-              className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-200 dark:border-slate-600 transition-colors shadow-sm disabled:opacity-60"
+              disabled={isExporting || isExportingPdf}
+              className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1 border border-slate-200 dark:border-slate-600 transition-colors shadow-sm disabled:opacity-60"
               title="نسخ الصورة مباشرة للحافظة للصقها في تليغرام أو واتساب"
             >
               {imageCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-violet-600" />}
@@ -354,9 +420,21 @@ export default function GeneratedImageDocument({
 
             <button
               type="button"
+              onClick={handlePrint}
+              className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1 border border-slate-200 dark:border-slate-600 transition-colors shadow-sm"
+              title="طباعة فورية"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span>طباعة 🖨️</span>
+            </button>
+
+            {/* PNG Image Download */}
+            <button
+              type="button"
               onClick={handleDownloadImage}
-              disabled={isExporting}
-              className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-violet-500/25 transition-all active:scale-95 disabled:opacity-60"
+              disabled={isExporting || isExportingPdf}
+              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-violet-500/25 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+              title="تحميل الوثيقة كصورة عالية الدقة"
             >
               {isExporting ? (
                 <>
@@ -366,7 +444,28 @@ export default function GeneratedImageDocument({
               ) : (
                 <>
                   <Download className="w-3.5 h-3.5" />
-                  <span>تحميل كصورة (PNG) 📷</span>
+                  <span>تصدير كصورة (PNG) 📷</span>
+                </>
+              )}
+            </button>
+
+            {/* PDF File Download (حسب طلب المستخدم بدقة) */}
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isExporting || isExportingPdf}
+              className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+              title="تحميل الوثيقة الرسمية كملف PDF"
+            >
+              {isExportingPdf ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>جاري تجهيز PDF...</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>تصدير كـ (PDF) 📄</span>
                 </>
               )}
             </button>
