@@ -501,52 +501,62 @@ export default function SmartGenerationModal({ isOpen, onClose }: SmartGeneratio
                 </div>
               </div>
 
-              {/* Instant Publishing to Assessments List */}
-              <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border-2 border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3 text-right">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-5 h-5" />
+              {/* Instant Publishing to Assessments List (Only for Student Assessments & Exams, Hidden for Teacher Memos/Plans) */}
+              {['diagnostic_assessment', 'formative_assessment', 'exam_with_rubric', 'integration_situation'].includes(result.outputType) ? (
+                <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border-2 border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 text-right">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-slate-800 dark:text-white">
+                        {isPublished ? '✓ تم نشر التكليف بنجاح في قائمة التقييمات!' : 'هل ترغب في حفظ ونشر هذا التقييم كواجب رسمي للطلبة؟'}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {isPublished 
+                          ? 'أصبح التكليف متاحاً الآن في صفحة التقييمات ولجميع طلبة الفوج لحله وتسليمه.' 
+                          : `الفوج المستهدف: ${selectedCohort?.cohortName || 'الفوج المعتمد'} — سيظهر مباشرة في سجل التقييمات للطلبة.`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-black text-sm text-slate-800 dark:text-white">
-                      {isPublished ? '✓ تم نشر التكليف بنجاح في قائمة التقييمات!' : 'هل ترغب في حفظ ونشر هذا المحتوى كواجب رسمي في التقييمات؟'}
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {isPublished 
-                        ? 'أصبح التكليف متاحاً الآن في صفحة التقييمات ولجميع طلبة الفوج لحله وتسليمه.' 
-                        : `الفوج المستهدف: ${selectedCohort?.cohortName || 'الفوج المعتمد'} — سيظهر مباشرة في سجل التقييمات.`}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  {isPublished ? (
-                    <span className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center gap-1.5 shadow-sm">
-                      <CheckCircle2 className="w-4 h-4" />
-                      تم الإدراج في التقييمات
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handlePublishToAssessments}
-                      disabled={isPublishing}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
-                    >
-                      {isPublishing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>جاري النشر في التقييمات...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>نشر وحفظ كواجب رسمي في التقييمات 🚀</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    {isPublished ? (
+                      <span className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center gap-1.5 shadow-sm">
+                        <CheckCircle2 className="w-4 h-4" />
+                        تم الإدراج في التقييمات
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handlePublishToAssessments}
+                        disabled={isPublishing}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+                      >
+                        {isPublishing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>جاري النشر في التقييمات...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            <span>نشر وحفظ كواجب رسمي في التقييمات 🚀</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Note for Teacher-facing Pedagogical Memos and Plans */
+                <div className="bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-3 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-violet-600 shrink-0" />
+                    <span>وثيقة تحضير بيداغوجية خاصة بالأستاذ (مذكرة / جذاذة درس) — مخصصة للمعاينة والطباعة والتصدير لمحفظة الأستاذ ودفتر النصوص (ليست واجباً للطلاب).</span>
+                  </div>
+                </div>
+              )}
 
               {/* View Switcher Tabs: Visual Document (RTL) vs Raw Text */}
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
