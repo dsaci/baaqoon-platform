@@ -28,6 +28,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import VisualGuidesViewer from './VisualGuidesViewer';
 
 interface PlatformGuideModalProps {
   isOpen: boolean;
@@ -67,6 +68,7 @@ export default function PlatformGuideModal({ isOpen, onClose, onStartLiveTour }:
   const [activeRole, setActiveRole] = useState<RoleTab>(getDefaultRole());
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedStep, setExpandedStep] = useState<number | null>(1);
+  const [mainMode, setMainMode] = useState<'visual' | 'interactive'>('visual');
 
   if (!isOpen) return null;
 
@@ -643,6 +645,53 @@ export default function PlatformGuideModal({ isOpen, onClose, onStartLiveTour }:
           </div>
         </div>
 
+        {/* ══════════════════════ Main Mode Switcher ══════════════════════ */}
+        <div className="bg-slate-100 dark:bg-slate-950 px-4 sm:px-6 pt-3 pb-2 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMainMode('visual')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+                mainMode === 'visual'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-700 to-indigo-700 text-white shadow-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>الأدلة المصورة والإنفوجرافيك (PDF & SVG)</span>
+            </button>
+
+            <button
+              onClick={() => setMainMode('interactive')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+                mainMode === 'interactive'
+                  ? 'bg-gradient-to-r from-indigo-600 to-violet-700 text-white shadow-md'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>دليل الأزرار والوظائف التفاعلي</span>
+            </button>
+          </div>
+
+          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 hidden md:block">
+            {mainMode === 'visual'
+              ? 'خرائط بصرية تفاعلية وتحميل مباشر للأدلة الرسمية'
+              : 'شرح تفصيلي خطوة بخطوة لوظائف أزرار المنصة'}
+          </div>
+        </div>
+
+        {mainMode === 'visual' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/40">
+            <VisualGuidesViewer
+              initialRole={activeRole === 'admin' ? 'overview' : (activeRole as any)}
+              onNavigateToTour={() => {
+                onClose();
+                if (onStartLiveTour) onStartLiveTour();
+              }}
+            />
+          </div>
+        ) : (
+          <>
         {/* ══════════════════════ Role Selector Tabs ══════════════════════ */}
         <div className="bg-slate-50 dark:bg-slate-800/60 p-3 sm:px-6 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
@@ -850,6 +899,8 @@ export default function PlatformGuideModal({ isOpen, onClose, onStartLiveTour }:
           )}
 
         </div>
+        </>
+        )}
 
         {/* ══════════════════════ Modal Footer ══════════════════════ */}
         <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">

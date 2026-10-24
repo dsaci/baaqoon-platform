@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import CreateAssessmentModal from '../components/CreateAssessmentModal';
 import CreateAssignmentModal from '../components/CreateAssignmentModal';
+import SmartGenerationModal from '../components/SmartGenerationModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/axios';
 
@@ -18,6 +19,7 @@ export default function AssessmentsPage() {
     user?.roles?.includes('teacher') ||
     window.location.pathname.startsWith('/teacher');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [isSmartAiOpen, setIsSmartAiOpen] = useState(false);
   const [generatorMode, setGeneratorMode] = useState<'smart' | 'manual'>('smart');
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -115,11 +117,20 @@ export default function AssessmentsPage() {
                 </button>
                 
                 <button 
-                  onClick={() => { setGeneratorMode('smart'); setIsGeneratorOpen(true); }}
-                  className="px-4 py-3 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:-translate-y-0.5"
+                  onClick={() => setIsSmartAiOpen(true)}
+                  className="px-4 py-3 text-sm bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/30 flex items-center gap-2 hover:-translate-y-0.5"
                 >
-                  <Bot className="w-4 h-4" />
-                  {t('assessments.generate_smart_quiz', 'توليد ذكي')}
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  {t('assessments.generate_smart_quiz', 'التوليد الذكي (AI)')}
+                </button>
+
+                <button 
+                  onClick={() => { setGeneratorMode('smart'); setIsGeneratorOpen(true); }}
+                  className="px-3.5 py-3 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-2"
+                  title="توليد سريع للاختبارات"
+                >
+                  <Bot className="w-4 h-4 text-slate-500" />
+                  <span>توليد سريع</span>
                 </button>
               </div>
 
@@ -343,6 +354,12 @@ export default function AssessmentsPage() {
           ))}
         </div>
       )}
+
+      {/* AI Smart Generation Modal */}
+      <SmartGenerationModal
+        isOpen={isSmartAiOpen}
+        onClose={() => setIsSmartAiOpen(false)}
+      />
 
       {/* Smart Generator Modal */}
       <CreateAssessmentModal 

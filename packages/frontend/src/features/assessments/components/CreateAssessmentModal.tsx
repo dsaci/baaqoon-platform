@@ -80,7 +80,9 @@ export default function CreateAssessmentModal({
     try {
       if (mode === 'smart') {
         if (!selectedLesson) throw new Error('الرجاء اختيار الدرس لتوليد الاختبار الذكي');
-        const targetCohort = selectedCohortId || (myCohorts[0]?.id) || 'default-cohort';
+        const targetCohort = (selectedCohortId && selectedCohortId !== 'default-cohort')
+          ? selectedCohortId
+          : (myCohorts[0]?.id || undefined);
         const res = await api.post('/assessments/generate', {
           cohortId: targetCohort,
           curriculumLessonId: selectedLesson.id,
@@ -91,7 +93,9 @@ export default function CreateAssessmentModal({
         navigate(`/teacher/assessments/${res.data.id}/grade`);
       } else {
         if (!manualTitle.trim()) throw new Error('الرجاء إدخال عنوان الواجب');
-        const targetCohort = selectedCohortId || (myCohorts[0]?.id) || '';
+        const targetCohort = (selectedCohortId && selectedCohortId !== 'default-cohort')
+          ? selectedCohortId
+          : (myCohorts[0]?.id || undefined);
         const res = await api.post('/assessments', {
           title: manualTitle,
           cohortId: targetCohort,

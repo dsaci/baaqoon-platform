@@ -16,6 +16,7 @@ import { EmailModule } from "./modules/email/email.module";
 
 import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 import { GroupsModule } from "./modules/groups/groups.module";
+import { AiModule } from "./modules/ai/ai.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { GroupsModule } from "./modules/groups/groups.module";
     NotificationsModule,
     SchedulingModule,
     GroupsModule,
+    AiModule,
   ],
   controllers: [],
   providers: [],

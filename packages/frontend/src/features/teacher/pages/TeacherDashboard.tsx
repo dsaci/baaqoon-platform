@@ -10,6 +10,7 @@ import SyllabusAccountabilityWidget from '../../curriculum/components/SyllabusAc
 import ExamPrepWidget from '../../../components/shared/ExamPrepWidget';
 import AttendanceModal from '../../scheduling/components/AttendanceModal';
 import AddRecordedLessonModal from '../../curriculum/components/recorded-lessons/AddRecordedLessonModal';
+import SmartGenerationModal from '../../assessments/components/SmartGenerationModal';
 import { useTranslation } from 'react-i18next';
 
 export default function TeacherDashboard() {
@@ -19,6 +20,7 @@ export default function TeacherDashboard() {
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAddRecordedModalOpen, setIsAddRecordedModalOpen] = useState(false);
+  const [isSmartAiOpen, setIsSmartAiOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
 
@@ -239,6 +241,24 @@ export default function TeacherDashboard() {
             <span className="text-xs bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors">فتح السجل ←</span>
           </button>
 
+          {/* Smart AI Generation Button */}
+          <button
+            type="button"
+            onClick={() => setIsSmartAiOpen(true)}
+            className="w-full flex items-center justify-between p-3.5 mb-4 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white rounded-2xl transition-all shadow-lg shadow-indigo-600/25 font-black text-sm group cursor-pointer hover:-translate-y-0.5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                <Sparkles className="w-5 h-5 text-white animate-pulse" />
+              </div>
+              <div className="text-right">
+                <span className="block leading-tight text-sm font-black">✦ التوليد الذكي بالذكاء الاصطناعي (من المنهاج)</span>
+                <span className="text-[11px] opacity-90 font-bold">بناء تعلمي، مذكرات دروس، تقويمات واختبارات مع سلم التنقيط</span>
+              </div>
+            </div>
+            <span className="text-xs bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors">توليد الآن ←</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsAddRecordedModalOpen(true)}
@@ -268,16 +288,17 @@ export default function TeacherDashboard() {
               <span className="text-xs text-center opacity-70 mt-1">من البناء التعلمي الجاهز</span>
             </Link>
 
-            <Link 
-              to="/teacher/assessments"
-              className="flex flex-col items-center justify-center p-4 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-800 dark:text-purple-300 rounded-xl transition-colors border border-purple-100 dark:border-purple-800/50 group"
+            <button 
+              type="button"
+              onClick={() => setIsSmartAiOpen(true)}
+              className="flex flex-col items-center justify-center p-4 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-800 dark:text-purple-300 rounded-xl transition-colors border border-purple-100 dark:border-purple-800/50 group cursor-pointer"
             >
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-800/50 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <span className="font-bold">توليد اختبار ذكي</span>
-              <span className="text-xs text-center opacity-70 mt-1">أسئلة مؤتمتة فورية</span>
-            </Link>
+              <span className="font-bold">توليد ذكي (AI)</span>
+              <span className="text-xs text-center opacity-70 mt-1">اختبارات، مذكرات، وبناء تعلمي</span>
+            </button>
           </div>
 
           <div className="mt-4 pt-4 border-t border-baaqoon-100 dark:border-baaqoon-800 space-y-2">
@@ -445,6 +466,11 @@ export default function TeacherDashboard() {
         onClose={() => setIsAddRecordedModalOpen(false)}
         onSuccess={() => {}}
         defaultSubjectId={user?.supervisedSubjectId || undefined}
+      />
+
+      <SmartGenerationModal
+        isOpen={isSmartAiOpen}
+        onClose={() => setIsSmartAiOpen(false)}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { api } from '../../../lib/axios';
 import { Bot, FileText, Loader2, X } from 'lucide-react';
 
 interface RapidGeneratorModalProps {
@@ -30,11 +30,9 @@ export default function RapidGeneratorModal({ isOpen, onClose, cohortId, default
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post('/api/v1/assessments/generate', {
-        cohortId,
-        curriculumLessonId: lessonId
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const res = await api.post('/assessments/generate', {
+        cohortId: cohortId || undefined,
+        curriculumLessonId: lessonId || undefined
       });
       setResult(res.data);
       queryClient.invalidateQueries({ queryKey: ['assessments'] });

@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   GraduationCap,
   ShieldAlert,
+  Sparkles,
   Video,
   KeyRound,
   UserCheck,
@@ -41,6 +42,7 @@ import ForceChangePasswordGate from "../shared/ForceChangePasswordGate";
 import UserAvatar from "../shared/UserAvatar";
 import AppTour from "../tour/AppTour";
 import PlatformGuideModal from "../guide/PlatformGuideModal";
+import FirstTimeOnboardingGuideModal from "../guide/FirstTimeOnboardingGuideModal";
 import NotificationBell from "./NotificationBell";
 import { useTimeGreeting } from "../../hooks/useTimeGreeting";
 
@@ -51,6 +53,21 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleProfileMouseEnter = () => {
+    if (profileMenuTimeoutRef.current) {
+      clearTimeout(profileMenuTimeoutRef.current);
+      profileMenuTimeoutRef.current = null;
+    }
+    setIsProfileMenuOpen(true);
+  };
+
+  const handleProfileMouseLeave = () => {
+    profileMenuTimeoutRef.current = setTimeout(() => {
+      setIsProfileMenuOpen(false);
+    }, 240);
+  };
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCompleteContactOpen, setIsCompleteContactOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -622,96 +639,134 @@ export default function DashboardLayout() {
 
             <div className="h-8 w-px bg-baaqoon-200 dark:bg-baaqoon-800 hidden sm:block"></div>
 
-            <div className="relative">
+            {/* ══════════ User Profile Interactive Pill (Exact replica of mockup) ══════════ */}
+            <div 
+              className="relative"
+              onMouseEnter={handleProfileMouseEnter}
+              onMouseLeave={handleProfileMouseLeave}
+            >
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className={`flex items-center gap-3 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/50 p-1 ${isRtl ? 'pr-3 text-right' : 'pl-3 text-left'} rounded-xl transition-colors`}
+                className={`relative px-3 sm:px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-emerald-400/40 dark:border-emerald-500/40 shadow-[0_4px_20px_rgba(16,185,129,0.15)] hover:shadow-[0_6px_25px_rgba(16,185,129,0.25)] hover:border-emerald-400 transition-all duration-300 flex items-center gap-2.5 cursor-pointer active:scale-[0.98] ${
+                  isProfileMenuOpen ? 'ring-2 ring-emerald-400/50 bg-emerald-50/30 dark:bg-slate-800' : ''
+                }`}
                 title={t("profile.title", "الملف الشخصي")}
               >
-                <div className={`hidden sm:block ${isRtl ? 'text-right' : 'text-left'}`}>
-                  <p className="text-sm font-semibold text-baaqoon-900 dark:text-white transition-colors">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 capitalize">
-                    {user?.isDualRole
-                      ? isRtl
-                        ? "مشرف منسق + أستاذ (صفة ثنائية)"
-                        : "Supervisor & Teacher"
-                      : user?.primaryRole === "teacher"
-                        ? t("roles.teacher", "أستاذ / أستاذة")
-                        : user?.primaryRole === "student"
-                          ? t("roles.student", "طالب / طالبة")
-                          : user?.primaryRole === "subject_supervisor" || user?.primaryRole === "supervisor"
-                            ? t("roles.supervisor", "مشرف / موجه تربوي")
-                            : user?.primaryRole === "admin"
-                              ? t("roles.admin", "مدير منصة")
-                              : user?.primaryRole === "super_admin"
-                                ? t("roles.super_admin", "مدير عام")
-                                : t("roles.user", "مستخدم")}
-                  </p>
+                {/* Left: Sparkle Badge */}
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-300/80 flex items-center justify-center shrink-0 shadow-inner">
+                  <Sparkles className="w-4 h-4 text-amber-600 fill-amber-400" />
                 </div>
-                <UserAvatar
-                  avatarUrl={user?.avatarUrl}
-                  name={`${user?.firstName || ''} ${user?.lastName || ''}`}
-                  role={user?.primaryRole}
-                  size="md"
-                />
+
+                {/* Center: Names & Online Indicator */}
+                <div className={`hidden sm:flex flex-col ${isRtl ? 'text-right' : 'text-left'} leading-tight px-0.5`}>
+                  <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight">
+                    {user?.firstName} {user?.lastName}
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span className="truncate max-w-[120px]">
+                      {user?.isDualRole
+                        ? (isRtl ? "مشرف + أستاذ" : "Supervisor & Teacher")
+                        : user?.primaryRole === "teacher"
+                          ? (isRtl ? "أستاذ باقون" : "Teacher")
+                          : user?.primaryRole === "student"
+                            ? (isRtl ? "طالب باقون" : "Student")
+                            : user?.primaryRole === "subject_supervisor" || user?.primaryRole === "supervisor"
+                              ? (isRtl ? "مشرف منسق" : "Supervisor")
+                              : user?.primaryRole === "admin" || user?.primaryRole === "super_admin"
+                                ? (isRtl ? "إدارة المنصة" : "Admin")
+                                : (isRtl ? "عضو باقون" : "Member")}
+                    </span>
+                  </span>
+                </div>
+
+                {/* Right: Rounded Gradient Avatar Squircle */}
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-teal-400 via-emerald-400 to-indigo-500 p-[2px] shadow-sm shrink-0">
+                  <div className="w-full h-full rounded-[14px] bg-gradient-to-tr from-teal-500 via-cyan-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm uppercase shadow-inner border border-white/40 overflow-hidden">
+                    {user?.avatarUrl ? (
+                      <UserAvatar
+                        avatarUrl={user.avatarUrl}
+                        name={`${user?.firstName || ''} ${user?.lastName || ''}`}
+                        role={user?.primaryRole}
+                        size="sm"
+                        className="w-full h-full rounded-[14px] border-0"
+                      />
+                    ) : (
+                      <span>{user?.firstName ? user.firstName.charAt(0).toUpperCase() : 'A'}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Pointer Diamond when open */}
+                {isProfileMenuOpen && (
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white dark:bg-baaqoon-900 border-t border-l border-emerald-400/50 rotate-45 z-40 transition-all duration-200" />
+                )}
               </button>
 
-              {/* Dropdown Menu */}
-              {isProfileMenuOpen && (
-                <div className={`absolute ${isRtl ? 'left-0' : 'right-0'} top-full mt-2 w-56 bg-white dark:bg-baaqoon-900 rounded-xl shadow-lg border border-baaqoon-100 dark:border-baaqoon-800 overflow-hidden z-50`}>
-                  <div className="p-4 border-b border-baaqoon-100 dark:border-baaqoon-800">
-                    <p className="text-sm font-bold text-baaqoon-900 dark:text-white">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400">
-                      {user?.email || "user@baaqoon.ps"}
-                    </p>
-                  </div>
-                  <div className="p-2">
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        setIsGuideOpen(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors font-bold"
-                    >
-                      <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <span>{t("guide.button", "دليل استخدام المنصة والأزرار")}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        setIsProfileModalOpen(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 rounded-lg transition-colors"
-                    >
-                      <User className="w-4 h-4 shrink-0" />
-                      <span>{t("profile.edit", "تعديل الملف الشخصي")}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        alert(isRtl ? "سيتم فتح شاشة إعدادات التنبيهات والخصوصية." : "Settings and privacy screen will open.");
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800 rounded-lg transition-colors"
-                    >
-                      <Settings className="w-4 h-4 shrink-0" />
-                      <span>{t("profile.settings", "إعدادات الحساب")}</span>
-                    </button>
-                  </div>
-                  <div className="p-2 border-t border-baaqoon-100 dark:border-baaqoon-800">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors font-medium"
-                    >
-                      <LogOut className="w-4 h-4 shrink-0" />
-                      <span>{t("common.logout", "تسجيل الخروج")}</span>
-                    </button>
-                  </div>
+              {/* ══════════ Dropdown Menu with Smooth Slide Down ══════════ */}
+              <div 
+                className={`absolute ${isRtl ? 'left-0' : 'right-0'} top-full mt-2 w-64 bg-white dark:bg-baaqoon-900 rounded-2xl shadow-2xl border border-emerald-400/40 dark:border-emerald-500/30 overflow-hidden z-50 transition-all duration-200 transform origin-top before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-3 ${
+                  isProfileMenuOpen 
+                    ? 'opacity-100 translate-y-0 pointer-events-auto visible' 
+                    : 'opacity-0 -translate-y-2 pointer-events-none invisible'
+                }`}
+                onMouseEnter={handleProfileMouseEnter}
+                onMouseLeave={handleProfileMouseLeave}
+              >
+                <div className="p-4 border-b border-baaqoon-100 dark:border-baaqoon-800 bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-950/20">
+                  <p className="text-sm font-black text-baaqoon-900 dark:text-white">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-xs text-baaqoon-500 dark:text-baaqoon-400 font-mono mt-0.5 truncate" dir="ltr">
+                    {user?.email || "user@baaqoon.ps"}
+                  </p>
                 </div>
-              )}
+                
+                <div className="p-2 space-y-1">
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      setIsGuideOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all font-black cursor-pointer group"
+                  >
+                    <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <span>{t("guide.button", "دليل استخدام المنصة والأزرار")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-sm text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/60 rounded-xl transition-all font-bold cursor-pointer group"
+                  >
+                    <User className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                    <span>{t("profile.edit", "تعديل الملف الشخصي")}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      alert(isRtl ? "سيتم فتح شاشة إعدادات التنبيهات والخصوصية." : "Settings and privacy screen will open.");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs sm:text-sm text-baaqoon-700 dark:text-baaqoon-300 hover:bg-baaqoon-50 dark:hover:bg-baaqoon-800/60 rounded-xl transition-all font-bold cursor-pointer group"
+                  >
+                    <Settings className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                    <span>{t("profile.settings", "إعدادات الحساب")}</span>
+                  </button>
+                </div>
+
+                <div className="p-2 border-t border-baaqoon-100 dark:border-baaqoon-800 bg-slate-50/50 dark:bg-slate-900/50">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all font-black cursor-pointer group"
+                  >
+                    <LogOut className="w-4 h-4 shrink-0 group-hover:-translate-x-1 transition-transform" />
+                    <span>{t("common.logout", "تسجيل الخروج")}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -893,6 +948,13 @@ export default function DashboardLayout() {
         onClose={() => setIsGuideOpen(false)}
         onStartLiveTour={() => {
           setIsGuideOpen(false);
+          window.dispatchEvent(new CustomEvent('baaqoon:start_tour'));
+        }}
+      />
+
+      {/* First-Time Onboarding Guide Modal (Strict, smart, shown once) */}
+      <FirstTimeOnboardingGuideModal
+        onStartLiveTour={() => {
           window.dispatchEvent(new CustomEvent('baaqoon:start_tour'));
         }}
       />

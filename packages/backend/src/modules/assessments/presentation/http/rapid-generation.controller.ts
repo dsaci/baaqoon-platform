@@ -3,6 +3,11 @@ import { RapidGenerationService } from '../../application/rapid-generation.servi
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt-auth.guard';
 
+function isUuid(id?: string | null): boolean {
+  if (!id || typeof id !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+}
+
 @Controller('assessments')
 @UseGuards(JwtAuthGuard)
 export class AssessmentsController {
@@ -14,12 +19,12 @@ export class AssessmentsController {
   @Post('generate')
   async generateAssessment(
     @Req() req: any,
-    @Body() body: { cohortId: string; curriculumLessonId: string; questionCount?: number }
+    @Body() body: { cohortId?: string; curriculumLessonId?: string; questionCount?: number }
   ) {
     let teacherId = req.user?.id || req.user?.userId;
     if (!teacherId) {
       const teacher = await this.prisma.user.findFirst({ where: { primaryRole: 'teacher' } });
-      teacherId = teacher?.id || 'demo-teacher-001';
+      teacherId = teacher?.id || '';
     }
     return this.rapidGenService.generateAssessment(body.cohortId, body.curriculumLessonId, teacherId, body.questionCount);
   }
@@ -32,9 +37,11 @@ export class AssessmentsController {
     try {
       // 1. Resolve author / teacher ID
       let teacherId: string | undefined = req.user?.id || req.user?.userId;
-      if (teacherId) {
+      if (teacherId && isUuid(teacherId)) {
         const userExists = await this.prisma.user.findUnique({ where: { id: teacherId } }).catch(() => null);
         if (!userExists) teacherId = undefined;
+      } else {
+        teacherId = undefined;
       }
       if (!teacherId) {
         const teacher = await this.prisma.user.findFirst({ where: { primaryRole: 'teacher', status: 'active' } });
@@ -47,16 +54,20 @@ export class AssessmentsController {
       }
 
       // 2. Resolve target cohort ID
-      let cohortId: string | undefined = body.cohortId;
+      let cohortId: string | undefined = (body.cohortId && isUuid(body.cohortId)) ? body.cohortId : undefined;
       if (cohortId) {
         const cohortExists = await this.prisma.cohort.findUnique({ where: { id: cohortId } }).catch(() => null);
         if (!cohortExists) cohortId = undefined;
       }
-      if (!cohortId) {
+      if (!cohortId && teacherId) {
         const teacherCohort = await this.prisma.cohort.findFirst({
           where: { instructors: { some: { teacherId } } }
         });
         cohortId = teacherCohort?.id;
+      }
+      if (!cohortId) {
+        const anyCohort = await this.prisma.cohort.findFirst();
+        cohortId = anyCohort?.id;
       }
 
       if (!cohortId) {
